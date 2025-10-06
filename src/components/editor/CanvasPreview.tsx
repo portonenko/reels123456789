@@ -19,6 +19,9 @@ export const CanvasPreview = ({ slide, globalOverlay }: CanvasPreviewProps) => {
 
   const currentSlide = isPlaying ? slides[currentSlideIndex] : slide;
   
+  // Calculate total timeline duration
+  const totalDuration = slides.reduce((sum, s) => sum + s.durationSec, 0);
+  
   useEffect(() => {
     if (slide) {
       const index = slides.findIndex((s) => s.id === slide.id);
@@ -38,6 +41,10 @@ export const CanvasPreview = ({ slide, globalOverlay }: CanvasPreviewProps) => {
         } else {
           setIsPlaying(false);
           setCurrentSlideIndex(0);
+          // Stop video at the end
+          if (videoRef.current) {
+            videoRef.current.pause();
+          }
         }
       }, currentSlideDuration * 1000);
       
@@ -51,10 +58,16 @@ export const CanvasPreview = ({ slide, globalOverlay }: CanvasPreviewProps) => {
     if (isPlaying) {
       setIsPlaying(false);
       if (timerRef.current) clearTimeout(timerRef.current);
+      if (videoRef.current) {
+        videoRef.current.pause();
+      }
     } else {
       setIsPlaying(true);
+      // Start video from current position or beginning
       if (videoRef.current) {
-        videoRef.current.currentTime = 0;
+        if (currentSlideIndex === 0) {
+          videoRef.current.currentTime = 0;
+        }
         videoRef.current.play();
       }
     }
@@ -123,15 +136,15 @@ export const CanvasPreview = ({ slide, globalOverlay }: CanvasPreviewProps) => {
 
       {/* 9:16 aspect ratio container */}
       <div className="relative bg-black rounded-lg overflow-hidden shadow-2xl" style={{ width: "360px", height: "640px" }}>
-        {/* Background video */}
+        {/* Background video - plays continuously */}
         {backgroundAsset ? (
           <video
             ref={videoRef}
             src={backgroundAsset.url}
             className="absolute inset-0 w-full h-full object-cover"
-            autoPlay={isPlaying}
             loop
             muted
+            playsInline
           />
         ) : (
           <div className="absolute inset-0 bg-gradient-to-br from-purple-900 via-blue-900 to-cyan-900" />
