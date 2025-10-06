@@ -1,38 +1,4 @@
-import { FFmpeg } from "@ffmpeg/ffmpeg";
-import { fetchFile, toBlobURL } from "@ffmpeg/util";
 import { Slide, Asset } from "@/types";
-
-let ffmpegInstance: FFmpeg | null = null;
-
-export const initFFmpeg = async () => {
-  if (ffmpegInstance) return ffmpegInstance;
-
-  const ffmpeg = new FFmpeg();
-  
-  // Add logging to help debug
-  ffmpeg.on("log", ({ message }) => {
-    console.log("FFmpeg:", message);
-  });
-
-  ffmpeg.on("progress", ({ progress }) => {
-    console.log("FFmpeg progress:", Math.round(progress * 100), "%");
-  });
-  
-  try {
-    // Use jsdelivr CDN which has better CORS support
-    const baseURL = "https://cdn.jsdelivr.net/npm/@ffmpeg/core@0.12.6/dist/umd";
-    await ffmpeg.load({
-      coreURL: await toBlobURL(`${baseURL}/ffmpeg-core.js`, "text/javascript"),
-      wasmURL: await toBlobURL(`${baseURL}/ffmpeg-core.wasm`, "application/wasm"),
-    });
-    
-    ffmpegInstance = ffmpeg;
-    return ffmpeg;
-  } catch (error) {
-    console.error("FFmpeg load error:", error);
-    throw new Error("Failed to load video encoder. Please try again or check your internet connection.");
-  }
-};
 
 const renderSlideToCanvas = (
   slide: Slide,
@@ -201,9 +167,7 @@ export const exportVideo = async (
   backgroundAsset: Asset | null,
   onProgress: (progress: number, message: string) => void
 ): Promise<Blob> => {
-  const ffmpeg = await initFFmpeg();
-  
-  onProgress(5, "Initializing video renderer...");
+  onProgress(5, "Initializing video recorder...");
 
   const canvas = document.createElement("canvas");
   canvas.width = 1080;
@@ -216,73 +180,91 @@ export const exportVideo = async (
     backgroundVideo = document.createElement("video");
     backgroundVideo.src = backgroundAsset.url;
     backgroundVideo.muted = true;
-    await new Promise((resolve) => {
+    backgroundVideo.loop = true;
+    await new Promise((resolve, reject) => {
       backgroundVideo!.onloadeddata = resolve;
+      backgroundVideo!.onerror = reject;
     });
   }
 
-  onProgress(10, "Rendering slides...");
+  onProgress(10, "Starting recording...");
 
-  // Render each slide as images
-  const frameRate = 30;
-  let currentTime = 0;
+  // Create MediaRecorder
+  const stream = canvas.captureStream(30); // 30 FPS
+  const chunks: Blob[] = [];
+  
+  const mediaRecorder = new MediaRecorder(stream, {
+    mimeType: 'video/webm;codecs=vp9',
+    videoBitsPerSecond: 5000000, // 5 Mbps for good quality
+  });
 
-  for (let slideIndex = 0; slideIndex < slides.length; slideIndex++) {
-    const slide = slides[slideIndex];
-    const slideDuration = slide.durationSec;
-    const totalFrames = Math.floor(slideDuration * frameRate);
+  mediaRecorder.ondataavailable = (e) => {
+    if (e.data.size > 0) {
+      chunks.push(e.data);
+    }
+  };
 
-    for (let frame = 0; frame < totalFrames; frame++) {
-      if (backgroundVideo) {
-        const videoTime = (currentTime + frame / frameRate) % backgroundVideo.duration;
-        backgroundVideo.currentTime = videoTime;
-        await new Promise((resolve) => {
-          backgroundVideo!.onseeked = resolve;
-        });
+  const recordingPromise = new Promise<Blob>((resolve, reject) => {
+    mediaRecorder.onstop = () => {
+      const blob = new Blob(chunks, { type: 'video/webm' });
+      resolve(blob);
+    };
+    mediaRecorder.onerror = reject;
+  });
+
+  mediaRecorder.start();
+
+  // Start background video if available
+  if (backgroundVideo) {
+    backgroundVideo.play();
+  }
+
+  // Animate through slides
+  const totalDuration = slides.reduce((sum, s) => sum + s.durationSec, 0);
+  const startTime = Date.now();
+  let currentSlideIndex = 0;
+  let slideStartTime = 0;
+
+  const animate = () => {
+    const elapsed = (Date.now() - startTime) / 1000; // seconds
+    
+    // Update progress
+    const progressPercent = Math.min((elapsed / totalDuration) * 100, 100);
+    onProgress(10 + progressPercent * 0.85, `Recording slide ${currentSlideIndex + 1}/${slides.length}...`);
+
+    // Find current slide based on elapsed time
+    let accumulatedTime = 0;
+    for (let i = 0; i < slides.length; i++) {
+      if (elapsed < accumulatedTime + slides[i].durationSec) {
+        currentSlideIndex = i;
+        slideStartTime = accumulatedTime;
+        break;
       }
-
-      renderSlideToCanvas(slide, canvas, backgroundVideo);
-
-      const blob = await new Promise<Blob>((resolve) => {
-        canvas.toBlob((b) => resolve(b!), "image/jpeg", 0.95);
-      });
-
-      const frameNumber = String(Math.floor(currentTime * frameRate) + frame).padStart(6, "0");
-      await ffmpeg.writeFile(`frame${frameNumber}.jpg`, await fetchFile(blob));
+      accumulatedTime += slides[i].durationSec;
     }
 
-    currentTime += slideDuration;
-    onProgress(10 + (slideIndex + 1) / slides.length * 70, `Rendered slide ${slideIndex + 1}/${slides.length}`);
-  }
-
-  onProgress(85, "Encoding video...");
-
-  // Encode video
-  await ffmpeg.exec([
-    "-framerate", String(frameRate),
-    "-pattern_type", "glob",
-    "-i", "*.jpg",
-    "-c:v", "libx264",
-    "-pix_fmt", "yuv420p",
-    "-preset", "medium",
-    "-crf", "23",
-    "-s", "1080x1920",
-    "output.mp4"
-  ]);
-
-  onProgress(95, "Finalizing...");
-
-  const data = await ffmpeg.readFile("output.mp4");
-  const videoBlob = new Blob([data], { type: "video/mp4" });
-
-  // Cleanup
-  const files = await ffmpeg.listDir("/");
-  for (const file of files) {
-    if (file.name.endsWith(".jpg") || file.name === "output.mp4") {
-      await ffmpeg.deleteFile(file.name);
+    // Render current slide
+    if (currentSlideIndex < slides.length) {
+      renderSlideToCanvas(slides[currentSlideIndex], canvas, backgroundVideo);
+      
+      if (elapsed < totalDuration) {
+        requestAnimationFrame(animate);
+      } else {
+        // Stop recording
+        if (backgroundVideo) {
+          backgroundVideo.pause();
+        }
+        mediaRecorder.stop();
+      }
     }
-  }
+  };
+
+  animate();
+
+  onProgress(95, "Finalizing video...");
+  const videoBlob = await recordingPromise;
 
   onProgress(100, "Complete!");
   return videoBlob;
 };
+
