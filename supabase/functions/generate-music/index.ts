@@ -112,10 +112,10 @@ Format as a detailed music brief that could be used with a music generation API.
       );
     }
 
-    // Generate music using ElevenLabs Text-to-Sound API
+    // Generate music using ElevenLabs Sound Effects API
     console.log("Calling ElevenLabs to generate music...");
     
-    const elevenLabsResponse = await fetch('https://api.elevenlabs.io/v1/text-to-sound-effects', {
+    const elevenLabsResponse = await fetch('https://api.elevenlabs.io/v1/sound-generation', {
       method: 'POST',
       headers: {
         'xi-api-key': ELEVENLABS_API_KEY,
@@ -124,7 +124,7 @@ Format as a detailed music brief that could be used with a music generation API.
       body: JSON.stringify({
         text: musicBrief,
         duration_seconds: Math.min(duration, 22), // ElevenLabs max is 22 seconds
-        prompt_influence: 0.5,
+        prompt_influence: 0.3,
       }),
     });
 
