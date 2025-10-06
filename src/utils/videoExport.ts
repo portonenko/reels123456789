@@ -77,7 +77,7 @@ const renderSlideToCanvas = (
     ctx.globalAlpha = 1;
   }
 
-  // Draw title with text wrapping
+  // Draw title with text wrapping - use narrower width to avoid blind zones
   ctx.font = `${slide.style.text.fontWeight} ${slide.style.text.fontSize * 2}px ${slide.style.text.fontFamily}`;
   ctx.fillStyle = slide.style.text.color;
   
@@ -91,8 +91,8 @@ const renderSlideToCanvas = (
     }
   }
 
-  // Wrap title text
-  const maxWidth = canvas.width * 0.85;
+  // Narrower max width (70%) to keep text away from blind zones
+  const maxWidth = canvas.width * 0.70;
   const titleWords = cleanTitle.split(' ');
   let titleLine = '';
   const titleLines: string[] = [];
@@ -228,13 +228,27 @@ export const exportVideo = async (
 
   onProgress(10, "Starting recording...");
 
+  // Try to get the best supported video format
+  let mimeType = 'video/webm;codecs=vp8'; // VP8 is more widely supported than VP9
+  
+  // Check if browser supports MP4 (rare but possible)
+  if (MediaRecorder.isTypeSupported('video/mp4')) {
+    mimeType = 'video/mp4';
+  } else if (MediaRecorder.isTypeSupported('video/webm;codecs=h264')) {
+    mimeType = 'video/webm;codecs=h264'; // H264 in WebM is better for compatibility
+  } else if (MediaRecorder.isTypeSupported('video/webm;codecs=vp8,opus')) {
+    mimeType = 'video/webm;codecs=vp8,opus';
+  }
+
+  console.log('Using video format:', mimeType);
+
   // Create MediaRecorder
   const stream = canvas.captureStream(30); // 30 FPS
   const chunks: Blob[] = [];
   
   const mediaRecorder = new MediaRecorder(stream, {
-    mimeType: 'video/webm;codecs=vp9',
-    videoBitsPerSecond: 5000000, // 5 Mbps for good quality
+    mimeType,
+    videoBitsPerSecond: 8000000, // 8 Mbps for better quality
   });
 
   mediaRecorder.ondataavailable = (e) => {
@@ -245,7 +259,9 @@ export const exportVideo = async (
 
   const recordingPromise = new Promise<Blob>((resolve, reject) => {
     mediaRecorder.onstop = () => {
-      const blob = new Blob(chunks, { type: 'video/webm' });
+      // Determine file extension based on mime type
+      const isMP4 = mimeType.includes('mp4');
+      const blob = new Blob(chunks, { type: isMP4 ? 'video/mp4' : 'video/webm' });
       resolve(blob);
     };
     mediaRecorder.onerror = reject;

@@ -186,7 +186,7 @@ export const CanvasPreview = ({ slide, globalOverlay }: CanvasPreviewProps) => {
                     textShadow: currentSlide.style.text.textShadow,
                     textAlign: currentSlide.style.text.alignment,
                     wordWrap: "break-word",
-                    maxWidth: "90%",
+                    maxWidth: "80%",
                   }}
                 >
                   {currentSlide.title.replace(/^\[.*?\]\s*/, '')}
@@ -203,7 +203,7 @@ export const CanvasPreview = ({ slide, globalOverlay }: CanvasPreviewProps) => {
                       textShadow: currentSlide.style.text.textShadow,
                       textAlign: currentSlide.style.text.alignment,
                       wordWrap: "break-word",
-                      maxWidth: "90%",
+                      maxWidth: "80%",
                     }}
                   >
                     {currentSlide.body.replace(/^\[.*?\]\s*/, '')}
@@ -227,7 +227,7 @@ export const CanvasPreview = ({ slide, globalOverlay }: CanvasPreviewProps) => {
                     paintOrder: "stroke fill",
                     filter: `drop-shadow(0 0 ${(currentSlide.style.text.fontSize || 48) * 0.2}px ${currentSlide.style.text.glow || "rgba(255,255,255,0.8)"}) drop-shadow(0 0 ${(currentSlide.style.text.fontSize || 48) * 0.4}px ${currentSlide.style.text.glow || "rgba(255,255,255,0.5)"})`,
                     wordWrap: "break-word",
-                    maxWidth: "90%",
+                    maxWidth: "80%",
                   }}
                 >
                   {currentSlide.title.replace(/^\[.*?\]\s*/, '')}
@@ -247,7 +247,7 @@ export const CanvasPreview = ({ slide, globalOverlay }: CanvasPreviewProps) => {
                       paintOrder: "stroke fill",
                       filter: `drop-shadow(0 0 ${(currentSlide.style.text.fontSize || 48) * 0.1}px ${currentSlide.style.text.glow || "rgba(255,255,255,0.8)"}) drop-shadow(0 0 ${(currentSlide.style.text.fontSize || 48) * 0.2}px ${currentSlide.style.text.glow || "rgba(255,255,255,0.5)"})`,
                       wordWrap: "break-word",
-                      maxWidth: "90%",
+                      maxWidth: "80%",
                     }}
                   >
                     {currentSlide.body.replace(/^\[.*?\]\s*/, '')}

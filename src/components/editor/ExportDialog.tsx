@@ -79,11 +79,15 @@ export const ExportDialog = ({ open, onClose, slides, assets }: ExportDialogProp
         }
       );
 
+      // Determine file extension from blob type
+      const isMP4 = videoBlob.type.includes('mp4');
+      const extension = isMP4 ? 'mp4' : 'webm';
+
       // Download the video
       const url = URL.createObjectURL(videoBlob);
       const a = document.createElement("a");
       a.href = url;
-      a.download = `video-${language}-${Date.now()}.mp4`;
+      a.download = `video-${language}-${Date.now()}.${extension}`;
       a.click();
       URL.revokeObjectURL(url);
     } catch (error) {
@@ -130,8 +134,9 @@ export const ExportDialog = ({ open, onClose, slides, assets }: ExportDialogProp
 
           <div className="bg-blue-500/10 border border-blue-500/20 rounded-lg p-3">
             <p className="text-xs text-blue-200">
-              <strong>Processing:</strong> Video export happens in your browser using FFmpeg. 
-              First export may take a moment to load. Each video will download as MP4 (1080×1920).
+              <strong>Processing:</strong> Video export happens in your browser. 
+              Videos are exported as WebM format (widely supported). 
+              To convert to MP4 for maximum compatibility, you can use free online converters like CloudConvert or HandBrake.
             </p>
           </div>
         </div>
