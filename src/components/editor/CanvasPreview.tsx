@@ -3,15 +3,17 @@ import { Slide } from "@/types";
 import { cn } from "@/lib/utils";
 import { useEditorStore } from "@/store/useEditorStore";
 import { Button } from "@/components/ui/button";
-import { Play, Pause, RotateCcw } from "lucide-react";
+import { Play, Pause, RotateCcw, Move } from "lucide-react";
+import { DraggableTextBox } from "./DraggableTextBox";
 
 interface CanvasPreviewProps {
   slide: Slide | null;
   globalOverlay: number;
+  showTextBoxControls?: boolean;
 }
 
-export const CanvasPreview = ({ slide, globalOverlay }: CanvasPreviewProps) => {
-  const { assets, slides, setSelectedSlideId } = useEditorStore();
+export const CanvasPreview = ({ slide, globalOverlay, showTextBoxControls = false }: CanvasPreviewProps) => {
+  const { assets, slides, updateSlide } = useEditorStore();
   const [isPlaying, setIsPlaying] = useState(false);
   const [currentSlideIndex, setCurrentSlideIndex] = useState(0);
   const timerRef = useRef<NodeJS.Timeout | null>(null);
@@ -93,6 +95,19 @@ export const CanvasPreview = ({ slide, globalOverlay }: CanvasPreviewProps) => {
 
   const overlayOpacity = globalOverlay / 100;
   const backgroundAsset = assets.find((a) => a.id === currentSlide.assetId);
+
+  const handleTextBoxUpdate = (position: { x: number; y: number; width: number; height: number }) => {
+    if (!slide) return;
+    updateSlide(slide.id, {
+      style: {
+        ...slide.style,
+        text: {
+          ...slide.style.text,
+          position,
+        },
+      },
+    });
+  };
 
   return (
     <div className="w-full h-full flex flex-col items-center justify-center bg-canvas rounded-lg p-8">
@@ -260,7 +275,17 @@ export const CanvasPreview = ({ slide, globalOverlay }: CanvasPreviewProps) => {
           {/* Duration indicator */}
           <div className="absolute bottom-4 left-4 bg-black/70 text-white text-xs px-2 py-1 rounded">
             {currentSlide.durationSec}s
-        </div>
+          </div>
+
+          {/* Draggable text box overlay (only for selected slide, not during playback) */}
+          {showTextBoxControls && slide && !isPlaying && (
+            <DraggableTextBox
+              slide={slide}
+              containerWidth={360}
+              containerHeight={640}
+              onUpdate={handleTextBoxUpdate}
+            />
+          )}
       </div>
     </div>
   );

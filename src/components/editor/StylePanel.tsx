@@ -8,12 +8,15 @@ import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { useEditorStore } from "@/store/useEditorStore";
 import { toast } from "sonner";
+import { MusicUpload } from "./MusicUpload";
 
 interface StylePanelProps {
   slide: Slide | null;
   globalOverlay: number;
   onUpdateSlide: (updates: Partial<Slide>) => void;
   onUpdateGlobalOverlay: (value: number) => void;
+  showTextBoxControls: boolean;
+  onToggleTextBoxControls: (show: boolean) => void;
 }
 
 const FONT_FAMILIES = [
@@ -33,6 +36,8 @@ export const StylePanel = ({
   globalOverlay,
   onUpdateSlide,
   onUpdateGlobalOverlay,
+  showTextBoxControls,
+  onToggleTextBoxControls,
 }: StylePanelProps) => {
   const { applyStyleToAll, applyDurationToAll, slides } = useEditorStore();
 
@@ -59,8 +64,9 @@ export const StylePanel = ({
   return (
     <div className="h-full bg-panel rounded-lg overflow-hidden flex flex-col">
       <Tabs defaultValue="text" className="flex-1 flex flex-col">
-        <TabsList className="grid w-full grid-cols-4 bg-secondary">
+        <TabsList className="grid w-full grid-cols-5 bg-secondary">
           <TabsTrigger value="text">Text</TabsTrigger>
+          <TabsTrigger value="position">Position</TabsTrigger>
           <TabsTrigger value="plate">Plate</TabsTrigger>
           <TabsTrigger value="shadow">Shadow</TabsTrigger>
           <TabsTrigger value="global">Global</TabsTrigger>
@@ -213,6 +219,44 @@ export const StylePanel = ({
             >
               Apply Text Style to All Slides
             </Button>
+          </TabsContent>
+
+          <TabsContent value="position" className="space-y-4 mt-0">
+            <div className="flex items-center justify-between">
+              <Label>Enable Text Box Positioning</Label>
+              <Switch
+                checked={showTextBoxControls}
+                onCheckedChange={onToggleTextBoxControls}
+              />
+            </div>
+            
+            {showTextBoxControls && slide?.style.text.position && (
+              <>
+                <div className="text-xs text-muted-foreground bg-blue-500/10 border border-blue-500/20 rounded p-3">
+                  <p className="font-medium mb-1">How to use:</p>
+                  <ul className="list-disc list-inside space-y-1">
+                    <li>Drag the blue box on the preview to move text</li>
+                    <li>Drag the corner handle to resize</li>
+                    <li>Click "Apply to All" to use same position everywhere</li>
+                  </ul>
+                </div>
+
+                <div className="space-y-2">
+                  <Label>Position (X: {slide.style.text.position.x.toFixed(0)}%, Y: {slide.style.text.position.y.toFixed(0)}%)</Label>
+                  <Label>Size (W: {slide.style.text.position.width.toFixed(0)}%, H: {slide.style.text.position.height.toFixed(0)}%)</Label>
+                </div>
+              </>
+            )}
+
+            {showTextBoxControls && (
+              <Button 
+                variant="outline" 
+                className="w-full" 
+                onClick={handleApplyStyleToAll}
+              >
+                Apply Position to All Slides
+              </Button>
+            )}
           </TabsContent>
 
           <TabsContent value="plate" className="space-y-4 mt-0">
@@ -404,7 +448,9 @@ export const StylePanel = ({
           </TabsContent>
 
           <TabsContent value="global" className="space-y-4 mt-0">
-            <div>
+            <MusicUpload />
+
+            <div className="pt-4 border-t">
               <Label>Video Overlay Dimming: {globalOverlay}%</Label>
               <Slider
                 value={[globalOverlay]}

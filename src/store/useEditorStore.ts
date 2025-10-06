@@ -32,6 +32,7 @@ interface EditorStore {
   selectedSlideId: string | null;
   globalOverlay: number;
   projectName: string;
+  backgroundMusicUrl: string | null;
   
   setSlides: (slides: Slide[]) => void;
   addSlide: (slide: Omit<Slide, "id">) => void;
@@ -49,6 +50,7 @@ interface EditorStore {
   setSelectedSlideId: (id: string | null) => void;
   setGlobalOverlay: (overlay: number) => void;
   setProjectName: (name: string) => void;
+  setBackgroundMusic: (url: string | null) => void;
   
   randomizeBackgrounds: () => void;
   getDefaultStyle: () => SlideStyle;
@@ -60,6 +62,7 @@ export const useEditorStore = create<EditorStore>((set, get) => ({
   selectedSlideId: null,
   globalOverlay: 30,
   projectName: "Untitled Project",
+  backgroundMusicUrl: null,
   
   setSlides: (slides) => set({ slides }),
   
@@ -149,6 +152,7 @@ export const useEditorStore = create<EditorStore>((set, get) => ({
   setSelectedSlideId: (id) => set({ selectedSlideId: id }),
   setGlobalOverlay: (overlay) => set({ globalOverlay: overlay }),
   setProjectName: (name) => set({ projectName: name }),
+  setBackgroundMusic: (url) => set({ backgroundMusicUrl: url }),
   
   randomizeBackgrounds: () => {
     const { slides, assets } = get();

@@ -15,6 +15,13 @@ export interface TextStyle {
   stroke?: string; // Text outline
   strokeWidth?: number;
   glow?: string; // Glow effect color
+  // Text box positioning and dimensions (percentage based)
+  position?: {
+    x: number; // percentage from left (0-100)
+    y: number; // percentage from top (0-100)
+    width: number; // percentage of canvas width (0-100)
+    height: number; // percentage of canvas height (0-100)
+  };
 }
 
 export interface PlateStyle {
@@ -59,6 +66,7 @@ export interface Project {
   name: string;
   slides: Slide[];
   globalOverlay: number; // 0-70%
+  backgroundMusicUrl?: string; // Optional background music
   createdAt: Date;
   updatedAt: Date;
 }

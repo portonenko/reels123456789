@@ -19,6 +19,7 @@ const Editor = () => {
   const [showTextDialog, setShowTextDialog] = useState(false);
   const [showTranslationDialog, setShowTranslationDialog] = useState(false);
   const [showExportDialog, setShowExportDialog] = useState(false);
+  const [showTextBoxControls, setShowTextBoxControls] = useState(false);
   
   const {
     slides,
@@ -200,7 +201,11 @@ const Editor = () => {
 
         {/* Center - Canvas */}
         <div className="flex-1 p-6 bg-canvas">
-          <CanvasPreview slide={selectedSlide} globalOverlay={globalOverlay} />
+          <CanvasPreview 
+            slide={selectedSlide} 
+            globalOverlay={globalOverlay}
+            showTextBoxControls={showTextBoxControls}
+          />
         </div>
 
         {/* Right panel - Styles */}
@@ -215,6 +220,8 @@ const Editor = () => {
               }
             }}
             onUpdateGlobalOverlay={setGlobalOverlay}
+            showTextBoxControls={showTextBoxControls}
+            onToggleTextBoxControls={setShowTextBoxControls}
           />
         </div>
       </div>
