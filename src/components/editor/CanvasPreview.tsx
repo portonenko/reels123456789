@@ -172,6 +172,111 @@ export const CanvasPreview = ({ slide, globalOverlay, showTextBoxControls = fals
         />
 
         {/* Text content */}
+        {currentSlide.style.text.position ? (
+          // Positioned text box mode
+          <div
+            className="absolute"
+            style={{
+              left: `${currentSlide.style.text.position.x}%`,
+              top: `${currentSlide.style.text.position.y}%`,
+              width: `${currentSlide.style.text.position.width}%`,
+              height: `${currentSlide.style.text.position.height}%`,
+              display: 'flex',
+              flexDirection: 'column',
+              alignItems: currentSlide.style.text.alignment === 'left' ? 'flex-start' : 
+                         currentSlide.style.text.alignment === 'right' ? 'flex-end' : 'center',
+              justifyContent: 'center',
+            }}
+          >
+            {currentSlide.style.plate.enabled ? (
+              <div
+                className="rounded-lg w-full"
+                style={{
+                  padding: `${currentSlide.style.plate.padding}px`,
+                  borderRadius: `${currentSlide.style.plate.borderRadius}px`,
+                  backgroundColor: currentSlide.style.plate.backgroundColor,
+                  opacity: currentSlide.style.plate.opacity,
+                }}
+              >
+                <h1
+                  className={cn("font-bold")}
+                  style={{
+                    fontFamily: currentSlide.style.text.fontFamily,
+                    fontSize: `${currentSlide.style.text.fontSize}px`,
+                    fontWeight: currentSlide.style.text.fontWeight,
+                    lineHeight: currentSlide.style.text.lineHeight,
+                    letterSpacing: `${currentSlide.style.text.letterSpacing}em`,
+                    color: currentSlide.style.text.color,
+                    textShadow: currentSlide.style.text.textShadow,
+                    textAlign: currentSlide.style.text.alignment,
+                    wordWrap: "break-word",
+                  }}
+                >
+                  {currentSlide.title.replace(/^\[.*?\]\s*/, '')}
+                </h1>
+                {currentSlide.body && (
+                  <p
+                    className="mt-3"
+                    style={{
+                      fontFamily: currentSlide.style.text.fontFamily,
+                      fontSize: `${currentSlide.style.text.bodyFontSize || currentSlide.style.text.fontSize * 0.5}px`,
+                      fontWeight: currentSlide.style.text.bodyFontWeight || currentSlide.style.text.fontWeight - 200,
+                      lineHeight: currentSlide.style.text.lineHeight * 1.2,
+                      color: currentSlide.style.text.color,
+                      textShadow: currentSlide.style.text.textShadow,
+                      textAlign: currentSlide.style.text.alignment,
+                      wordWrap: "break-word",
+                    }}
+                  >
+                    {currentSlide.body.replace(/^\[.*?\]\s*/, '')}
+                  </p>
+                )}
+              </div>
+            ) : (
+              <div className="w-full">
+                <h1
+                  className={cn("font-bold")}
+                  style={{
+                    fontFamily: currentSlide.style.text.fontFamily,
+                    fontSize: `${currentSlide.style.text.fontSize}px`,
+                    fontWeight: currentSlide.style.text.fontWeight,
+                    lineHeight: currentSlide.style.text.lineHeight,
+                    letterSpacing: `${currentSlide.style.text.letterSpacing}em`,
+                    color: currentSlide.style.text.color,
+                    textShadow: currentSlide.style.text.textShadow,
+                    textAlign: currentSlide.style.text.alignment,
+                    WebkitTextStroke: `${currentSlide.style.text.strokeWidth || 2}px ${currentSlide.style.text.stroke || "#000000"}`,
+                    paintOrder: "stroke fill",
+                    filter: `drop-shadow(0 0 ${(currentSlide.style.text.fontSize || 48) * 0.2}px ${currentSlide.style.text.glow || "rgba(255,255,255,0.8)"})`,
+                    wordWrap: "break-word",
+                  }}
+                >
+                  {currentSlide.title.replace(/^\[.*?\]\s*/, '')}
+                </h1>
+                {currentSlide.body && (
+                  <p
+                    className="mt-3"
+                    style={{
+                      fontFamily: currentSlide.style.text.fontFamily,
+                      fontSize: `${currentSlide.style.text.bodyFontSize || currentSlide.style.text.fontSize * 0.5}px`,
+                      fontWeight: currentSlide.style.text.bodyFontWeight || currentSlide.style.text.fontWeight - 200,
+                      lineHeight: currentSlide.style.text.lineHeight * 1.2,
+                      color: currentSlide.style.text.color,
+                      textShadow: currentSlide.style.text.textShadow,
+                      textAlign: currentSlide.style.text.alignment,
+                      WebkitTextStroke: `${(currentSlide.style.text.strokeWidth || 2) * 0.75}px ${currentSlide.style.text.stroke || "#000000"}`,
+                      paintOrder: "stroke fill",
+                      wordWrap: "break-word",
+                    }}
+                  >
+                    {currentSlide.body.replace(/^\[.*?\]\s*/, '')}
+                  </p>
+                )}
+              </div>
+            )}
+          </div>
+        ) : (
+          // Default centered text mode
           <div
             className="absolute inset-0 flex flex-col items-center justify-center p-6"
             style={{
@@ -240,7 +345,7 @@ export const CanvasPreview = ({ slide, globalOverlay, showTextBoxControls = fals
                     textAlign: currentSlide.style.text.alignment,
                     WebkitTextStroke: `${currentSlide.style.text.strokeWidth || 2}px ${currentSlide.style.text.stroke || "#000000"}`,
                     paintOrder: "stroke fill",
-                    filter: `drop-shadow(0 0 ${(currentSlide.style.text.fontSize || 48) * 0.2}px ${currentSlide.style.text.glow || "rgba(255,255,255,0.8)"}) drop-shadow(0 0 ${(currentSlide.style.text.fontSize || 48) * 0.4}px ${currentSlide.style.text.glow || "rgba(255,255,255,0.5)"})`,
+                    filter: `drop-shadow(0 0 ${(currentSlide.style.text.fontSize || 48) * 0.2}px ${currentSlide.style.text.glow || "rgba(255,255,255,0.8)"})`,
                     wordWrap: "break-word",
                     maxWidth: "80%",
                   }}
@@ -260,7 +365,6 @@ export const CanvasPreview = ({ slide, globalOverlay, showTextBoxControls = fals
                       textAlign: currentSlide.style.text.alignment,
                       WebkitTextStroke: `${(currentSlide.style.text.strokeWidth || 2) * 0.75}px ${currentSlide.style.text.stroke || "#000000"}`,
                       paintOrder: "stroke fill",
-                      filter: `drop-shadow(0 0 ${(currentSlide.style.text.fontSize || 48) * 0.1}px ${currentSlide.style.text.glow || "rgba(255,255,255,0.8)"}) drop-shadow(0 0 ${(currentSlide.style.text.fontSize || 48) * 0.2}px ${currentSlide.style.text.glow || "rgba(255,255,255,0.5)"})`,
                       wordWrap: "break-word",
                       maxWidth: "80%",
                     }}
@@ -271,6 +375,7 @@ export const CanvasPreview = ({ slide, globalOverlay, showTextBoxControls = fals
               </div>
             )}
           </div>
+        )}
 
           {/* Duration indicator */}
           <div className="absolute bottom-4 left-4 bg-black/70 text-white text-xs px-2 py-1 rounded">
