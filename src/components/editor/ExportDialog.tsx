@@ -10,15 +10,17 @@ import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { toast } from "sonner";
 import { Loader2, Download } from "lucide-react";
-import { Slide } from "@/types";
+import { Slide, Asset } from "@/types";
+import { exportVideo } from "@/utils/videoExport";
 
 interface ExportDialogProps {
   open: boolean;
   onClose: () => void;
   slides: Slide[];
+  assets: Asset[];
 }
 
-export const ExportDialog = ({ open, onClose, slides }: ExportDialogProps) => {
+export const ExportDialog = ({ open, onClose, slides, assets }: ExportDialogProps) => {
   const [isExporting, setIsExporting] = useState(false);
   const [progress, setProgress] = useState(0);
   const [currentStep, setCurrentStep] = useState("");
@@ -61,36 +63,33 @@ export const ExportDialog = ({ open, onClose, slides }: ExportDialogProps) => {
   };
 
   const exportLanguageVideo = async (language: string, langSlides: Slide[]) => {
-    // For MVP: Create a simple JSON export
-    // Full video rendering would require ffmpeg.wasm implementation
-    const exportData = {
-      language,
-      slides: langSlides.map(s => ({
-        title: s.title.replace(/^\[.*?\]\s*/, ''),
-        body: s.body?.replace(/^\[.*?\]\s*/, ''),
-        duration: s.durationSec,
-        style: s.style,
-      })),
-      metadata: {
-        totalDuration: langSlides.reduce((sum, s) => sum + s.durationSec, 0),
-        slideCount: langSlides.length,
-        resolution: "1080x1920",
-      }
-    };
+    try {
+      // Get the background asset for this language
+      const firstSlide = langSlides[0];
+      const backgroundAsset = firstSlide?.assetId 
+        ? assets.find(a => a.id === firstSlide.assetId) || null
+        : null;
 
-    // Download as JSON (placeholder for actual video export)
-    const blob = new Blob([JSON.stringify(exportData, null, 2)], { 
-      type: "application/json" 
-    });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = `video-${language}.json`;
-    a.click();
-    URL.revokeObjectURL(url);
+      const videoBlob = await exportVideo(
+        langSlides,
+        backgroundAsset,
+        (progress, message) => {
+          setProgress(progress);
+          setCurrentStep(`${language}: ${message}`);
+        }
+      );
 
-    // Simulate processing time
-    await new Promise(resolve => setTimeout(resolve, 1000));
+      // Download the video
+      const url = URL.createObjectURL(videoBlob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `video-${language}-${Date.now()}.mp4`;
+      a.click();
+      URL.revokeObjectURL(url);
+    } catch (error) {
+      console.error(`Export error for ${language}:`, error);
+      throw error;
+    }
   };
 
   return (
@@ -129,9 +128,10 @@ export const ExportDialog = ({ open, onClose, slides }: ExportDialogProps) => {
             </div>
           )}
 
-          <div className="bg-yellow-500/10 border border-yellow-500/20 rounded-lg p-3">
-            <p className="text-xs text-yellow-200">
-              <strong>Note:</strong> This is an MVP version. Currently exports project data as JSON. Full MP4 rendering with ffmpeg.wasm will be added in the next update.
+          <div className="bg-blue-500/10 border border-blue-500/20 rounded-lg p-3">
+            <p className="text-xs text-blue-200">
+              <strong>Processing:</strong> Video export happens in your browser using FFmpeg. 
+              First export may take a moment to load. Each video will download as MP4 (1080×1920).
             </p>
           </div>
         </div>

@@ -22,6 +22,7 @@ const Editor = () => {
   
   const {
     slides,
+    assets,
     selectedSlideId,
     globalOverlay,
     setSlides,
@@ -234,6 +235,7 @@ const Editor = () => {
         open={showExportDialog}
         onClose={() => setShowExportDialog(false)}
         slides={slides}
+        assets={assets}
       />
     </div>
   );
