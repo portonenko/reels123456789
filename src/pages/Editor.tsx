@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useLanguageStore } from "@/store/useLanguageStore";
 import { useEditorStore } from "@/store/useEditorStore";
 import { SlideCard } from "@/components/editor/SlideCard";
 import { CanvasPreview } from "@/components/editor/CanvasPreview";
@@ -7,7 +8,13 @@ import { TextInputDialog } from "@/components/editor/TextInputDialog";
 import { TranslationDialog } from "@/components/editor/TranslationDialog";
 import { ExportDialog } from "@/components/editor/ExportDialog";
 import { Button } from "@/components/ui/button";
-import { Sparkles, Home, Download, Shuffle, Languages } from "lucide-react";
+import { Sparkles, Home, Download, Shuffle, Languages, Globe } from "lucide-react";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { useNavigate } from "react-router-dom";
 import { parseTextToSlides } from "@/utils/textParser";
 import { toast } from "sonner";
@@ -16,6 +23,7 @@ import { supabase } from "@/integrations/supabase/client";
 
 const Editor = () => {
   const navigate = useNavigate();
+  const { language, setLanguage } = useLanguageStore();
   const [showTextDialog, setShowTextDialog] = useState(false);
   const [showTranslationDialog, setShowTranslationDialog] = useState(false);
   const [showExportDialog, setShowExportDialog] = useState(false);
@@ -123,13 +131,30 @@ const Editor = () => {
         </div>
 
         <div className="flex items-center gap-2">
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="ghost" size="sm">
+                <Globe className="w-4 h-4 mr-2" />
+                {language === 'ru' ? 'RU' : 'EN'}
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent className="bg-card z-50">
+              <DropdownMenuItem onClick={() => setLanguage('en')}>
+                English
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => setLanguage('ru')}>
+                Русский
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+
           <Button
             variant="outline"
             size="sm"
             onClick={() => setShowTextDialog(true)}
           >
             <Sparkles className="w-4 h-4 mr-2" />
-            Parse Text
+            {language === 'ru' ? 'Создать слайды' : 'Parse Text'}
           </Button>
           <Button
             variant="outline"
@@ -138,7 +163,7 @@ const Editor = () => {
             disabled={slides.length === 0}
           >
             <Shuffle className="w-4 h-4 mr-2" />
-            Randomize
+            {language === 'ru' ? 'Случайный фон' : 'Randomize'}
           </Button>
           <Button
             variant="outline"
@@ -147,7 +172,7 @@ const Editor = () => {
             disabled={slides.length === 0}
           >
             <Languages className="w-4 h-4 mr-2" />
-            Translate
+            {language === 'ru' ? 'Перевести' : 'Translate'}
           </Button>
           <Button
             size="sm"
@@ -156,7 +181,7 @@ const Editor = () => {
             className="bg-gradient-primary"
           >
             <Download className="w-4 h-4 mr-2" />
-            Export
+            {language === 'ru' ? 'Экспорт' : 'Export'}
           </Button>
         </div>
       </header>
@@ -205,6 +230,7 @@ const Editor = () => {
             slide={selectedSlide} 
             globalOverlay={globalOverlay}
             showTextBoxControls={showTextBoxControls}
+            lang={language}
           />
         </div>
 
@@ -222,6 +248,7 @@ const Editor = () => {
             onUpdateGlobalOverlay={setGlobalOverlay}
             showTextBoxControls={showTextBoxControls}
             onToggleTextBoxControls={setShowTextBoxControls}
+            lang={language}
           />
         </div>
       </div>

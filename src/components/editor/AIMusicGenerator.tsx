@@ -17,27 +17,46 @@ export const AIMusicGenerator = ({ lang = 'en' }: AIMusicGeneratorProps) => {
   const [prompt, setPrompt] = useState("");
 
   const handleGenerate = async () => {
-    if (!prompt.trim()) {
-      toast.error(lang === 'ru' ? "Введите описание музыки" : "Please enter a music description");
+    if (!prompt.trim() && slides.length === 0) {
+      toast.error(lang === 'ru' ? "Введите описание или создайте слайды" : "Please enter a description or create slides");
       return;
     }
 
     setIsGenerating(true);
 
     try {
-      // Calculate video duration
+      // Calculate video duration and collect slide info
       const totalDuration = slides.reduce((sum, s) => sum + s.durationSec, 0);
+      const slideTimings = slides.map((s, idx) => ({
+        index: idx + 1,
+        title: s.title.replace(/^\[.*?\]\s*/, ''),
+        duration: s.durationSec,
+        type: s.type,
+      }));
 
       toast.info(lang === 'ru' ? "Создаю музыку... это может занять минуту" : "Generating music... this may take a minute");
 
       const { data, error } = await supabase.functions.invoke("generate-music", {
         body: {
-          prompt: `${prompt}. Duration: ${totalDuration} seconds. Loopable background music.`,
+          prompt: prompt.trim() || "background music that fits the video content",
           duration: totalDuration,
+          slideTimings,
+          slides: slideTimings,
         },
       });
 
       if (error) throw error;
+
+      if (data?.error) {
+        // Show user-friendly message for missing API integration
+        toast.error(
+          lang === 'ru' 
+            ? 'Для генерации музыки требуется интеграция с музыкальным API (например, Mubert или Soundraw). Пока можно загрузить свою музыку.'
+            : 'Music generation requires a music API integration (like Mubert or Soundraw). For now, please upload your own music.',
+          { duration: 5000 }
+        );
+        return;
+      }
 
       if (!data?.audioUrl) {
         throw new Error("No audio URL returned");
@@ -93,7 +112,10 @@ export const AIMusicGenerator = ({ lang = 'en' }: AIMusicGeneratorProps) => {
           </Label>
           
           <Input
-            placeholder={lang === 'ru' ? "Опишите музыку (например: энергичная электронная музыка)" : "Describe the music (e.g., upbeat electronic music)"}
+            placeholder={lang === 'ru' 
+              ? "Опишите стиль музыки (или оставьте пустым для автоматического подбора)" 
+              : "Describe music style (or leave empty for auto-detect)"
+            }
             value={prompt}
             onChange={(e) => setPrompt(e.target.value)}
             disabled={isGenerating}
@@ -101,7 +123,7 @@ export const AIMusicGenerator = ({ lang = 'en' }: AIMusicGeneratorProps) => {
           
           <Button
             onClick={handleGenerate}
-            disabled={isGenerating || !prompt.trim()}
+            disabled={isGenerating || slides.length === 0}
             className="w-full"
           >
             <Sparkles className="w-4 h-4 mr-2" />
@@ -113,10 +135,19 @@ export const AIMusicGenerator = ({ lang = 'en' }: AIMusicGeneratorProps) => {
           
           <p className="text-xs text-muted-foreground">
             {lang === 'ru' 
-              ? "AI создаст уникальную фоновую музыку для вашего видео" 
-              : "AI will create custom background music for your video"
+              ? "AI проанализирует слайды и создаст подходящую музыку с учетом тайминга" 
+              : "AI will analyze slides and create fitting music with timing adjustments"
             }
           </p>
+
+          {slides.length === 0 && (
+            <p className="text-xs text-yellow-500">
+              {lang === 'ru' 
+                ? "Сначала создайте слайды для генерации музыки" 
+                : "Create slides first to generate music"
+              }
+            </p>
+          )}
         </>
       )}
     </div>

@@ -1,11 +1,14 @@
 import { useState, useRef, useEffect } from "react";
 import { Slide } from "@/types";
+import { Button } from "@/components/ui/button";
+import { AlignHorizontalJustifyCenter, AlignVerticalJustifyCenter, Maximize2 } from "lucide-react";
 
 interface DraggableTextBoxProps {
   slide: Slide;
   containerWidth: number;
   containerHeight: number;
   onUpdate: (position: { x: number; y: number; width: number; height: number }) => void;
+  lang?: 'en' | 'ru';
 }
 
 export const DraggableTextBox = ({
@@ -13,6 +16,7 @@ export const DraggableTextBox = ({
   containerWidth,
   containerHeight,
   onUpdate,
+  lang = 'en',
 }: DraggableTextBoxProps) => {
   const boxRef = useRef<HTMLDivElement>(null);
   
@@ -91,8 +95,68 @@ export const DraggableTextBox = ({
     };
   }, [isDragging, isResizing, startPos, currentPos, containerWidth, containerHeight, onUpdate]);
 
+  const centerHorizontally = () => {
+    const newPos = {
+      ...currentPos,
+      x: (100 - currentPos.width) / 2,
+    };
+    setCurrentPos(newPos);
+    onUpdate(newPos);
+  };
+
+  const centerVertically = () => {
+    const newPos = {
+      ...currentPos,
+      y: (100 - currentPos.height) / 2,
+    };
+    setCurrentPos(newPos);
+    onUpdate(newPos);
+  };
+
+  const centerBoth = () => {
+    const newPos = {
+      ...currentPos,
+      x: (100 - currentPos.width) / 2,
+      y: (100 - currentPos.height) / 2,
+    };
+    setCurrentPos(newPos);
+    onUpdate(newPos);
+  };
+
   return (
-    <div
+    <>
+      {/* Centering controls toolbar */}
+      <div className="absolute top-4 left-1/2 -translate-x-1/2 flex gap-2 bg-black/80 p-2 rounded-lg z-20">
+        <Button
+          size="sm"
+          variant="secondary"
+          onClick={centerHorizontally}
+          className="text-xs"
+        >
+          <AlignHorizontalJustifyCenter className="w-3 h-3 mr-1" />
+          {lang === 'ru' ? 'Центр X' : 'Center X'}
+        </Button>
+        <Button
+          size="sm"
+          variant="secondary"
+          onClick={centerVertically}
+          className="text-xs"
+        >
+          <AlignVerticalJustifyCenter className="w-3 h-3 mr-1" />
+          {lang === 'ru' ? 'Центр Y' : 'Center Y'}
+        </Button>
+        <Button
+          size="sm"
+          variant="secondary"
+          onClick={centerBoth}
+          className="text-xs"
+        >
+          <Maximize2 className="w-3 h-3 mr-1" />
+          {lang === 'ru' ? 'По центру' : 'Center All'}
+        </Button>
+      </div>
+
+      <div
       ref={boxRef}
       className="absolute border-2 border-primary bg-primary/10 cursor-move"
       style={{
@@ -111,8 +175,12 @@ export const DraggableTextBox = ({
       
       {/* Label */}
       <div className="absolute -top-6 left-0 text-xs bg-primary text-primary-foreground px-2 py-1 rounded">
-        Text Box - Drag to move, corner to resize
+        {lang === 'ru' 
+          ? 'Текстовый блок - перетащите для перемещения, угол для изменения размера' 
+          : 'Text Box - Drag to move, corner to resize'
+        }
       </div>
     </div>
+    </>
   );
 };

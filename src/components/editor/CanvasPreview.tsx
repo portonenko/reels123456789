@@ -10,9 +10,10 @@ interface CanvasPreviewProps {
   slide: Slide | null;
   globalOverlay: number;
   showTextBoxControls?: boolean;
+  lang?: 'en' | 'ru';
 }
 
-export const CanvasPreview = ({ slide, globalOverlay, showTextBoxControls = false }: CanvasPreviewProps) => {
+export const CanvasPreview = ({ slide, globalOverlay, showTextBoxControls = false, lang = 'en' }: CanvasPreviewProps) => {
   const { assets, slides, updateSlide } = useEditorStore();
   const [isPlaying, setIsPlaying] = useState(false);
   const [currentSlideIndex, setCurrentSlideIndex] = useState(0);
@@ -389,6 +390,7 @@ export const CanvasPreview = ({ slide, globalOverlay, showTextBoxControls = fals
               containerWidth={360}
               containerHeight={640}
               onUpdate={handleTextBoxUpdate}
+              lang={lang}
             />
           )}
       </div>

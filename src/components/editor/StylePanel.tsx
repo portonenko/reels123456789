@@ -17,6 +17,7 @@ interface StylePanelProps {
   onUpdateGlobalOverlay: (value: number) => void;
   showTextBoxControls: boolean;
   onToggleTextBoxControls: (show: boolean) => void;
+  lang?: 'en' | 'ru';
 }
 
 const FONT_FAMILIES = [
@@ -38,6 +39,7 @@ export const StylePanel = ({
   onUpdateGlobalOverlay,
   showTextBoxControls,
   onToggleTextBoxControls,
+  lang = 'en',
 }: StylePanelProps) => {
   const { applyStyleToAll, applyDurationToAll, slides } = useEditorStore();
 
@@ -448,7 +450,7 @@ export const StylePanel = ({
           </TabsContent>
 
           <TabsContent value="global" className="space-y-4 mt-0">
-            <MusicUpload />
+            <MusicUpload lang={lang} />
 
             <div className="pt-4 border-t">
               <Label>Video Overlay Dimming: {globalOverlay}%</Label>
