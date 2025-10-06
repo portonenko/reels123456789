@@ -81,6 +81,12 @@ const Gallery = () => {
       </header>
 
       <div className="p-6">
+        <div className="mb-6 p-4 bg-yellow-500/10 border border-yellow-500/20 rounded-lg">
+          <p className="text-sm text-yellow-200">
+            <strong>Note:</strong> Videos are stored temporarily in your browser. If you refresh the page or navigate away, you'll need to re-upload them.
+          </p>
+        </div>
+
         {assets.length === 0 ? (
           <div className="max-w-2xl mx-auto text-center py-16">
             <div className="w-20 h-20 rounded-full bg-primary/10 flex items-center justify-center mx-auto mb-4">

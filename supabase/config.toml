@@ -1,1 +1,4 @@
 project_id = "crcsshzrhlztfepdbmeg"
+
+[functions.translate-slides]
+verify_jwt = false

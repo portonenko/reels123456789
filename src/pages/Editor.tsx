@@ -67,7 +67,14 @@ const Editor = () => {
         },
       });
 
-      if (error) throw error;
+      if (error) {
+        console.error("Translation error:", error);
+        throw error;
+      }
+
+      if (!data?.translatedSlides) {
+        throw new Error("No translated slides returned");
+      }
 
       const translatedSlides: Slide[] = data.translatedSlides.map(
         (ts: any, idx: number) => ({
@@ -80,12 +87,16 @@ const Editor = () => {
       toast.success(`Created ${translatedSlides.length} translated slides`);
     } catch (error: any) {
       console.error("Translation error:", error);
-      if (error.message?.includes("429")) {
+      const errorMsg = error.message || "Translation failed";
+      
+      if (errorMsg.includes("429") || errorMsg.includes("Rate limit")) {
         toast.error("Rate limit exceeded. Please try again later.");
-      } else if (error.message?.includes("402")) {
+      } else if (errorMsg.includes("402") || errorMsg.includes("Payment")) {
         toast.error("Payment required. Please add credits to your workspace.");
+      } else if (errorMsg.includes("FunctionsRelayError") || errorMsg.includes("FunctionsHttpError")) {
+        toast.error("Translation service unavailable. Please try again in a moment.");
       } else {
-        toast.error("Translation failed. Please try again.");
+        toast.error(`Translation failed: ${errorMsg}`);
       }
       throw error;
     }
