@@ -18,6 +18,9 @@ interface StylePanelProps {
 
 const FONT_FAMILIES = [
   "Inter",
+  "Lora",
+  "Roboto",
+  "League Spartan",
   "Arial",
   "Georgia",
   "Times New Roman",
@@ -123,7 +126,7 @@ export const StylePanel = ({
                 }
                 min={12}
                 max={72}
-                step={2}
+                step={1}
               />
             </div>
 
