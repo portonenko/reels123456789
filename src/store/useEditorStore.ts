@@ -154,13 +154,25 @@ export const useEditorStore = create<EditorStore>((set, get) => ({
     const { slides, assets } = get();
     if (assets.length === 0) return;
     
-    // Pick ONE random video for all slides
-    const randomAsset = assets[Math.floor(Math.random() * assets.length)];
-    
+    // Group slides by language
+    const slidesByLanguage = slides.reduce((acc, slide) => {
+      const lang = slide.language || "default";
+      if (!acc[lang]) acc[lang] = [];
+      acc[lang].push(slide);
+      return acc;
+    }, {} as Record<string, typeof slides>);
+
+    // Pick a random video for each language group
+    const videoByLanguage: Record<string, string> = {};
+    Object.keys(slidesByLanguage).forEach((lang) => {
+      const randomAsset = assets[Math.floor(Math.random() * assets.length)];
+      videoByLanguage[lang] = randomAsset.id;
+    });
+
     set({
       slides: slides.map((slide) => ({
         ...slide,
-        assetId: randomAsset.id,
+        assetId: videoByLanguage[slide.language || "default"],
       })),
     });
   },

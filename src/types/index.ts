@@ -40,6 +40,7 @@ export interface Slide {
   durationSec: number;
   assetId?: string;
   style: SlideStyle;
+  language?: string; // Language code for translated slides
 }
 
 export interface Asset {

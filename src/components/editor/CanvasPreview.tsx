@@ -221,6 +221,7 @@ export const CanvasPreview = ({ slide, globalOverlay }: CanvasPreviewProps) => {
                     textAlign: currentSlide.style.text.alignment,
                     WebkitTextStroke: `${currentSlide.style.text.strokeWidth || 2}px ${currentSlide.style.text.stroke || "#000000"}`,
                     paintOrder: "stroke fill",
+                    filter: `drop-shadow(0 0 ${(currentSlide.style.text.fontSize || 48) * 0.2}px ${currentSlide.style.text.glow || "rgba(255,255,255,0.8)"}) drop-shadow(0 0 ${(currentSlide.style.text.fontSize || 48) * 0.4}px ${currentSlide.style.text.glow || "rgba(255,255,255,0.5)"})`,
                   }}
                 >
                   {currentSlide.title}
@@ -238,6 +239,7 @@ export const CanvasPreview = ({ slide, globalOverlay }: CanvasPreviewProps) => {
                       textAlign: currentSlide.style.text.alignment,
                       WebkitTextStroke: `${(currentSlide.style.text.strokeWidth || 2) * 0.75}px ${currentSlide.style.text.stroke || "#000000"}`,
                       paintOrder: "stroke fill",
+                      filter: `drop-shadow(0 0 ${(currentSlide.style.text.fontSize || 48) * 0.1}px ${currentSlide.style.text.glow || "rgba(255,255,255,0.8)"}) drop-shadow(0 0 ${(currentSlide.style.text.fontSize || 48) * 0.2}px ${currentSlide.style.text.glow || "rgba(255,255,255,0.5)"})`,
                     }}
                   >
                     {currentSlide.body}

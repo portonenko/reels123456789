@@ -11,6 +11,7 @@ import { useNavigate } from "react-router-dom";
 import { parseTextToSlides } from "@/utils/textParser";
 import { toast } from "sonner";
 import { Slide } from "@/types";
+import { supabase } from "@/integrations/supabase/client";
 
 const Editor = () => {
   const navigate = useNavigate();
@@ -48,38 +49,46 @@ const Editor = () => {
       return;
     }
 
-    // For now, we'll use a simple mock translation
-    // In production, this would call an AI translation service
-    const languageNames: Record<string, string> = {
-      en: "English",
-      de: "German",
-      pl: "Polish",
-      es: "Spanish",
-      fr: "French",
-      it: "Italian",
-      pt: "Portuguese",
-      uk: "Ukrainian",
-      zh: "Chinese",
-      ja: "Japanese",
-    };
+    try {
+      toast.info("Translating slides...");
 
-    const translatedSlides: Slide[] = [];
-    
-    for (const langCode of languages) {
-      const langName = languageNames[langCode];
-      slides.forEach((slide, index) => {
-        const translatedSlide: Slide = {
-          ...slide,
-          id: crypto.randomUUID(),
-          index: slides.length + translatedSlides.length,
-          title: `[${langName}] ${slide.title}`,
-          body: slide.body ? `[${langName}] ${slide.body}` : undefined,
-        };
-        translatedSlides.push(translatedSlide);
+      const { data, error } = await supabase.functions.invoke("translate-slides", {
+        body: {
+          slides: slides.map((slide) => ({
+            id: slide.id,
+            title: slide.title,
+            body: slide.body,
+            style: slide.style,
+            durationSec: slide.durationSec,
+            type: slide.type,
+            projectId: slide.projectId,
+          })),
+          targetLanguages: languages,
+        },
       });
-    }
 
-    setSlides([...slides, ...translatedSlides]);
+      if (error) throw error;
+
+      const translatedSlides: Slide[] = data.translatedSlides.map(
+        (ts: any, idx: number) => ({
+          ...ts,
+          index: slides.length + idx,
+        })
+      );
+
+      setSlides([...slides, ...translatedSlides]);
+      toast.success(`Created ${translatedSlides.length} translated slides`);
+    } catch (error: any) {
+      console.error("Translation error:", error);
+      if (error.message?.includes("429")) {
+        toast.error("Rate limit exceeded. Please try again later.");
+      } else if (error.message?.includes("402")) {
+        toast.error("Payment required. Please add credits to your workspace.");
+      } else {
+        toast.error("Translation failed. Please try again.");
+      }
+      throw error;
+    }
   };
 
   const handleExport = () => {

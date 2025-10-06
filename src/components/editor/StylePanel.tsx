@@ -315,6 +315,25 @@ export const StylePanel = ({
                     placeholder="0 4px 12px rgba(0,0,0,0.8)"
                   />
                 </div>
+
+                <div>
+                  <Label>Glow Color</Label>
+                  <Input
+                    type="color"
+                    value={slide.style.text.glow?.startsWith("rgba") ? "#FFFFFF" : slide.style.text.glow || "#FFFFFF"}
+                    onChange={(e) =>
+                      onUpdateSlide({
+                        style: {
+                          ...slide.style,
+                          text: { ...slide.style.text, glow: e.target.value },
+                        },
+                      })
+                    }
+                  />
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Soft glow effect around text
+                  </p>
+                </div>
               </>
             )}
           </TabsContent>
