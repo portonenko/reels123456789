@@ -37,10 +37,13 @@ serve(async (req) => {
       const langName = languageNames[langCode];
       
       for (const slide of slides) {
-        const prompt = `Translate the following text to ${langName}. Return ONLY the translated text without any additional explanation or formatting.
+        const prompt = `Translate the following text to ${langName}. 
 
-Title: ${slide.title}
-${slide.body ? `Body: ${slide.body}` : ""}`;
+IMPORTANT: Return ONLY the translated text without any labels, prefixes, or formatting. Do not include words like "Title:", "Text:", "Titel:", "Texto:", etc.
+
+Original text to translate:
+${slide.title}
+${slide.body || ""}`;
 
         const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
           method: "POST",
@@ -53,7 +56,7 @@ ${slide.body ? `Body: ${slide.body}` : ""}`;
             messages: [
               {
                 role: "system",
-                content: "You are a professional translator. Translate text accurately while preserving the meaning and tone.",
+                content: "You are a professional translator. Translate text accurately while preserving meaning and tone. Return ONLY the translated text without any labels, metadata, or formatting markers.",
               },
               { role: "user", content: prompt },
             ],
@@ -85,21 +88,21 @@ ${slide.body ? `Body: ${slide.body}` : ""}`;
         const data = await response.json();
         const translatedText = data.choices[0].message.content.trim();
         
-        // Parse the translation - expecting "Title: X\nBody: Y" format or just the text
-        const lines = translatedText.split("\n").filter((line: string) => line.trim());
+        // Remove common labels in multiple languages
+        let cleanedText = translatedText
+          .replace(/^(Title|Titel|Título|Titre|Titolo):\s*/i, '')
+          .replace(/\n(Body|Text|Texto|Texte|Testo):\s*/gi, '\n')
+          .replace(/^(Body|Text|Texto|Texte|Testo):\s*/i, '');
+        
+        // Split into title and body
+        const lines = cleanedText.split("\n").filter((line: string) => line.trim());
         let translatedTitle = "";
         let translatedBody = "";
 
-        if (lines[0].toLowerCase().startsWith("title:")) {
-          translatedTitle = lines[0].replace(/^title:\s*/i, "").trim();
-          if (lines[1]?.toLowerCase().startsWith("body:")) {
-            translatedBody = lines[1].replace(/^body:\s*/i, "").trim();
-          }
-        } else {
-          // If format is different, use the whole text as title
-          translatedTitle = lines[0];
+        if (lines.length > 0) {
+          translatedTitle = lines[0].trim();
           if (lines.length > 1) {
-            translatedBody = lines.slice(1).join(" ");
+            translatedBody = lines.slice(1).join(" ").trim();
           }
         }
 
@@ -107,7 +110,7 @@ ${slide.body ? `Body: ${slide.body}` : ""}`;
           ...slide,
           id: crypto.randomUUID(),
           title: `[${langName}] ${translatedTitle}`,
-          body: translatedBody ? `[${langName}] ${translatedBody}` : slide.body ? `[${langName}] ${slide.body}` : undefined,
+          body: translatedBody || undefined,
           language: langCode,
         });
       }
