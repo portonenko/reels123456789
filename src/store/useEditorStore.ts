@@ -127,10 +127,13 @@ export const useEditorStore = create<EditorStore>((set, get) => ({
     const { slides, assets } = get();
     if (assets.length === 0) return;
     
+    // Pick ONE random video for all slides
+    const randomAsset = assets[Math.floor(Math.random() * assets.length)];
+    
     set({
       slides: slides.map((slide) => ({
         ...slide,
-        assetId: assets[Math.floor(Math.random() * assets.length)].id,
+        assetId: randomAsset.id,
       })),
     });
   },
