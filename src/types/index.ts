@@ -9,6 +9,10 @@ export interface TextStyle {
   color: string;
   textShadow: string;
   alignment: "left" | "center" | "right";
+  // Text effects (when plate is disabled)
+  stroke?: string; // Text outline
+  strokeWidth?: number;
+  glow?: string; // Glow effect color
 }
 
 export interface PlateStyle {
@@ -16,6 +20,7 @@ export interface PlateStyle {
   borderRadius: number;
   opacity: number;
   backgroundColor: string;
+  enabled: boolean; // Toggle between plate and direct text effects
 }
 
 export interface SlideStyle {

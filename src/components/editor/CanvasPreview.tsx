@@ -164,47 +164,87 @@ export const CanvasPreview = ({ slide, globalOverlay }: CanvasPreviewProps) => {
               paddingBottom: `${currentSlide.style.safeMarginBottom}%`,
             }}
           >
-            <div
-              className="rounded-lg"
-              style={{
-                padding: `${currentSlide.style.plate.padding}px`,
-                borderRadius: `${currentSlide.style.plate.borderRadius}px`,
-                backgroundColor: currentSlide.style.plate.backgroundColor,
-                opacity: currentSlide.style.plate.opacity,
-              }}
-            >
-              <h1
-                className={cn("font-bold")}
+            {currentSlide.style.plate.enabled ? (
+              <div
+                className="rounded-lg"
                 style={{
-                  fontFamily: currentSlide.style.text.fontFamily,
-                  fontSize: `${currentSlide.style.text.fontSize}px`,
-                  fontWeight: currentSlide.style.text.fontWeight,
-                  lineHeight: currentSlide.style.text.lineHeight,
-                  letterSpacing: `${currentSlide.style.text.letterSpacing}em`,
-                  color: currentSlide.style.text.color,
-                  textShadow: currentSlide.style.text.textShadow,
-                  textAlign: currentSlide.style.text.alignment,
+                  padding: `${currentSlide.style.plate.padding}px`,
+                  borderRadius: `${currentSlide.style.plate.borderRadius}px`,
+                  backgroundColor: currentSlide.style.plate.backgroundColor,
+                  opacity: currentSlide.style.plate.opacity,
                 }}
               >
-                {currentSlide.title}
-              </h1>
-              {currentSlide.body && (
-                <p
-                  className="mt-3"
+                <h1
+                  className={cn("font-bold")}
                   style={{
                     fontFamily: currentSlide.style.text.fontFamily,
-                    fontSize: `${currentSlide.style.text.fontSize * 0.5}px`,
-                    fontWeight: currentSlide.style.text.fontWeight - 200,
-                    lineHeight: currentSlide.style.text.lineHeight * 1.2,
+                    fontSize: `${currentSlide.style.text.fontSize}px`,
+                    fontWeight: currentSlide.style.text.fontWeight,
+                    lineHeight: currentSlide.style.text.lineHeight,
+                    letterSpacing: `${currentSlide.style.text.letterSpacing}em`,
                     color: currentSlide.style.text.color,
                     textShadow: currentSlide.style.text.textShadow,
                     textAlign: currentSlide.style.text.alignment,
                   }}
                 >
-                  {currentSlide.body}
-                </p>
-              )}
-            </div>
+                  {currentSlide.title}
+                </h1>
+                {currentSlide.body && (
+                  <p
+                    className="mt-3"
+                    style={{
+                      fontFamily: currentSlide.style.text.fontFamily,
+                      fontSize: `${currentSlide.style.text.fontSize * 0.5}px`,
+                      fontWeight: currentSlide.style.text.fontWeight - 200,
+                      lineHeight: currentSlide.style.text.lineHeight * 1.2,
+                      color: currentSlide.style.text.color,
+                      textShadow: currentSlide.style.text.textShadow,
+                      textAlign: currentSlide.style.text.alignment,
+                    }}
+                  >
+                    {currentSlide.body}
+                  </p>
+                )}
+              </div>
+            ) : (
+              <div>
+                <h1
+                  className={cn("font-bold")}
+                  style={{
+                    fontFamily: currentSlide.style.text.fontFamily,
+                    fontSize: `${currentSlide.style.text.fontSize}px`,
+                    fontWeight: currentSlide.style.text.fontWeight,
+                    lineHeight: currentSlide.style.text.lineHeight,
+                    letterSpacing: `${currentSlide.style.text.letterSpacing}em`,
+                    color: currentSlide.style.text.color,
+                    textShadow: currentSlide.style.text.textShadow,
+                    textAlign: currentSlide.style.text.alignment,
+                    WebkitTextStroke: `${currentSlide.style.text.strokeWidth || 2}px ${currentSlide.style.text.stroke || "#000000"}`,
+                    paintOrder: "stroke fill",
+                  }}
+                >
+                  {currentSlide.title}
+                </h1>
+                {currentSlide.body && (
+                  <p
+                    className="mt-3"
+                    style={{
+                      fontFamily: currentSlide.style.text.fontFamily,
+                      fontSize: `${currentSlide.style.text.fontSize * 0.5}px`,
+                      fontWeight: currentSlide.style.text.fontWeight - 200,
+                      lineHeight: currentSlide.style.text.lineHeight * 1.2,
+                      color: currentSlide.style.text.color,
+                      textShadow: currentSlide.style.text.textShadow,
+                      textAlign: currentSlide.style.text.alignment,
+                      WebkitTextStroke: `${(currentSlide.style.text.strokeWidth || 2) * 0.75}px ${currentSlide.style.text.stroke || "#000000"}`,
+                      paintOrder: "stroke fill",
+                    }}
+                  >
+                    {currentSlide.body}
+                  </p>
+                )}
+              </div>
+            )}
           </div>
 
           {/* Duration indicator */}

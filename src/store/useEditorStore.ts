@@ -11,12 +11,16 @@ const DEFAULT_STYLE: SlideStyle = {
     color: "#FFFFFF",
     textShadow: "0 2px 8px rgba(0,0,0,0.5)",
     alignment: "center",
+    stroke: "#000000",
+    strokeWidth: 2,
+    glow: "rgba(255,255,255,0.5)",
   },
   plate: {
     padding: 24,
     borderRadius: 16,
     opacity: 0.8,
     backgroundColor: "#000000",
+    enabled: true,
   },
   safeMarginTop: 10,
   safeMarginBottom: 10,
@@ -35,6 +39,8 @@ interface EditorStore {
   deleteSlide: (id: string) => void;
   duplicateSlide: (id: string) => void;
   reorderSlides: (startIndex: number, endIndex: number) => void;
+  applyStyleToAll: (sourceSlideId: string) => void;
+  applyDurationToAll: (duration: number) => void;
   
   setAssets: (assets: Asset[]) => void;
   addAsset: (asset: Asset) => void;
@@ -103,6 +109,27 @@ export const useEditorStore = create<EditorStore>((set, get) => ({
         slides: result.map((slide, index) => ({ ...slide, index })),
       };
     });
+  },
+  
+  applyStyleToAll: (sourceSlideId) => {
+    const sourceSlide = get().slides.find((s) => s.id === sourceSlideId);
+    if (!sourceSlide) return;
+    
+    set((state) => ({
+      slides: state.slides.map((slide) => ({
+        ...slide,
+        style: { ...sourceSlide.style },
+      })),
+    }));
+  },
+
+  applyDurationToAll: (duration) => {
+    set((state) => ({
+      slides: state.slides.map((slide) => ({
+        ...slide,
+        durationSec: duration,
+      })),
+    }));
   },
   
   setAssets: (assets) => set({ assets }),

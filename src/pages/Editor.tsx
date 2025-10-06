@@ -4,15 +4,18 @@ import { SlideCard } from "@/components/editor/SlideCard";
 import { CanvasPreview } from "@/components/editor/CanvasPreview";
 import { StylePanel } from "@/components/editor/StylePanel";
 import { TextInputDialog } from "@/components/editor/TextInputDialog";
+import { TranslationDialog } from "@/components/editor/TranslationDialog";
 import { Button } from "@/components/ui/button";
-import { Sparkles, Home, Download, Shuffle } from "lucide-react";
+import { Sparkles, Home, Download, Shuffle, Languages } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { parseTextToSlides } from "@/utils/textParser";
 import { toast } from "sonner";
+import { Slide } from "@/types";
 
 const Editor = () => {
   const navigate = useNavigate();
   const [showTextDialog, setShowTextDialog] = useState(false);
+  const [showTranslationDialog, setShowTranslationDialog] = useState(false);
   
   const {
     slides,
@@ -37,6 +40,46 @@ const Editor = () => {
       setSelectedSlideId(parsedSlides[0].id);
     }
     toast.success(`Created ${parsedSlides.length} slides`);
+  };
+
+  const handleTranslate = async (languages: string[]) => {
+    if (slides.length === 0) {
+      toast.error("No slides to translate");
+      return;
+    }
+
+    // For now, we'll use a simple mock translation
+    // In production, this would call an AI translation service
+    const languageNames: Record<string, string> = {
+      en: "English",
+      de: "German",
+      pl: "Polish",
+      es: "Spanish",
+      fr: "French",
+      it: "Italian",
+      pt: "Portuguese",
+      uk: "Ukrainian",
+      zh: "Chinese",
+      ja: "Japanese",
+    };
+
+    const translatedSlides: Slide[] = [];
+    
+    for (const langCode of languages) {
+      const langName = languageNames[langCode];
+      slides.forEach((slide, index) => {
+        const translatedSlide: Slide = {
+          ...slide,
+          id: crypto.randomUUID(),
+          index: slides.length + translatedSlides.length,
+          title: `[${langName}] ${slide.title}`,
+          body: slide.body ? `[${langName}] ${slide.body}` : undefined,
+        };
+        translatedSlides.push(translatedSlide);
+      });
+    }
+
+    setSlides([...slides, ...translatedSlides]);
   };
 
   const handleExport = () => {
@@ -72,6 +115,15 @@ const Editor = () => {
           >
             <Shuffle className="w-4 h-4 mr-2" />
             Randomize
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setShowTranslationDialog(true)}
+            disabled={slides.length === 0}
+          >
+            <Languages className="w-4 h-4 mr-2" />
+            Translate
           </Button>
           <Button
             size="sm"
@@ -148,6 +200,12 @@ const Editor = () => {
         open={showTextDialog}
         onClose={() => setShowTextDialog(false)}
         onParse={handleParseText}
+      />
+
+      <TranslationDialog
+        open={showTranslationDialog}
+        onClose={() => setShowTranslationDialog(false)}
+        onTranslate={handleTranslate}
       />
     </div>
   );

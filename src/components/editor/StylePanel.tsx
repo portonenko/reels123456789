@@ -4,6 +4,10 @@ import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Slider } from "@/components/ui/slider";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Button } from "@/components/ui/button";
+import { Switch } from "@/components/ui/switch";
+import { useEditorStore } from "@/store/useEditorStore";
+import { toast } from "sonner";
 
 interface StylePanelProps {
   slide: Slide | null;
@@ -27,6 +31,20 @@ export const StylePanel = ({
   onUpdateSlide,
   onUpdateGlobalOverlay,
 }: StylePanelProps) => {
+  const { applyStyleToAll, applyDurationToAll, slides } = useEditorStore();
+
+  const handleApplyStyleToAll = () => {
+    if (!slide) return;
+    applyStyleToAll(slide.id);
+    toast.success(`Applied style to all ${slides.length} slides`);
+  };
+
+  const handleApplyDurationToAll = () => {
+    if (!slide) return;
+    applyDurationToAll(slide.durationSec);
+    toast.success(`Applied ${slide.durationSec}s duration to all ${slides.length} slides`);
+  };
+  
   if (!slide) {
     return (
       <div className="h-full flex items-center justify-center bg-panel rounded-lg">
@@ -148,78 +166,157 @@ export const StylePanel = ({
                 </SelectContent>
               </Select>
             </div>
+
+            <Button 
+              variant="outline" 
+              className="w-full" 
+              onClick={handleApplyStyleToAll}
+            >
+              Apply Text Style to All Slides
+            </Button>
           </TabsContent>
 
           <TabsContent value="plate" className="space-y-4 mt-0">
-            <div>
-              <Label>Padding: {slide.style.plate.padding}px</Label>
-              <Slider
-                value={[slide.style.plate.padding]}
-                onValueChange={([value]) =>
+            <div className="flex items-center justify-between">
+              <Label>Enable Background Plate</Label>
+              <Switch
+                checked={slide.style.plate.enabled}
+                onCheckedChange={(checked) =>
                   onUpdateSlide({
                     style: {
                       ...slide.style,
-                      plate: { ...slide.style.plate, padding: value },
+                      plate: { ...slide.style.plate, enabled: checked },
                     },
                   })
                 }
-                min={0}
-                max={64}
-                step={4}
               />
             </div>
 
-            <div>
-              <Label>Border Radius: {slide.style.plate.borderRadius}px</Label>
-              <Slider
-                value={[slide.style.plate.borderRadius]}
-                onValueChange={([value]) =>
-                  onUpdateSlide({
-                    style: {
-                      ...slide.style,
-                      plate: { ...slide.style.plate, borderRadius: value },
-                    },
-                  })
-                }
-                min={0}
-                max={32}
-                step={2}
-              />
-            </div>
+            {slide.style.plate.enabled ? (
+              <>
+                <div>
+                  <Label>Padding: {slide.style.plate.padding}px</Label>
+                  <Slider
+                    value={[slide.style.plate.padding]}
+                    onValueChange={([value]) =>
+                      onUpdateSlide({
+                        style: {
+                          ...slide.style,
+                          plate: { ...slide.style.plate, padding: value },
+                        },
+                      })
+                    }
+                    min={0}
+                    max={64}
+                    step={4}
+                  />
+                </div>
 
-            <div>
-              <Label>Opacity: {slide.style.plate.opacity}</Label>
-              <Slider
-                value={[slide.style.plate.opacity]}
-                onValueChange={([value]) =>
-                  onUpdateSlide({
-                    style: {
-                      ...slide.style,
-                      plate: { ...slide.style.plate, opacity: value },
-                    },
-                  })
-                }
-                min={0}
-                max={1}
-                step={0.05}
-              />
-            </div>
+                <div>
+                  <Label>Border Radius: {slide.style.plate.borderRadius}px</Label>
+                  <Slider
+                    value={[slide.style.plate.borderRadius]}
+                    onValueChange={([value]) =>
+                      onUpdateSlide({
+                        style: {
+                          ...slide.style,
+                          plate: { ...slide.style.plate, borderRadius: value },
+                        },
+                      })
+                    }
+                    min={0}
+                    max={32}
+                    step={2}
+                  />
+                </div>
 
-            <div>
-              <Label>Background Color</Label>
-              <Input
-                type="color"
-                value={slide.style.plate.backgroundColor}
-                onChange={(e) =>
-                  onUpdateSlide({
-                    style: {
-                      ...slide.style,
-                      plate: { ...slide.style.plate, backgroundColor: e.target.value },
-                    },
-                  })
-                }
-              />
-            </div>
+                <div>
+                  <Label>Opacity: {slide.style.plate.opacity}</Label>
+                  <Slider
+                    value={[slide.style.plate.opacity]}
+                    onValueChange={([value]) =>
+                      onUpdateSlide({
+                        style: {
+                          ...slide.style,
+                          plate: { ...slide.style.plate, opacity: value },
+                        },
+                      })
+                    }
+                    min={0}
+                    max={1}
+                    step={0.05}
+                  />
+                </div>
+
+                <div>
+                  <Label>Background Color</Label>
+                  <Input
+                    type="color"
+                    value={slide.style.plate.backgroundColor}
+                    onChange={(e) =>
+                      onUpdateSlide({
+                        style: {
+                          ...slide.style,
+                          plate: { ...slide.style.plate, backgroundColor: e.target.value },
+                        },
+                      })
+                    }
+                  />
+                </div>
+              </>
+            ) : (
+              <>
+                <div>
+                  <Label>Text Outline Color</Label>
+                  <Input
+                    type="color"
+                    value={slide.style.text.stroke || "#000000"}
+                    onChange={(e) =>
+                      onUpdateSlide({
+                        style: {
+                          ...slide.style,
+                          text: { ...slide.style.text, stroke: e.target.value },
+                        },
+                      })
+                    }
+                  />
+                </div>
+
+                <div>
+                  <Label>Outline Width: {slide.style.text.strokeWidth || 2}px</Label>
+                  <Slider
+                    value={[slide.style.text.strokeWidth || 2]}
+                    onValueChange={([value]) =>
+                      onUpdateSlide({
+                        style: {
+                          ...slide.style,
+                          text: { ...slide.style.text, strokeWidth: value },
+                        },
+                      })
+                    }
+                    min={0}
+                    max={8}
+                    step={1}
+                  />
+                </div>
+
+                <div>
+                  <Label>Enhanced Text Shadow</Label>
+                  <Input
+                    value={slide.style.text.textShadow}
+                    onChange={(e) =>
+                      onUpdateSlide({
+                        style: {
+                          ...slide.style,
+                          text: { ...slide.style.text, textShadow: e.target.value },
+                        },
+                      })
+                    }
+                    placeholder="0 4px 12px rgba(0,0,0,0.8)"
+                  />
+                </div>
+              </>
+            )}
           </TabsContent>
 
           <TabsContent value="shadow" className="space-y-4 mt-0">
@@ -264,6 +361,14 @@ export const StylePanel = ({
                 step={0.5}
               />
             </div>
+
+            <Button 
+              variant="outline" 
+              className="w-full" 
+              onClick={handleApplyDurationToAll}
+            >
+              Apply Duration to All Slides
+            </Button>
           </TabsContent>
         </div>
       </Tabs>
