@@ -77,7 +77,7 @@ const renderSlideToCanvas = (
     ctx.globalAlpha = 1;
   }
 
-  // Draw title
+  // Draw title with text wrapping
   ctx.font = `${slide.style.text.fontWeight} ${slide.style.text.fontSize * 2}px ${slide.style.text.fontFamily}`;
   ctx.fillStyle = slide.style.text.color;
   
@@ -91,47 +91,86 @@ const renderSlideToCanvas = (
     }
   }
 
-  // Text stroke if plate is disabled
-  if (!slide.style.plate.enabled && slide.style.text.stroke) {
-    ctx.strokeStyle = slide.style.text.stroke;
-    ctx.lineWidth = (slide.style.text.strokeWidth || 2) * 2;
-    ctx.strokeText(cleanTitle, centerX, textY);
+  // Wrap title text
+  const maxWidth = canvas.width * 0.85;
+  const titleWords = cleanTitle.split(' ');
+  let titleLine = '';
+  const titleLines: string[] = [];
+
+  for (const word of titleWords) {
+    const testLine = titleLine + word + ' ';
+    const metrics = ctx.measureText(testLine);
+    if (metrics.width > maxWidth && titleLine.length > 0) {
+      titleLines.push(titleLine.trim());
+      titleLine = word + ' ';
+    } else {
+      titleLine = testLine;
+    }
+  }
+  if (titleLine.trim()) {
+    titleLines.push(titleLine.trim());
   }
 
-  ctx.fillText(cleanTitle, centerX, textY);
+  // Calculate title block height
+  const titleLineHeight = slide.style.text.fontSize * 2 * slide.style.text.lineHeight;
+  const titleBlockHeight = titleLines.length * titleLineHeight;
+  
+  // Adjust starting Y position to center the entire text block
+  let currentY = textY - (titleBlockHeight / 2);
+  
+  if (cleanBody) {
+    // If there's body text, adjust to account for both title and body
+    const bodyFontSize = (slide.style.text.bodyFontSize || slide.style.text.fontSize) * 1.2;
+    const bodyLineHeight = bodyFontSize * slide.style.text.lineHeight * 1.2;
+    const estimatedBodyHeight = bodyLineHeight * 3; // Rough estimate
+    const totalHeight = titleBlockHeight + 30 + estimatedBodyHeight;
+    currentY = textY - (totalHeight / 2);
+  }
+
+  // Draw title lines
+  titleLines.forEach((line) => {
+    if (!slide.style.plate.enabled && slide.style.text.stroke) {
+      ctx.strokeStyle = slide.style.text.stroke;
+      ctx.lineWidth = (slide.style.text.strokeWidth || 2) * 2;
+      ctx.strokeText(line, centerX, currentY);
+    }
+    ctx.fillText(line, centerX, currentY);
+    currentY += titleLineHeight;
+  });
 
   // Draw body if exists
   if (cleanBody) {
-    textY += (slide.style.text.fontSize * 2 * slide.style.text.lineHeight) / 2 + 30;
+    currentY += 30; // Space between title and body
     ctx.font = `${slide.style.text.bodyFontWeight || slide.style.text.fontWeight - 200} ${(slide.style.text.bodyFontSize || slide.style.text.fontSize) * 1.2}px ${slide.style.text.fontFamily}`;
     
-    // Wrap text
-    const maxWidth = canvas.width * 0.85;
-    const words = cleanBody.split(' ');
-    let line = '';
-    const lines: string[] = [];
+    // Wrap body text
+    const bodyWords = cleanBody.split(' ');
+    let bodyLine = '';
+    const bodyLines: string[] = [];
 
-    for (const word of words) {
-      const testLine = line + word + ' ';
+    for (const word of bodyWords) {
+      const testLine = bodyLine + word + ' ';
       const metrics = ctx.measureText(testLine);
-      if (metrics.width > maxWidth && line.length > 0) {
-        lines.push(line);
-        line = word + ' ';
+      if (metrics.width > maxWidth && bodyLine.length > 0) {
+        bodyLines.push(bodyLine.trim());
+        bodyLine = word + ' ';
       } else {
-        line = testLine;
+        bodyLine = testLine;
       }
     }
-    lines.push(line);
+    if (bodyLine.trim()) {
+      bodyLines.push(bodyLine.trim());
+    }
 
-    const lineHeight = (slide.style.text.bodyFontSize || slide.style.text.fontSize) * 1.2 * slide.style.text.lineHeight * 1.2;
-    lines.forEach((line, i) => {
-      const y = textY + i * lineHeight;
+    const bodyLineHeight = (slide.style.text.bodyFontSize || slide.style.text.fontSize) * 1.2 * slide.style.text.lineHeight * 1.2;
+    bodyLines.forEach((line) => {
       if (!slide.style.plate.enabled && slide.style.text.stroke) {
         ctx.strokeStyle = slide.style.text.stroke;
         ctx.lineWidth = ((slide.style.text.strokeWidth || 2) * 0.75) * 2;
-        ctx.strokeText(line, centerX, y);
+        ctx.strokeText(line, centerX, currentY);
       }
-      ctx.fillText(line, centerX, y);
+      ctx.fillText(line, centerX, currentY);
+      currentY += bodyLineHeight;
     });
   }
 

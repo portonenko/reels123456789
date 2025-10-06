@@ -185,6 +185,8 @@ export const CanvasPreview = ({ slide, globalOverlay }: CanvasPreviewProps) => {
                     color: currentSlide.style.text.color,
                     textShadow: currentSlide.style.text.textShadow,
                     textAlign: currentSlide.style.text.alignment,
+                    wordWrap: "break-word",
+                    maxWidth: "90%",
                   }}
                 >
                   {currentSlide.title.replace(/^\[.*?\]\s*/, '')}
@@ -200,6 +202,8 @@ export const CanvasPreview = ({ slide, globalOverlay }: CanvasPreviewProps) => {
                       color: currentSlide.style.text.color,
                       textShadow: currentSlide.style.text.textShadow,
                       textAlign: currentSlide.style.text.alignment,
+                      wordWrap: "break-word",
+                      maxWidth: "90%",
                     }}
                   >
                     {currentSlide.body.replace(/^\[.*?\]\s*/, '')}
@@ -222,6 +226,8 @@ export const CanvasPreview = ({ slide, globalOverlay }: CanvasPreviewProps) => {
                     WebkitTextStroke: `${currentSlide.style.text.strokeWidth || 2}px ${currentSlide.style.text.stroke || "#000000"}`,
                     paintOrder: "stroke fill",
                     filter: `drop-shadow(0 0 ${(currentSlide.style.text.fontSize || 48) * 0.2}px ${currentSlide.style.text.glow || "rgba(255,255,255,0.8)"}) drop-shadow(0 0 ${(currentSlide.style.text.fontSize || 48) * 0.4}px ${currentSlide.style.text.glow || "rgba(255,255,255,0.5)"})`,
+                    wordWrap: "break-word",
+                    maxWidth: "90%",
                   }}
                 >
                   {currentSlide.title.replace(/^\[.*?\]\s*/, '')}
@@ -240,6 +246,8 @@ export const CanvasPreview = ({ slide, globalOverlay }: CanvasPreviewProps) => {
                       WebkitTextStroke: `${(currentSlide.style.text.strokeWidth || 2) * 0.75}px ${currentSlide.style.text.stroke || "#000000"}`,
                       paintOrder: "stroke fill",
                       filter: `drop-shadow(0 0 ${(currentSlide.style.text.fontSize || 48) * 0.1}px ${currentSlide.style.text.glow || "rgba(255,255,255,0.8)"}) drop-shadow(0 0 ${(currentSlide.style.text.fontSize || 48) * 0.2}px ${currentSlide.style.text.glow || "rgba(255,255,255,0.5)"})`,
+                      wordWrap: "break-word",
+                      maxWidth: "90%",
                     }}
                   >
                     {currentSlide.body.replace(/^\[.*?\]\s*/, '')}
