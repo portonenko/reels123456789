@@ -71,9 +71,31 @@ export const AIMusicGenerator = ({ lang = 'en' }: AIMusicGeneratorProps) => {
         return;
       }
 
-      if (!data?.audioUrl) {
-        throw new Error("No audio URL returned");
+      // Handle real audio generation
+      if (data?.audioData) {
+        // Convert base64 to blob
+        const binaryString = atob(data.audioData);
+        const bytes = new Uint8Array(binaryString.length);
+        for (let i = 0; i < binaryString.length; i++) {
+          bytes[i] = binaryString.charCodeAt(i);
+        }
+        const blob = new Blob([bytes], { type: 'audio/mpeg' });
+        const audioUrl = URL.createObjectURL(blob);
+        
+        setBackgroundMusic(audioUrl);
+        
+        toast.success(
+          lang === 'ru' 
+            ? '🎵 Музыка успешно сгенерирована!'
+            : '🎵 Music generated successfully!',
+          { duration: 3000 }
+        );
+        
+        console.log('Music Brief:', data.musicBrief);
+        return;
       }
+
+      throw new Error("No audio data returned");
 
       setBackgroundMusic(data.audioUrl);
       toast.success(lang === 'ru' ? "Музыка создана!" : "Music generated!");
