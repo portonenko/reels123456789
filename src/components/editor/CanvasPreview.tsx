@@ -1,6 +1,9 @@
+import { useEffect, useState, useRef } from "react";
 import { Slide } from "@/types";
 import { cn } from "@/lib/utils";
 import { useEditorStore } from "@/store/useEditorStore";
+import { Button } from "@/components/ui/button";
+import { Play, Pause, RotateCcw } from "lucide-react";
 
 interface CanvasPreviewProps {
   slide: Slide | null;
@@ -8,9 +11,66 @@ interface CanvasPreviewProps {
 }
 
 export const CanvasPreview = ({ slide, globalOverlay }: CanvasPreviewProps) => {
-  const { assets } = useEditorStore();
+  const { assets, slides, setSelectedSlideId } = useEditorStore();
+  const [isPlaying, setIsPlaying] = useState(false);
+  const [currentSlideIndex, setCurrentSlideIndex] = useState(0);
+  const timerRef = useRef<NodeJS.Timeout | null>(null);
+  const videoRef = useRef<HTMLVideoElement>(null);
+
+  const currentSlide = isPlaying ? slides[currentSlideIndex] : slide;
   
-  if (!slide) {
+  useEffect(() => {
+    if (slide) {
+      const index = slides.findIndex((s) => s.id === slide.id);
+      if (index !== -1 && !isPlaying) {
+        setCurrentSlideIndex(index);
+      }
+    }
+  }, [slide, slides, isPlaying]);
+
+  useEffect(() => {
+    if (isPlaying && slides.length > 0) {
+      const currentSlideDuration = slides[currentSlideIndex]?.durationSec || 2;
+      
+      timerRef.current = setTimeout(() => {
+        if (currentSlideIndex < slides.length - 1) {
+          setCurrentSlideIndex(currentSlideIndex + 1);
+        } else {
+          setIsPlaying(false);
+          setCurrentSlideIndex(0);
+        }
+      }, currentSlideDuration * 1000);
+      
+      return () => {
+        if (timerRef.current) clearTimeout(timerRef.current);
+      };
+    }
+  }, [isPlaying, currentSlideIndex, slides]);
+
+  const handlePlayPause = () => {
+    if (isPlaying) {
+      setIsPlaying(false);
+      if (timerRef.current) clearTimeout(timerRef.current);
+    } else {
+      setIsPlaying(true);
+      if (videoRef.current) {
+        videoRef.current.currentTime = 0;
+        videoRef.current.play();
+      }
+    }
+  };
+
+  const handleRestart = () => {
+    setCurrentSlideIndex(0);
+    setIsPlaying(false);
+    if (timerRef.current) clearTimeout(timerRef.current);
+    if (videoRef.current) {
+      videoRef.current.currentTime = 0;
+      videoRef.current.pause();
+    }
+  };
+  
+  if (!currentSlide) {
     return (
       <div className="w-full h-full flex items-center justify-center bg-canvas rounded-lg">
         <p className="text-muted-foreground">Select a slide to preview</p>
@@ -19,18 +79,57 @@ export const CanvasPreview = ({ slide, globalOverlay }: CanvasPreviewProps) => {
   }
 
   const overlayOpacity = globalOverlay / 100;
-  const backgroundAsset = assets.find((a) => a.id === slide.assetId);
+  const backgroundAsset = assets.find((a) => a.id === currentSlide.assetId);
 
   return (
-    <div className="w-full h-full flex items-center justify-center bg-canvas rounded-lg p-8">
+    <div className="w-full h-full flex flex-col items-center justify-center bg-canvas rounded-lg p-8">
+      {/* Playback controls */}
+      <div className="mb-4 flex gap-2">
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={handlePlayPause}
+          disabled={slides.length === 0}
+        >
+          {isPlaying ? (
+            <>
+              <Pause className="w-4 h-4 mr-2" />
+              Pause
+            </>
+          ) : (
+            <>
+              <Play className="w-4 h-4 mr-2" />
+              Play Timeline
+            </>
+          )}
+        </Button>
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={handleRestart}
+          disabled={slides.length === 0}
+        >
+          <RotateCcw className="w-4 h-4 mr-2" />
+          Restart
+        </Button>
+        {isPlaying && (
+          <div className="flex items-center gap-2 px-3 py-1 bg-card rounded-md border border-border">
+            <span className="text-sm text-muted-foreground">
+              Slide {currentSlideIndex + 1} of {slides.length}
+            </span>
+          </div>
+        )}
+      </div>
+
       {/* 9:16 aspect ratio container */}
       <div className="relative bg-black rounded-lg overflow-hidden shadow-2xl" style={{ width: "360px", height: "640px" }}>
         {/* Background video */}
         {backgroundAsset ? (
           <video
+            ref={videoRef}
             src={backgroundAsset.url}
             className="absolute inset-0 w-full h-full object-cover"
-            autoPlay
+            autoPlay={isPlaying}
             loop
             muted
           />
@@ -45,59 +144,59 @@ export const CanvasPreview = ({ slide, globalOverlay }: CanvasPreviewProps) => {
         />
 
         {/* Text content */}
-        <div
-          className="absolute inset-0 flex flex-col items-center justify-center p-6"
-          style={{
-            paddingTop: `${slide.style.safeMarginTop}%`,
-            paddingBottom: `${slide.style.safeMarginBottom}%`,
-          }}
-        >
           <div
-            className="rounded-lg"
+            className="absolute inset-0 flex flex-col items-center justify-center p-6"
             style={{
-              padding: `${slide.style.plate.padding}px`,
-              borderRadius: `${slide.style.plate.borderRadius}px`,
-              backgroundColor: slide.style.plate.backgroundColor,
-              opacity: slide.style.plate.opacity,
+              paddingTop: `${currentSlide.style.safeMarginTop}%`,
+              paddingBottom: `${currentSlide.style.safeMarginBottom}%`,
             }}
           >
-            <h1
-              className={cn("font-bold")}
+            <div
+              className="rounded-lg"
               style={{
-                fontFamily: slide.style.text.fontFamily,
-                fontSize: `${slide.style.text.fontSize}px`,
-                fontWeight: slide.style.text.fontWeight,
-                lineHeight: slide.style.text.lineHeight,
-                letterSpacing: `${slide.style.text.letterSpacing}em`,
-                color: slide.style.text.color,
-                textShadow: slide.style.text.textShadow,
-                textAlign: slide.style.text.alignment,
+                padding: `${currentSlide.style.plate.padding}px`,
+                borderRadius: `${currentSlide.style.plate.borderRadius}px`,
+                backgroundColor: currentSlide.style.plate.backgroundColor,
+                opacity: currentSlide.style.plate.opacity,
               }}
             >
-              {slide.title}
-            </h1>
-            {slide.body && (
-              <p
-                className="mt-3"
+              <h1
+                className={cn("font-bold")}
                 style={{
-                  fontFamily: slide.style.text.fontFamily,
-                  fontSize: `${slide.style.text.fontSize * 0.5}px`,
-                  fontWeight: slide.style.text.fontWeight - 200,
-                  lineHeight: slide.style.text.lineHeight * 1.2,
-                  color: slide.style.text.color,
-                  textShadow: slide.style.text.textShadow,
-                  textAlign: slide.style.text.alignment,
+                  fontFamily: currentSlide.style.text.fontFamily,
+                  fontSize: `${currentSlide.style.text.fontSize}px`,
+                  fontWeight: currentSlide.style.text.fontWeight,
+                  lineHeight: currentSlide.style.text.lineHeight,
+                  letterSpacing: `${currentSlide.style.text.letterSpacing}em`,
+                  color: currentSlide.style.text.color,
+                  textShadow: currentSlide.style.text.textShadow,
+                  textAlign: currentSlide.style.text.alignment,
                 }}
               >
-                {slide.body}
-              </p>
-            )}
+                {currentSlide.title}
+              </h1>
+              {currentSlide.body && (
+                <p
+                  className="mt-3"
+                  style={{
+                    fontFamily: currentSlide.style.text.fontFamily,
+                    fontSize: `${currentSlide.style.text.fontSize * 0.5}px`,
+                    fontWeight: currentSlide.style.text.fontWeight - 200,
+                    lineHeight: currentSlide.style.text.lineHeight * 1.2,
+                    color: currentSlide.style.text.color,
+                    textShadow: currentSlide.style.text.textShadow,
+                    textAlign: currentSlide.style.text.alignment,
+                  }}
+                >
+                  {currentSlide.body}
+                </p>
+              )}
+            </div>
           </div>
-        </div>
 
-        {/* Duration indicator */}
-        <div className="absolute bottom-4 left-4 bg-black/70 text-white text-xs px-2 py-1 rounded">
-          {slide.durationSec}s
+          {/* Duration indicator */}
+          <div className="absolute bottom-4 left-4 bg-black/70 text-white text-xs px-2 py-1 rounded">
+            {currentSlide.durationSec}s
         </div>
       </div>
     </div>
