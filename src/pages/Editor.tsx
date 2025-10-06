@@ -5,6 +5,7 @@ import { CanvasPreview } from "@/components/editor/CanvasPreview";
 import { StylePanel } from "@/components/editor/StylePanel";
 import { TextInputDialog } from "@/components/editor/TextInputDialog";
 import { TranslationDialog } from "@/components/editor/TranslationDialog";
+import { ExportDialog } from "@/components/editor/ExportDialog";
 import { Button } from "@/components/ui/button";
 import { Sparkles, Home, Download, Shuffle, Languages } from "lucide-react";
 import { useNavigate } from "react-router-dom";
@@ -17,6 +18,7 @@ const Editor = () => {
   const navigate = useNavigate();
   const [showTextDialog, setShowTextDialog] = useState(false);
   const [showTranslationDialog, setShowTranslationDialog] = useState(false);
+  const [showExportDialog, setShowExportDialog] = useState(false);
   
   const {
     slides,
@@ -103,20 +105,7 @@ const Editor = () => {
   };
 
   const handleExport = () => {
-    // Group slides by language
-    const slidesByLanguage: Record<string, typeof slides> = slides.reduce((acc, slide) => {
-      const lang = slide.language || "original";
-      if (!acc[lang]) acc[lang] = [];
-      acc[lang].push(slide);
-      return acc;
-    }, {} as Record<string, typeof slides>);
-
-    const languageCount = Object.keys(slidesByLanguage).length;
-    
-    toast.info(
-      `Export feature coming soon! You have ${languageCount} language version(s) to export: ${Object.keys(slidesByLanguage).join(", ")}`,
-      { duration: 5000 }
-    );
+    setShowExportDialog(true);
   };
 
   return (
@@ -239,6 +228,12 @@ const Editor = () => {
         open={showTranslationDialog}
         onClose={() => setShowTranslationDialog(false)}
         onTranslate={handleTranslate}
+      />
+
+      <ExportDialog
+        open={showExportDialog}
+        onClose={() => setShowExportDialog(false)}
+        slides={slides}
       />
     </div>
   );
