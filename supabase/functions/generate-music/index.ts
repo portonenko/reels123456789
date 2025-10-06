@@ -88,25 +88,24 @@ Format as a detailed music brief that could be used with a music generation API.
     // NOTE: This is where you would integrate with a music generation API
     // Examples: Mubert, Soundraw, AIVA, ElevenLabs Music, Suno
     
-    // For now, return the AI analysis with instructions
+    // Return the AI analysis with status 200 so the client can read it
     return new Response(
       JSON.stringify({ 
-        error: 'Music API not integrated',
+        status: 'api_not_integrated',
         musicBrief,
         instructions: `To enable music generation:
 1. Sign up for a music generation API (Mubert, Soundraw, or ElevenLabs)
 2. Add the API key as a secret
-3. The AI has analyzed your content and created this music brief:
-
-${musicBrief}
-
-For now, you can:
-- Upload your own music that matches this brief
-- Use free stock music from sites like Pixabay or Incompetech
-- Contact support@lovable.dev for music API integration assistance`,
+3. The AI has analyzed your content and created this music brief that you can use to find matching stock music.`,
+        suggestions: [
+          'Use free stock music from Pixabay (pixabay.com/music)',
+          'Try Incompetech (incompetech.com) for royalty-free music',
+          'Search for music matching the AI brief on YouTube Audio Library',
+          'Contact support@lovable.dev for music API integration assistance'
+        ]
       }),
       {
-        status: 501,
+        status: 200,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       },
     );

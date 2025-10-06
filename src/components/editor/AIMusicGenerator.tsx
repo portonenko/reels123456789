@@ -45,26 +45,31 @@ export const AIMusicGenerator = ({ lang = 'en' }: AIMusicGeneratorProps) => {
         },
       });
 
-      // Check if it's the "not implemented" response (501)
-      if (data?.error && data?.musicBrief) {
-        // Show the AI-generated music brief in a toast
-        toast.info(
+      if (error) throw error;
+
+      // Check if it's the "not implemented" response
+      if (data?.status === 'api_not_integrated' && data?.musicBrief) {
+        // Show a nice summary toast
+        toast.success(
           lang === 'ru' 
-            ? `AI проанализировал ваш контент:\n\n${data.musicBrief.substring(0, 200)}...\n\nДля генерации музыки нужна интеграция с музыкальным API. Пока вы можете загрузить свою музыку или найти похожую на Pixabay/Incompetech.`
-            : `AI analyzed your content:\n\n${data.musicBrief.substring(0, 200)}...\n\nMusic generation requires API integration. For now, upload your own music or find matching tracks on Pixabay/Incompetech.`,
-          { 
-            duration: 8000,
-          }
+            ? 'AI проанализировал ваш контент! Смотрите консоль браузера для деталей.'
+            : 'AI analyzed your content! Check browser console for details.',
+          { duration: 5000 }
         );
         
-        // Also log the full brief to console for the user
-        console.log('Full AI Music Brief:', data.musicBrief);
-        console.log('Instructions:', data.instructions);
+        // Log the full brief and suggestions to console
+        console.log('═══════════════════════════════════════════════');
+        console.log('🎵 AI Music Brief for Your Video');
+        console.log('═══════════════════════════════════════════════');
+        console.log('\n📋 Full Music Specification:\n');
+        console.log(data.musicBrief);
+        console.log('\n💡 Suggestions:\n');
+        data.suggestions?.forEach((s: string, i: number) => console.log(`${i + 1}. ${s}`));
+        console.log('\n' + data.instructions);
+        console.log('═══════════════════════════════════════════════\n');
         
         return;
       }
-
-      if (error) throw error;
 
       if (!data?.audioUrl) {
         throw new Error("No audio URL returned");
