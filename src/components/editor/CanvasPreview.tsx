@@ -1,5 +1,6 @@
 import { Slide } from "@/types";
 import { cn } from "@/lib/utils";
+import { useEditorStore } from "@/store/useEditorStore";
 
 interface CanvasPreviewProps {
   slide: Slide | null;
@@ -7,6 +8,8 @@ interface CanvasPreviewProps {
 }
 
 export const CanvasPreview = ({ slide, globalOverlay }: CanvasPreviewProps) => {
+  const { assets } = useEditorStore();
+  
   if (!slide) {
     return (
       <div className="w-full h-full flex items-center justify-center bg-canvas rounded-lg">
@@ -16,13 +19,24 @@ export const CanvasPreview = ({ slide, globalOverlay }: CanvasPreviewProps) => {
   }
 
   const overlayOpacity = globalOverlay / 100;
+  const backgroundAsset = assets.find((a) => a.id === slide.assetId);
 
   return (
     <div className="w-full h-full flex items-center justify-center bg-canvas rounded-lg p-8">
       {/* 9:16 aspect ratio container */}
       <div className="relative bg-black rounded-lg overflow-hidden shadow-2xl" style={{ width: "360px", height: "640px" }}>
-        {/* Background video placeholder */}
-        <div className="absolute inset-0 bg-gradient-to-br from-purple-900 via-blue-900 to-cyan-900" />
+        {/* Background video */}
+        {backgroundAsset ? (
+          <video
+            src={backgroundAsset.url}
+            className="absolute inset-0 w-full h-full object-cover"
+            autoPlay
+            loop
+            muted
+          />
+        ) : (
+          <div className="absolute inset-0 bg-gradient-to-br from-purple-900 via-blue-900 to-cyan-900" />
+        )}
         
         {/* Overlay */}
         <div
