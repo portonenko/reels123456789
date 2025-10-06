@@ -9,8 +9,18 @@ export const initFFmpeg = async () => {
 
   const ffmpeg = new FFmpeg();
   
+  // Add logging to help debug
+  ffmpeg.on("log", ({ message }) => {
+    console.log("FFmpeg:", message);
+  });
+
+  ffmpeg.on("progress", ({ progress }) => {
+    console.log("FFmpeg progress:", Math.round(progress * 100), "%");
+  });
+  
   try {
-    const baseURL = "https://unpkg.com/@ffmpeg/core@0.12.6/dist/umd";
+    // Use jsdelivr CDN which has better CORS support
+    const baseURL = "https://cdn.jsdelivr.net/npm/@ffmpeg/core@0.12.6/dist/umd";
     await ffmpeg.load({
       coreURL: await toBlobURL(`${baseURL}/ffmpeg-core.js`, "text/javascript"),
       wasmURL: await toBlobURL(`${baseURL}/ffmpeg-core.wasm`, "application/wasm"),
@@ -20,7 +30,7 @@ export const initFFmpeg = async () => {
     return ffmpeg;
   } catch (error) {
     console.error("FFmpeg load error:", error);
-    throw new Error("Failed to load FFmpeg");
+    throw new Error("Failed to load video encoder. Please try again or check your internet connection.");
   }
 };
 
