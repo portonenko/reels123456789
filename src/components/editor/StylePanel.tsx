@@ -92,7 +92,7 @@ export const StylePanel = ({
             </div>
 
             <div>
-              <Label>Font Size: {slide.style.text.fontSize}px</Label>
+              <Label>Title Font Size: {slide.style.text.fontSize}px</Label>
               <Slider
                 value={[slide.style.text.fontSize]}
                 onValueChange={([value]) =>
@@ -110,7 +110,25 @@ export const StylePanel = ({
             </div>
 
             <div>
-              <Label>Font Weight: {slide.style.text.fontWeight}</Label>
+              <Label>Body Font Size: {slide.style.text.bodyFontSize || Math.round(slide.style.text.fontSize * 0.5)}px</Label>
+              <Slider
+                value={[slide.style.text.bodyFontSize || Math.round(slide.style.text.fontSize * 0.5)]}
+                onValueChange={([value]) =>
+                  onUpdateSlide({
+                    style: {
+                      ...slide.style,
+                      text: { ...slide.style.text, bodyFontSize: value },
+                    },
+                  })
+                }
+                min={12}
+                max={72}
+                step={2}
+              />
+            </div>
+
+            <div>
+              <Label>Title Font Weight: {slide.style.text.fontWeight}</Label>
               <Slider
                 value={[slide.style.text.fontWeight]}
                 onValueChange={([value]) =>
@@ -118,6 +136,24 @@ export const StylePanel = ({
                     style: {
                       ...slide.style,
                       text: { ...slide.style.text, fontWeight: value },
+                    },
+                  })
+                }
+                min={300}
+                max={900}
+                step={100}
+              />
+            </div>
+
+            <div>
+              <Label>Body Font Weight: {slide.style.text.bodyFontWeight || slide.style.text.fontWeight - 200}</Label>
+              <Slider
+                value={[slide.style.text.bodyFontWeight || slide.style.text.fontWeight - 200]}
+                onValueChange={([value]) =>
+                  onUpdateSlide({
+                    style: {
+                      ...slide.style,
+                      text: { ...slide.style.text, bodyFontWeight: value },
                     },
                   })
                 }
@@ -354,6 +390,14 @@ export const StylePanel = ({
                 placeholder="0 2px 8px rgba(0,0,0,0.5)"
               />
             </div>
+
+            <Button 
+              variant="outline" 
+              className="w-full" 
+              onClick={handleApplyStyleToAll}
+            >
+              Apply Shadow & Effects to All Slides
+            </Button>
           </TabsContent>
 
           <TabsContent value="global" className="space-y-4 mt-0">

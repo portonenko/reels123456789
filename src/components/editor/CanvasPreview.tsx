@@ -187,22 +187,22 @@ export const CanvasPreview = ({ slide, globalOverlay }: CanvasPreviewProps) => {
                     textAlign: currentSlide.style.text.alignment,
                   }}
                 >
-                  {currentSlide.title}
+                  {currentSlide.title.replace(/^\[.*?\]\s*/, '')}
                 </h1>
                 {currentSlide.body && (
                   <p
                     className="mt-3"
                     style={{
                       fontFamily: currentSlide.style.text.fontFamily,
-                      fontSize: `${currentSlide.style.text.fontSize * 0.5}px`,
-                      fontWeight: currentSlide.style.text.fontWeight - 200,
+                      fontSize: `${currentSlide.style.text.bodyFontSize || currentSlide.style.text.fontSize * 0.5}px`,
+                      fontWeight: currentSlide.style.text.bodyFontWeight || currentSlide.style.text.fontWeight - 200,
                       lineHeight: currentSlide.style.text.lineHeight * 1.2,
                       color: currentSlide.style.text.color,
                       textShadow: currentSlide.style.text.textShadow,
                       textAlign: currentSlide.style.text.alignment,
                     }}
                   >
-                    {currentSlide.body}
+                    {currentSlide.body.replace(/^\[.*?\]\s*/, '')}
                   </p>
                 )}
               </div>
@@ -224,15 +224,15 @@ export const CanvasPreview = ({ slide, globalOverlay }: CanvasPreviewProps) => {
                     filter: `drop-shadow(0 0 ${(currentSlide.style.text.fontSize || 48) * 0.2}px ${currentSlide.style.text.glow || "rgba(255,255,255,0.8)"}) drop-shadow(0 0 ${(currentSlide.style.text.fontSize || 48) * 0.4}px ${currentSlide.style.text.glow || "rgba(255,255,255,0.5)"})`,
                   }}
                 >
-                  {currentSlide.title}
+                  {currentSlide.title.replace(/^\[.*?\]\s*/, '')}
                 </h1>
                 {currentSlide.body && (
                   <p
                     className="mt-3"
                     style={{
                       fontFamily: currentSlide.style.text.fontFamily,
-                      fontSize: `${currentSlide.style.text.fontSize * 0.5}px`,
-                      fontWeight: currentSlide.style.text.fontWeight - 200,
+                      fontSize: `${currentSlide.style.text.bodyFontSize || currentSlide.style.text.fontSize * 0.5}px`,
+                      fontWeight: currentSlide.style.text.bodyFontWeight || currentSlide.style.text.fontWeight - 200,
                       lineHeight: currentSlide.style.text.lineHeight * 1.2,
                       color: currentSlide.style.text.color,
                       textShadow: currentSlide.style.text.textShadow,
@@ -242,7 +242,7 @@ export const CanvasPreview = ({ slide, globalOverlay }: CanvasPreviewProps) => {
                       filter: `drop-shadow(0 0 ${(currentSlide.style.text.fontSize || 48) * 0.1}px ${currentSlide.style.text.glow || "rgba(255,255,255,0.8)"}) drop-shadow(0 0 ${(currentSlide.style.text.fontSize || 48) * 0.2}px ${currentSlide.style.text.glow || "rgba(255,255,255,0.5)"})`,
                     }}
                   >
-                    {currentSlide.body}
+                    {currentSlide.body.replace(/^\[.*?\]\s*/, '')}
                   </p>
                 )}
               </div>

@@ -103,7 +103,20 @@ const Editor = () => {
   };
 
   const handleExport = () => {
-    toast.info("Export feature coming soon!");
+    // Group slides by language
+    const slidesByLanguage: Record<string, typeof slides> = slides.reduce((acc, slide) => {
+      const lang = slide.language || "original";
+      if (!acc[lang]) acc[lang] = [];
+      acc[lang].push(slide);
+      return acc;
+    }, {} as Record<string, typeof slides>);
+
+    const languageCount = Object.keys(slidesByLanguage).length;
+    
+    toast.info(
+      `Export feature coming soon! You have ${languageCount} language version(s) to export: ${Object.keys(slidesByLanguage).join(", ")}`,
+      { duration: 5000 }
+    );
   };
 
   return (

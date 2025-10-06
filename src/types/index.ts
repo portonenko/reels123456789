@@ -3,7 +3,9 @@ export type SlideType = "title-only" | "title-body";
 export interface TextStyle {
   fontFamily: string;
   fontSize: number;
+  bodyFontSize?: number; // Separate font size for body text
   fontWeight: number;
+  bodyFontWeight?: number; // Separate font weight for body
   lineHeight: number;
   letterSpacing: number;
   color: string;
