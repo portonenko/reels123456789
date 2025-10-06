@@ -45,18 +45,26 @@ export const AIMusicGenerator = ({ lang = 'en' }: AIMusicGeneratorProps) => {
         },
       });
 
-      if (error) throw error;
-
-      if (data?.error) {
-        // Show user-friendly message for missing API integration
-        toast.error(
+      // Check if it's the "not implemented" response (501)
+      if (data?.error && data?.musicBrief) {
+        // Show the AI-generated music brief in a toast
+        toast.info(
           lang === 'ru' 
-            ? 'Для генерации музыки требуется интеграция с музыкальным API (например, Mubert или Soundraw). Пока можно загрузить свою музыку.'
-            : 'Music generation requires a music API integration (like Mubert or Soundraw). For now, please upload your own music.',
-          { duration: 5000 }
+            ? `AI проанализировал ваш контент:\n\n${data.musicBrief.substring(0, 200)}...\n\nДля генерации музыки нужна интеграция с музыкальным API. Пока вы можете загрузить свою музыку или найти похожую на Pixabay/Incompetech.`
+            : `AI analyzed your content:\n\n${data.musicBrief.substring(0, 200)}...\n\nMusic generation requires API integration. For now, upload your own music or find matching tracks on Pixabay/Incompetech.`,
+          { 
+            duration: 8000,
+          }
         );
+        
+        // Also log the full brief to console for the user
+        console.log('Full AI Music Brief:', data.musicBrief);
+        console.log('Instructions:', data.instructions);
+        
         return;
       }
+
+      if (error) throw error;
 
       if (!data?.audioUrl) {
         throw new Error("No audio URL returned");
