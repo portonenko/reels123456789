@@ -45,40 +45,68 @@ const renderSlideToCanvas = (
   const centerX = canvas.width / 2;
   let textY = safeTop + contentHeight / 2;
 
+  // Calculate position for text box if defined
+  let textX = centerX;
+  let textBoxWidth = canvas.width * 0.70; // Default 70% width
+  
+  if (slide.style.text.position) {
+    textX = (slide.style.text.position.x / 100) * canvas.width + (slide.style.text.position.width / 100 * canvas.width) / 2;
+    textBoxWidth = (slide.style.text.position.width / 100) * canvas.width;
+    textY = (slide.style.text.position.y / 100) * canvas.height + (slide.style.text.position.height / 100 * canvas.height) / 2;
+  }
+
   // Draw background plate or text effects
   if (slide.style.plate.enabled) {
     // Measure text to create plate
-    ctx.font = `${slide.style.text.fontWeight} ${slide.style.text.fontSize * 2}px ${slide.style.text.fontFamily}`;
+    ctx.font = `${slide.style.text.fontWeight} ${slide.style.text.fontSize}px ${slide.style.text.fontFamily}`;
     const titleMetrics = ctx.measureText(cleanTitle);
     const titleWidth = titleMetrics.width;
-    const titleHeight = slide.style.text.fontSize * 2 * slide.style.text.lineHeight;
+    const titleHeight = slide.style.text.fontSize * slide.style.text.lineHeight;
 
     let plateHeight = titleHeight + slide.style.plate.padding * 2;
     let plateWidth = titleWidth + slide.style.plate.padding * 4;
 
     if (cleanBody) {
-      ctx.font = `${slide.style.text.bodyFontWeight || slide.style.text.fontWeight - 200} ${(slide.style.text.bodyFontSize || slide.style.text.fontSize) * 1.2}px ${slide.style.text.fontFamily}`;
+      ctx.font = `${slide.style.text.bodyFontWeight || slide.style.text.fontWeight - 200} ${slide.style.text.bodyFontSize || slide.style.text.fontSize * 0.5}px ${slide.style.text.fontFamily}`;
       const bodyMetrics = ctx.measureText(cleanBody);
       plateWidth = Math.max(plateWidth, bodyMetrics.width + slide.style.plate.padding * 4);
-      plateHeight += (slide.style.text.bodyFontSize || slide.style.text.fontSize) * 1.2 * slide.style.text.lineHeight * 1.2 + slide.style.plate.padding;
+      plateHeight += (slide.style.text.bodyFontSize || slide.style.text.fontSize * 0.5) * slide.style.text.lineHeight * 1.2 + slide.style.plate.padding;
     }
 
-    // Draw plate
-    ctx.fillStyle = slide.style.plate.backgroundColor;
-    ctx.globalAlpha = slide.style.plate.opacity;
-    const plateX = centerX - plateWidth / 2;
-    const plateY = textY - plateHeight / 2;
-    
-    if (slide.style.plate.borderRadius > 0) {
-      roundRect(ctx, plateX, plateY, plateWidth, plateHeight, slide.style.plate.borderRadius);
+    // Only draw plate if positioned, or draw full-width plate
+    if (slide.style.text.position) {
+      // Positioned text box - plate fits the text box
+      ctx.fillStyle = slide.style.plate.backgroundColor;
+      ctx.globalAlpha = slide.style.plate.opacity;
+      const plateX = (slide.style.text.position.x / 100) * canvas.width;
+      const plateY = (slide.style.text.position.y / 100) * canvas.height;
+      const plateW = (slide.style.text.position.width / 100) * canvas.width;
+      const plateH = (slide.style.text.position.height / 100) * canvas.height;
+      
+      if (slide.style.plate.borderRadius > 0) {
+        roundRect(ctx, plateX, plateY, plateW, plateH, slide.style.plate.borderRadius);
+      } else {
+        ctx.fillRect(plateX, plateY, plateW, plateH);
+      }
+      ctx.globalAlpha = 1;
     } else {
-      ctx.fillRect(plateX, plateY, plateWidth, plateHeight);
+      // Default centered - plate wraps text
+      ctx.fillStyle = slide.style.plate.backgroundColor;
+      ctx.globalAlpha = slide.style.plate.opacity;
+      const plateX = centerX - plateWidth / 2;
+      const plateY = textY - plateHeight / 2;
+      
+      if (slide.style.plate.borderRadius > 0) {
+        roundRect(ctx, plateX, plateY, plateWidth, plateHeight, slide.style.plate.borderRadius);
+      } else {
+        ctx.fillRect(plateX, plateY, plateWidth, plateHeight);
+      }
+      ctx.globalAlpha = 1;
     }
-    ctx.globalAlpha = 1;
   }
 
   // Draw title with text wrapping - use narrower width to avoid blind zones
-  ctx.font = `${slide.style.text.fontWeight} ${slide.style.text.fontSize * 2}px ${slide.style.text.fontFamily}`;
+  ctx.font = `${slide.style.text.fontWeight} ${slide.style.text.fontSize}px ${slide.style.text.fontFamily}`;
   ctx.fillStyle = slide.style.text.color;
   
   if (slide.style.text.textShadow) {
@@ -91,8 +119,6 @@ const renderSlideToCanvas = (
     }
   }
 
-  // Narrower max width (70%) to keep text away from blind zones
-  const maxWidth = canvas.width * 0.70;
   const titleWords = cleanTitle.split(' ');
   let titleLine = '';
   const titleLines: string[] = [];
@@ -100,7 +126,7 @@ const renderSlideToCanvas = (
   for (const word of titleWords) {
     const testLine = titleLine + word + ' ';
     const metrics = ctx.measureText(testLine);
-    if (metrics.width > maxWidth && titleLine.length > 0) {
+    if (metrics.width > textBoxWidth && titleLine.length > 0) {
       titleLines.push(titleLine.trim());
       titleLine = word + ' ';
     } else {
@@ -112,7 +138,7 @@ const renderSlideToCanvas = (
   }
 
   // Calculate title block height
-  const titleLineHeight = slide.style.text.fontSize * 2 * slide.style.text.lineHeight;
+  const titleLineHeight = slide.style.text.fontSize * slide.style.text.lineHeight;
   const titleBlockHeight = titleLines.length * titleLineHeight;
   
   // Adjust starting Y position to center the entire text block
@@ -120,7 +146,7 @@ const renderSlideToCanvas = (
   
   if (cleanBody) {
     // If there's body text, adjust to account for both title and body
-    const bodyFontSize = (slide.style.text.bodyFontSize || slide.style.text.fontSize) * 1.2;
+    const bodyFontSize = slide.style.text.bodyFontSize || slide.style.text.fontSize * 0.5;
     const bodyLineHeight = bodyFontSize * slide.style.text.lineHeight * 1.2;
     const estimatedBodyHeight = bodyLineHeight * 3; // Rough estimate
     const totalHeight = titleBlockHeight + 30 + estimatedBodyHeight;
@@ -131,17 +157,17 @@ const renderSlideToCanvas = (
   titleLines.forEach((line) => {
     if (!slide.style.plate.enabled && slide.style.text.stroke) {
       ctx.strokeStyle = slide.style.text.stroke;
-      ctx.lineWidth = (slide.style.text.strokeWidth || 2) * 2;
-      ctx.strokeText(line, centerX, currentY);
+      ctx.lineWidth = slide.style.text.strokeWidth || 2;
+      ctx.strokeText(line, textX, currentY);
     }
-    ctx.fillText(line, centerX, currentY);
+    ctx.fillText(line, textX, currentY);
     currentY += titleLineHeight;
   });
 
   // Draw body if exists
   if (cleanBody) {
     currentY += 30; // Space between title and body
-    ctx.font = `${slide.style.text.bodyFontWeight || slide.style.text.fontWeight - 200} ${(slide.style.text.bodyFontSize || slide.style.text.fontSize) * 1.2}px ${slide.style.text.fontFamily}`;
+    ctx.font = `${slide.style.text.bodyFontWeight || slide.style.text.fontWeight - 200} ${slide.style.text.bodyFontSize || slide.style.text.fontSize * 0.5}px ${slide.style.text.fontFamily}`;
     
     // Wrap body text
     const bodyWords = cleanBody.split(' ');
@@ -151,7 +177,7 @@ const renderSlideToCanvas = (
     for (const word of bodyWords) {
       const testLine = bodyLine + word + ' ';
       const metrics = ctx.measureText(testLine);
-      if (metrics.width > maxWidth && bodyLine.length > 0) {
+      if (metrics.width > textBoxWidth && bodyLine.length > 0) {
         bodyLines.push(bodyLine.trim());
         bodyLine = word + ' ';
       } else {
@@ -162,14 +188,14 @@ const renderSlideToCanvas = (
       bodyLines.push(bodyLine.trim());
     }
 
-    const bodyLineHeight = (slide.style.text.bodyFontSize || slide.style.text.fontSize) * 1.2 * slide.style.text.lineHeight * 1.2;
+    const bodyLineHeight = (slide.style.text.bodyFontSize || slide.style.text.fontSize * 0.5) * slide.style.text.lineHeight * 1.2;
     bodyLines.forEach((line) => {
       if (!slide.style.plate.enabled && slide.style.text.stroke) {
         ctx.strokeStyle = slide.style.text.stroke;
-        ctx.lineWidth = ((slide.style.text.strokeWidth || 2) * 0.75) * 2;
-        ctx.strokeText(line, centerX, currentY);
+        ctx.lineWidth = (slide.style.text.strokeWidth || 2) * 0.75;
+        ctx.strokeText(line, textX, currentY);
       }
-      ctx.fillText(line, centerX, currentY);
+      ctx.fillText(line, textX, currentY);
       currentY += bodyLineHeight;
     });
   }
