@@ -291,7 +291,7 @@ const Editor = () => {
       <ExportDialog
         open={showExportDialog}
         onClose={() => setShowExportDialog(false)}
-        slides={slides}
+        projects={projects}
         assets={assets}
       />
     </div>

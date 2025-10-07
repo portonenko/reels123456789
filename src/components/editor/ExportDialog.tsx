@@ -14,40 +14,40 @@ import { Slide, Asset } from "@/types";
 import { exportVideo } from "@/utils/videoExport";
 import { useEditorStore } from "@/store/useEditorStore";
 
+interface ProjectData {
+  slides: Slide[];
+  backgroundMusicUrl: string | null;
+  globalOverlay: number;
+  projectName: string;
+}
+
 interface ExportDialogProps {
   open: boolean;
   onClose: () => void;
-  slides: Slide[];
+  projects: Record<string, ProjectData>;
   assets: Asset[];
 }
 
-export const ExportDialog = ({ open, onClose, slides, assets }: ExportDialogProps) => {
+export const ExportDialog = ({ open, onClose, projects, assets }: ExportDialogProps) => {
   const [isExporting, setIsExporting] = useState(false);
   const [progress, setProgress] = useState(0);
   const [currentStep, setCurrentStep] = useState("");
-  const { backgroundMusicUrl } = useEditorStore();
 
-  // Group slides by language
-  const slidesByLanguage = slides.reduce((acc, slide) => {
-    const lang = slide.language || "original";
-    if (!acc[lang]) acc[lang] = [];
-    acc[lang].push(slide);
-    return acc;
-  }, {} as Record<string, Slide[]>);
+  // projects is already organized by language
 
   const handleExportAll = async () => {
     setIsExporting(true);
     setProgress(0);
     
     try {
-      const languages = Object.keys(slidesByLanguage);
+      const languages = Object.keys(projects);
       
       for (let i = 0; i < languages.length; i++) {
         const lang = languages[i];
-        const langSlides = slidesByLanguage[lang];
+        const project = projects[lang];
         
         setCurrentStep(`Exporting ${lang} (${i + 1}/${languages.length})...`);
-        await exportLanguageVideo(lang, langSlides);
+        await exportLanguageVideo(lang, project);
         
         setProgress(((i + 1) / languages.length) * 100);
       }
@@ -64,8 +64,10 @@ export const ExportDialog = ({ open, onClose, slides, assets }: ExportDialogProp
     }
   };
 
-  const exportLanguageVideo = async (language: string, langSlides: Slide[]) => {
+  const exportLanguageVideo = async (language: string, project: ProjectData) => {
     try {
+      const langSlides = project.slides;
+      
       // Get the background asset for this language
       const firstSlide = langSlides[0];
       const backgroundAsset = firstSlide?.assetId 
@@ -79,7 +81,7 @@ export const ExportDialog = ({ open, onClose, slides, assets }: ExportDialogProp
           setProgress(progress);
           setCurrentStep(`${language}: ${message}`);
         },
-        backgroundMusicUrl
+        project.backgroundMusicUrl
       );
 
       // Download the video as MP4
@@ -108,7 +110,7 @@ export const ExportDialog = ({ open, onClose, slides, assets }: ExportDialogProp
         <div className="space-y-4 py-4">
           <div className="space-y-2">
             <h4 className="text-sm font-medium">Available Versions:</h4>
-            {Object.entries(slidesByLanguage).map(([lang, langSlides]) => (
+            {Object.entries(projects).map(([lang, project]) => (
               <div
                 key={lang}
                 className="flex items-center justify-between p-3 bg-secondary rounded-lg"
@@ -116,7 +118,7 @@ export const ExportDialog = ({ open, onClose, slides, assets }: ExportDialogProp
                 <div>
                   <p className="font-medium capitalize">{lang}</p>
                   <p className="text-xs text-muted-foreground">
-                    {langSlides.length} slides, {langSlides.reduce((sum, s) => sum + s.durationSec, 0)}s total
+                    {project.slides.length} slides, {project.slides.reduce((sum, s) => sum + s.durationSec, 0)}s total
                   </p>
                 </div>
                 <Download className="w-4 h-4 text-muted-foreground" />
@@ -144,7 +146,7 @@ export const ExportDialog = ({ open, onClose, slides, assets }: ExportDialogProp
           </Button>
           <Button onClick={handleExportAll} disabled={isExporting}>
             {isExporting && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
-            Export All ({Object.keys(slidesByLanguage).length} videos)
+            Export All ({Object.keys(projects).length} videos)
           </Button>
         </div>
       </DialogContent>
