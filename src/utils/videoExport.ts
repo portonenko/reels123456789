@@ -299,7 +299,10 @@ export const exportVideo = async (
     backgroundVideo.src = backgroundAsset.url;
     backgroundVideo.muted = true;
     backgroundVideo.loop = true;
-    backgroundVideo.crossOrigin = "anonymous"; // Important for blob URLs
+    // Don't set crossOrigin for blob URLs as it causes CORS issues
+    if (!backgroundAsset.url.startsWith('blob:')) {
+      backgroundVideo.crossOrigin = "anonymous";
+    }
     await new Promise((resolve, reject) => {
       backgroundVideo!.onloadeddata = resolve;
       backgroundVideo!.onerror = (e) => {
@@ -312,18 +315,36 @@ export const exportVideo = async (
 
   // Load background music if available
   if (backgroundMusicUrl) {
-    backgroundAudio = document.createElement("audio");
-    backgroundAudio.src = backgroundMusicUrl;
-    backgroundAudio.loop = true;
-    backgroundAudio.crossOrigin = "anonymous"; // Important for blob URLs
-    await new Promise((resolve, reject) => {
-      backgroundAudio!.onloadeddata = resolve;
-      backgroundAudio!.onerror = (e) => {
-        console.error("Audio loading error:", e);
-        reject(new Error("Failed to load background music"));
-      };
-      backgroundAudio!.load();
-    });
+    try {
+      backgroundAudio = document.createElement("audio");
+      backgroundAudio.src = backgroundMusicUrl;
+      backgroundAudio.loop = true;
+      // Don't set crossOrigin for blob URLs as it causes CORS issues
+      if (!backgroundMusicUrl.startsWith('blob:')) {
+        backgroundAudio.crossOrigin = "anonymous";
+      }
+      await new Promise((resolve, reject) => {
+        const timeout = setTimeout(() => {
+          console.warn("Audio loading timeout, continuing without music");
+          resolve(null);
+        }, 5000); // 5 second timeout
+        
+        backgroundAudio!.onloadeddata = () => {
+          clearTimeout(timeout);
+          resolve(null);
+        };
+        backgroundAudio!.onerror = (e) => {
+          clearTimeout(timeout);
+          console.warn("Audio loading failed, continuing without music:", e);
+          backgroundAudio = undefined; // Clear failed audio
+          resolve(null); // Continue without music instead of failing
+        };
+        backgroundAudio!.load();
+      });
+    } catch (error) {
+      console.warn("Failed to load background music, continuing without it:", error);
+      backgroundAudio = undefined;
+    }
   }
 
   onProgress(10, "Starting recording...");

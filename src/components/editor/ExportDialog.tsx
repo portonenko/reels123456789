@@ -106,7 +106,10 @@ export const ExportDialog = ({ open, onClose, projects, assets }: ExportDialogPr
           }
         } catch (error) {
           console.error(`Export failed for ${lang}:`, error);
-          toast.error(`Export failed for ${lang}. Continuing with others...`);
+          const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+          toast.error(`Export failed for ${lang}: ${errorMessage}`);
+          // Don't continue on error - stop the export process
+          throw error;
         }
         
         setProgress(((i + 1) / languages.length) * 100);
