@@ -34,10 +34,15 @@ interface ProjectData {
 }
 
 interface EditorStore {
-  projects: Record<string, ProjectData>; // language code -> project data
+  projects: Record<string, ProjectData>;
   currentLanguage: string;
   assets: Asset[];
   selectedSlideId: string | null;
+  
+  slides: Slide[];
+  globalOverlay: number;
+  projectName: string;
+  backgroundMusicUrl: string | null;
   
   getCurrentProject: () => ProjectData;
   setCurrentLanguage: (lang: string) => void;
@@ -64,12 +69,6 @@ interface EditorStore {
   
   randomizeBackgrounds: () => void;
   getDefaultStyle: () => SlideStyle;
-  
-  // Getters for current project data
-  get slides(): Slide[];
-  get globalOverlay(): number;
-  get projectName(): string;
-  get backgroundMusicUrl(): string | null;
 }
 
 const createEmptyProject = (): ProjectData => ({
@@ -86,6 +85,10 @@ export const useEditorStore = create<EditorStore>((set, get) => ({
   currentLanguage: "default",
   assets: [],
   selectedSlideId: null,
+  slides: [],
+  globalOverlay: 30,
+  projectName: "Untitled Project",
+  backgroundMusicUrl: null,
   
   getCurrentProject: () => {
     const state = get();
@@ -94,17 +97,29 @@ export const useEditorStore = create<EditorStore>((set, get) => ({
   
   setCurrentLanguage: (lang) => {
     set((state) => {
+      const newProject = state.projects[lang] || createEmptyProject();
       if (!state.projects[lang]) {
         return {
           currentLanguage: lang,
           projects: {
             ...state.projects,
-            [lang]: createEmptyProject(),
+            [lang]: newProject,
           },
           selectedSlideId: null,
+          slides: newProject.slides,
+          globalOverlay: newProject.globalOverlay,
+          projectName: newProject.projectName,
+          backgroundMusicUrl: newProject.backgroundMusicUrl,
         };
       }
-      return { currentLanguage: lang, selectedSlideId: null };
+      return { 
+        currentLanguage: lang, 
+        selectedSlideId: null,
+        slides: newProject.slides,
+        globalOverlay: newProject.globalOverlay,
+        projectName: newProject.projectName,
+        backgroundMusicUrl: newProject.backgroundMusicUrl,
+      };
     });
   },
   
@@ -117,79 +132,76 @@ export const useEditorStore = create<EditorStore>((set, get) => ({
       if (lang === "default") return state;
       const newProjects = { ...state.projects };
       delete newProjects[lang];
+      const newCurrentLang = state.currentLanguage === lang ? "default" : state.currentLanguage;
+      const newProject = newProjects[newCurrentLang];
       return {
         projects: newProjects,
-        currentLanguage: state.currentLanguage === lang ? "default" : state.currentLanguage,
+        currentLanguage: newCurrentLang,
         selectedSlideId: state.currentLanguage === lang ? null : state.selectedSlideId,
+        slides: newProject.slides,
+        globalOverlay: newProject.globalOverlay,
+        projectName: newProject.projectName,
+        backgroundMusicUrl: newProject.backgroundMusicUrl,
       };
     });
   },
   
-  get slides() {
-    return get().getCurrentProject().slides;
-  },
-  
-  get globalOverlay() {
-    return get().getCurrentProject().globalOverlay;
-  },
-  
-  get projectName() {
-    return get().getCurrentProject().projectName;
-  },
-  
-  get backgroundMusicUrl() {
-    return get().getCurrentProject().backgroundMusicUrl;
-  },
-  
-  setSlides: (slides) => set((state) => ({
-    projects: {
-      ...state.projects,
-      [state.currentLanguage]: {
-        ...state.getCurrentProject(),
-        slides,
+  setSlides: (slides) => set((state) => {
+    const newProject = { ...state.getCurrentProject(), slides };
+    return {
+      projects: {
+        ...state.projects,
+        [state.currentLanguage]: newProject,
       },
-    },
-  })),
+      slides: newProject.slides,
+    };
+  }),
   
   addSlide: (slide) => {
     const id = crypto.randomUUID();
     const newSlide = { ...slide, id };
-    set((state) => ({
-      projects: {
-        ...state.projects,
-        [state.currentLanguage]: {
-          ...state.getCurrentProject(),
-          slides: [...state.getCurrentProject().slides, newSlide],
+    set((state) => {
+      const newSlides = [...state.getCurrentProject().slides, newSlide];
+      const newProject = { ...state.getCurrentProject(), slides: newSlides };
+      return {
+        projects: {
+          ...state.projects,
+          [state.currentLanguage]: newProject,
         },
-      },
-    }));
+        slides: newSlides,
+      };
+    });
   },
   
   updateSlide: (id, updates) => {
-    set((state) => ({
-      projects: {
-        ...state.projects,
-        [state.currentLanguage]: {
-          ...state.getCurrentProject(),
-          slides: state.getCurrentProject().slides.map((slide) =>
-            slide.id === id ? { ...slide, ...updates } : slide
-          ),
+    set((state) => {
+      const newSlides = state.getCurrentProject().slides.map((slide) =>
+        slide.id === id ? { ...slide, ...updates } : slide
+      );
+      const newProject = { ...state.getCurrentProject(), slides: newSlides };
+      return {
+        projects: {
+          ...state.projects,
+          [state.currentLanguage]: newProject,
         },
-      },
-    }));
+        slides: newSlides,
+      };
+    });
   },
   
   deleteSlide: (id) => {
-    set((state) => ({
-      projects: {
-        ...state.projects,
-        [state.currentLanguage]: {
-          ...state.getCurrentProject(),
-          slides: state.getCurrentProject().slides.filter((slide) => slide.id !== id),
+    set((state) => {
+      const newSlides = state.getCurrentProject().slides.filter((slide) => slide.id !== id);
+      const newProject = { ...state.getCurrentProject(), slides: newSlides };
+      return {
+        projects: {
+          ...state.projects,
+          [state.currentLanguage]: newProject,
         },
-      },
-      selectedSlideId: state.selectedSlideId === id ? null : state.selectedSlideId,
-    }));
+        slides: newSlides,
+        selectedSlideId: state.selectedSlideId === id ? null : state.selectedSlideId,
+      };
+    });
   },
   
   duplicateSlide: (id) => {
@@ -200,15 +212,17 @@ export const useEditorStore = create<EditorStore>((set, get) => ({
         id: crypto.randomUUID(),
         index: slide.index + 1,
       };
-      set((state) => ({
-        projects: {
-          ...state.projects,
-          [state.currentLanguage]: {
-            ...state.getCurrentProject(),
-            slides: [...state.getCurrentProject().slides, newSlide],
+      set((state) => {
+        const newSlides = [...state.getCurrentProject().slides, newSlide];
+        const newProject = { ...state.getCurrentProject(), slides: newSlides };
+        return {
+          projects: {
+            ...state.projects,
+            [state.currentLanguage]: newProject,
           },
-        },
-      }));
+          slides: newSlides,
+        };
+      });
     }
   },
   
@@ -217,14 +231,14 @@ export const useEditorStore = create<EditorStore>((set, get) => ({
       const result = Array.from(state.getCurrentProject().slides);
       const [removed] = result.splice(startIndex, 1);
       result.splice(endIndex, 0, removed);
+      const newSlides = result.map((slide, index) => ({ ...slide, index }));
+      const newProject = { ...state.getCurrentProject(), slides: newSlides };
       return {
         projects: {
           ...state.projects,
-          [state.currentLanguage]: {
-            ...state.getCurrentProject(),
-            slides: result.map((slide, index) => ({ ...slide, index })),
-          },
+          [state.currentLanguage]: newProject,
         },
+        slides: newSlides,
       };
     });
   },
@@ -233,33 +247,37 @@ export const useEditorStore = create<EditorStore>((set, get) => ({
     const sourceSlide = get().getCurrentProject().slides.find((s) => s.id === sourceSlideId);
     if (!sourceSlide) return;
     
-    set((state) => ({
-      projects: {
-        ...state.projects,
-        [state.currentLanguage]: {
-          ...state.getCurrentProject(),
-          slides: state.getCurrentProject().slides.map((slide) => ({
-            ...slide,
-            style: { ...sourceSlide.style },
-          })),
+    set((state) => {
+      const newSlides = state.getCurrentProject().slides.map((slide) => ({
+        ...slide,
+        style: { ...sourceSlide.style },
+      }));
+      const newProject = { ...state.getCurrentProject(), slides: newSlides };
+      return {
+        projects: {
+          ...state.projects,
+          [state.currentLanguage]: newProject,
         },
-      },
-    }));
+        slides: newSlides,
+      };
+    });
   },
 
   applyDurationToAll: (duration) => {
-    set((state) => ({
-      projects: {
-        ...state.projects,
-        [state.currentLanguage]: {
-          ...state.getCurrentProject(),
-          slides: state.getCurrentProject().slides.map((slide) => ({
-            ...slide,
-            durationSec: duration,
-          })),
+    set((state) => {
+      const newSlides = state.getCurrentProject().slides.map((slide) => ({
+        ...slide,
+        durationSec: duration,
+      }));
+      const newProject = { ...state.getCurrentProject(), slides: newSlides };
+      return {
+        projects: {
+          ...state.projects,
+          [state.currentLanguage]: newProject,
         },
-      },
-    }));
+        slides: newSlides,
+      };
+    });
   },
   
   setAssets: (assets) => set({ assets }),
@@ -278,35 +296,38 @@ export const useEditorStore = create<EditorStore>((set, get) => ({
   
   setSelectedSlideId: (id) => set({ selectedSlideId: id }),
   
-  setGlobalOverlay: (overlay) => set((state) => ({
-    projects: {
-      ...state.projects,
-      [state.currentLanguage]: {
-        ...state.getCurrentProject(),
-        globalOverlay: overlay,
+  setGlobalOverlay: (overlay) => set((state) => {
+    const newProject = { ...state.getCurrentProject(), globalOverlay: overlay };
+    return {
+      projects: {
+        ...state.projects,
+        [state.currentLanguage]: newProject,
       },
-    },
-  })),
+      globalOverlay: overlay,
+    };
+  }),
   
-  setProjectName: (name) => set((state) => ({
-    projects: {
-      ...state.projects,
-      [state.currentLanguage]: {
-        ...state.getCurrentProject(),
-        projectName: name,
+  setProjectName: (name) => set((state) => {
+    const newProject = { ...state.getCurrentProject(), projectName: name };
+    return {
+      projects: {
+        ...state.projects,
+        [state.currentLanguage]: newProject,
       },
-    },
-  })),
+      projectName: name,
+    };
+  }),
   
-  setBackgroundMusic: (url) => set((state) => ({
-    projects: {
-      ...state.projects,
-      [state.currentLanguage]: {
-        ...state.getCurrentProject(),
-        backgroundMusicUrl: url,
+  setBackgroundMusic: (url) => set((state) => {
+    const newProject = { ...state.getCurrentProject(), backgroundMusicUrl: url };
+    return {
+      projects: {
+        ...state.projects,
+        [state.currentLanguage]: newProject,
       },
-    },
-  })),
+      backgroundMusicUrl: url,
+    };
+  }),
   
   randomizeBackgrounds: () => {
     const state = get();
@@ -314,21 +335,22 @@ export const useEditorStore = create<EditorStore>((set, get) => ({
     const slides = state.getCurrentProject().slides;
     if (assets.length === 0) return;
     
-    // Pick a random video for current project
     const randomAsset = assets[Math.floor(Math.random() * assets.length)];
 
-    set((state) => ({
-      projects: {
-        ...state.projects,
-        [state.currentLanguage]: {
-          ...state.getCurrentProject(),
-          slides: state.getCurrentProject().slides.map((slide) => ({
-            ...slide,
-            assetId: randomAsset.id,
-          })),
+    set((state) => {
+      const newSlides = state.getCurrentProject().slides.map((slide) => ({
+        ...slide,
+        assetId: randomAsset.id,
+      }));
+      const newProject = { ...state.getCurrentProject(), slides: newSlides };
+      return {
+        projects: {
+          ...state.projects,
+          [state.currentLanguage]: newProject,
         },
-      },
-    }));
+        slides: newSlides,
+      };
+    });
   },
   
   getDefaultStyle: () => DEFAULT_STYLE,
