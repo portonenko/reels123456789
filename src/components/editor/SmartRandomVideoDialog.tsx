@@ -133,6 +133,11 @@ export const SmartRandomVideoDialog = ({
       const randomMusic = music[Math.floor(Math.random() * music.length)];
       const randomAsset = assets[Math.floor(Math.random() * assets.length)];
 
+      // Get public URL for the music
+      const { data: musicUrlData } = supabase.storage
+        .from('music-tracks')
+        .getPublicUrl(randomMusic.url);
+
       // Create slides only from selected indices
       const projectId = crypto.randomUUID();
       const allSlides = parseTextToSlides(
@@ -151,7 +156,7 @@ export const SmartRandomVideoDialog = ({
 
       // Update store
       setSlides(selectedSlides);
-      setBackgroundMusic(randomMusic.url);
+      setBackgroundMusic(musicUrlData.publicUrl);
 
       // Add all assets to store
       assets.forEach((asset) => {

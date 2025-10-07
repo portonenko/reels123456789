@@ -3,8 +3,6 @@ import { Button } from "@/components/ui/button";
 import { Copy } from "lucide-react";
 import { toast } from "sonner";
 import { Slide } from "@/types";
-import { useEditorStore } from "@/store/useEditorStore";
-import { parseTextToSlides } from "@/utils/textParser";
 import { useState, useEffect } from "react";
 
 interface UnusedTextPreviewProps {
@@ -14,32 +12,37 @@ interface UnusedTextPreviewProps {
 
 export const UnusedTextPreview = ({ slides, lang = 'en' }: UnusedTextPreviewProps) => {
   const [unusedText, setUnusedText] = useState("");
-  const { getDefaultStyle } = useEditorStore();
 
   useEffect(() => {
-    // Get all text from the text templates/storage
+    // Get all text that was parsed from templates
     const storedText = localStorage.getItem('lastParsedText') || '';
     
-    if (storedText && slides.length > 0) {
-      // Parse the stored text to get all potential slides
-      const allParsedSlides = parseTextToSlides(storedText, "temp", getDefaultStyle());
-      
-      // Get the text that's currently used in slides
-      const usedTitles = new Set(slides.map(s => s.title.trim()));
-      
-      // Find unused slides
-      const unused = allParsedSlides
-        .filter(parsedSlide => !usedTitles.has(parsedSlide.title.trim()))
-        .map(slide => {
-          let text = slide.title;
-          if (slide.body) text += `\n${slide.body}`;
-          return text;
-        })
-        .join("\n\n");
-      
-      setUnusedText(unused);
+    if (!storedText) {
+      setUnusedText('');
+      return;
     }
-  }, [slides, getDefaultStyle]);
+
+    // Split by double newlines to get paragraphs/sections
+    const allParagraphs = storedText.split(/\n\n+/).filter(p => p.trim());
+    
+    // Get all text currently used in slides (title + body)
+    const usedText = slides.map(slide => {
+      const parts = [slide.title];
+      if (slide.body) parts.push(slide.body);
+      return parts.join('\n').toLowerCase().trim();
+    });
+
+    // Find paragraphs that are not used in any slide
+    const unused = allParagraphs.filter(paragraph => {
+      const normalizedParagraph = paragraph.toLowerCase().trim();
+      // Check if this paragraph appears in any slide
+      return !usedText.some(used => 
+        used.includes(normalizedParagraph) || normalizedParagraph.includes(used)
+      );
+    });
+
+    setUnusedText(unused.join('\n\n'));
+  }, [slides]);
 
   const handleCopy = () => {
     navigator.clipboard.writeText(unusedText);

@@ -354,15 +354,15 @@ export const exportVideo = async (
 
   onProgress(10, "Starting recording...");
 
-  // Use H.264 for MP4 - best compatibility across all devices
-  let mimeType = 'video/mp4;codecs=h264,aac';
+  // Use baseline H.264 for maximum phone compatibility
+  let mimeType = 'video/mp4;codecs=avc1.42E01E,mp4a.40.2'; // H.264 Baseline + AAC
   
-  // Fallback to VP9 WebM if H.264 not supported
+  // Try standard H.264 if baseline not supported
   if (!MediaRecorder.isTypeSupported(mimeType)) {
-    mimeType = 'video/webm;codecs=vp9,opus';
+    mimeType = 'video/mp4;codecs=h264,aac';
   }
   
-  // Final fallback to VP8 WebM
+  // Fallback to WebM VP8 (widely supported on Android)
   if (!MediaRecorder.isTypeSupported(mimeType)) {
     mimeType = 'video/webm;codecs=vp8,opus';
   }
@@ -406,7 +406,7 @@ export const exportVideo = async (
   
   const mediaRecorder = new MediaRecorder(combinedStream, {
     mimeType,
-    videoBitsPerSecond: 8000000, // 8 Mbps for better quality
+    videoBitsPerSecond: 5000000, // 5 Mbps - better phone compatibility
     audioBitsPerSecond: 128000, // 128 kbps for audio
   });
 
