@@ -58,14 +58,12 @@ export const StylePanel = ({
   const handleApplyPlateToAll = () => {
     if (!slide) return;
     slides.forEach((s) => {
-      if (s.id !== slide.id) {
-        updateSlide(s.id, {
-          style: {
-            ...s.style,
-            plate: { ...slide.style.plate },
-          },
-        });
-      }
+      updateSlide(s.id, {
+        style: {
+          ...s.style,
+          plate: { ...slide.style.plate },
+        },
+      });
     });
     toast.success(`Applied plate style to all ${slides.length} slides`);
   };

@@ -7,8 +7,9 @@ import { StylePanel } from "@/components/editor/StylePanel";
 import { TextInputDialog } from "@/components/editor/TextInputDialog";
 import { TranslationDialog } from "@/components/editor/TranslationDialog";
 import { ExportDialog } from "@/components/editor/ExportDialog";
+import { LanguageSwitcher } from "@/components/editor/LanguageSwitcher";
 import { Button } from "@/components/ui/button";
-import { Sparkles, Home, Download, Shuffle, Languages, Globe } from "lucide-react";
+import { Sparkles, Home, Download, Shuffle, Globe } from "lucide-react";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -34,7 +35,9 @@ const Editor = () => {
     assets,
     selectedSlideId,
     globalOverlay,
+    currentLanguage,
     setSlides,
+    setCurrentLanguage,
     updateSlide,
     deleteSlide,
     duplicateSlide,
@@ -88,15 +91,32 @@ const Editor = () => {
         throw new Error("No translated slides returned");
       }
 
-      const translatedSlides: Slide[] = data.translatedSlides.map(
-        (ts: any, idx: number) => ({
-          ...ts,
-          index: slides.length + idx,
-        })
-      );
+      // Create separate projects for each language
+      const slidesByLanguage: Record<string, Slide[]> = {};
+      data.translatedSlides.forEach((ts: any) => {
+        const lang = ts.language || "en";
+        if (!slidesByLanguage[lang]) {
+          slidesByLanguage[lang] = [];
+        }
+        slidesByLanguage[lang].push(ts);
+      });
 
-      setSlides([...slides, ...translatedSlides]);
-      toast.success(`Created ${translatedSlides.length} translated slides`);
+      // Set slides for each language and switch to the first one
+      const newLanguages = Object.keys(slidesByLanguage);
+      newLanguages.forEach((lang) => {
+        setCurrentLanguage(lang);
+        setSlides(slidesByLanguage[lang].map((slide, idx) => ({
+          ...slide,
+          index: idx,
+        })));
+      });
+
+      // Switch to the first new language
+      if (newLanguages.length > 0) {
+        setCurrentLanguage(newLanguages[0]);
+      }
+
+      toast.success(`Created ${newLanguages.length} language versions`);
     } catch (error: any) {
       console.error("Translation error:", error);
       const errorMsg = error.message || "Translation failed";
@@ -131,6 +151,8 @@ const Editor = () => {
         </div>
 
         <div className="flex items-center gap-2">
+          <LanguageSwitcher onCreateTranslation={() => setShowTranslationDialog(true)} />
+          
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button variant="ghost" size="sm">
@@ -164,15 +186,6 @@ const Editor = () => {
           >
             <Shuffle className="w-4 h-4 mr-2" />
             {language === 'ru' ? 'Случайный фон' : 'Randomize'}
-          </Button>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => setShowTranslationDialog(true)}
-            disabled={slides.length === 0}
-          >
-            <Languages className="w-4 h-4 mr-2" />
-            {language === 'ru' ? 'Перевести' : 'Translate'}
           </Button>
           <Button
             size="sm"
