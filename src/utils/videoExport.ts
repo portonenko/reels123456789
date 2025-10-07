@@ -1,7 +1,6 @@
 import { Slide, Asset } from "@/types";
-import { FFmpeg } from '@ffmpeg/ffmpeg';
-import { fetchFile, toBlobURL } from '@ffmpeg/util';
 import { toast } from "sonner";
+import { supabase } from "@/integrations/supabase/client";
 
 const renderSlideToCanvas = (
   slide: Slide,
@@ -383,82 +382,53 @@ export const exportVideo = async (
   onProgress(95, "Finalizing video...");
   const webmBlob = await recordingPromise;
 
-  // Convert WebM to MP4 using FFmpeg for mobile compatibility
+  // Convert WebM to MP4 using server-side Edge Function
   try {
-    onProgress(96, "Converting to MP4 (this may take a minute)...");
+    onProgress(96, "Uploading for MP4 conversion...");
+    console.log('Starting server-side MP4 conversion...');
     
-    const ffmpeg = new FFmpeg();
+    // Create FormData and upload to Edge Function
+    const formData = new FormData();
+    formData.append('video', webmBlob, 'video.webm');
     
-    // Set up logging
-    ffmpeg.on('log', ({ message }) => {
-      console.log('FFmpeg:', message);
-    });
+    const { data: { session } } = await supabase.auth.getSession();
+    const token = session?.access_token;
     
-    ffmpeg.on('progress', ({ progress: ffmpegProgress }) => {
-      const convertProgress = 96 + (ffmpegProgress * 0.03); // 96-99%
-      onProgress(convertProgress, `Converting to MP4... ${Math.round(ffmpegProgress * 100)}%`);
-    });
+    const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
     
-    // Load FFmpeg with timeout
-    const baseURL = 'https://unpkg.com/@ffmpeg/core@0.12.6/dist/umd';
-    console.log('Loading FFmpeg...');
-    
-    const loadPromise = ffmpeg.load({
-      coreURL: await toBlobURL(`${baseURL}/ffmpeg-core.js`, 'text/javascript'),
-      wasmURL: await toBlobURL(`${baseURL}/ffmpeg-core.wasm`, 'application/wasm'),
-    });
-    
-    // Add 30 second timeout for loading
-    await Promise.race([
-      loadPromise,
-      new Promise((_, reject) => 
-        setTimeout(() => reject(new Error('FFmpeg load timeout')), 30000)
-      )
-    ]);
+    const response = await fetch(
+      `${supabaseUrl}/functions/v1/convert-to-mp4`,
+      {
+        method: 'POST',
+        headers: {
+          ...(token ? { 'Authorization': `Bearer ${token}` } : {}),
+        },
+        body: formData,
+      }
+    );
 
-    console.log('FFmpeg loaded, writing input file...');
-    // Write WebM file to FFmpeg virtual file system
-    await ffmpeg.writeFile('input.webm', await fetchFile(webmBlob));
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error('Conversion failed:', errorText);
+      throw new Error(`Server conversion failed: ${response.status}`);
+    }
 
-    console.log('Starting conversion...');
-    // Convert to MP4 with H.264 video and AAC audio for maximum compatibility
-    onProgress(97, "Encoding MP4 with H.264 + AAC...");
+    onProgress(98, "Converting to MP4...");
     
-    const execPromise = ffmpeg.exec([
-      '-i', 'input.webm',
-      '-c:v', 'libx264',      // H.264 video codec (universally supported)
-      '-preset', 'ultrafast', // Fastest encoding (changed from 'fast')
-      '-crf', '28',           // Slightly lower quality for speed (was 23)
-      '-c:a', 'aac',          // AAC audio codec (universally supported)
-      '-b:a', '128k',         // Lower audio bitrate for speed (was 192k)
-      '-movflags', '+faststart', // Optimize for mobile playback
-      '-y',                   // Overwrite output
-      'output.mp4'
-    ]);
+    // Get the MP4 blob from response
+    const mp4Blob = await response.blob();
     
-    // Add 2 minute timeout for conversion
-    await Promise.race([
-      execPromise,
-      new Promise((_, reject) => 
-        setTimeout(() => reject(new Error('FFmpeg conversion timeout - video may be too long')), 120000)
-      )
-    ]);
-
-    console.log('Reading output file...');
-    // Read the output MP4 file
-    const mp4Data = await ffmpeg.readFile('output.mp4');
-    const mp4Blob = new Blob([mp4Data], { type: 'video/mp4' });
-
     onProgress(100, "Complete!");
-    console.log('MP4 export successful!');
+    console.log('MP4 conversion successful!');
     return mp4Blob;
+    
   } catch (error) {
-    console.error('FFmpeg conversion failed:', error);
+    console.error('Server-side conversion failed:', error);
     
     // Fallback: return WebM if conversion fails
     console.warn('Falling back to WebM export');
     onProgress(100, "Exported as WebM (MP4 conversion failed)");
-    toast.error('MP4 conversion failed. Exported as WebM instead. Try CloudConvert to convert to MP4.');
+    toast.error('MP4 conversion failed. Exported as WebM instead. Please try again or contact support.');
     return webmBlob;
   }
 };
