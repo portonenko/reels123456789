@@ -215,6 +215,11 @@ const renderSlideToCanvas = (
   // Draw body if exists
   if (cleanBody) {
     currentY += 30; // Space between title and body
+    
+    // Use body color if specified, otherwise use text color
+    const bodyColor = slide.style.text.bodyColor || slide.style.text.color;
+    ctx.fillStyle = bodyColor;
+    
     ctx.font = `${slide.style.text.bodyFontWeight || slide.style.text.fontWeight - 200} ${slide.style.text.bodyFontSize || slide.style.text.fontSize * 0.5}px ${slide.style.text.bodyFontFamily || slide.style.text.fontFamily}`;
     
     // Wrap body text
@@ -391,7 +396,8 @@ export const exportVideo = async (
   
   const mediaRecorder = new MediaRecorder(combinedStream, {
     mimeType,
-    videoBitsPerSecond: 5000000, // 5 Mbps for good quality
+    videoBitsPerSecond: 8000000, // 8 Mbps for better quality
+    audioBitsPerSecond: 128000, // 128 kbps for audio
   });
 
   mediaRecorder.ondataavailable = (e) => {
@@ -408,13 +414,14 @@ export const exportVideo = async (
     mediaRecorder.onerror = reject;
   });
 
-  mediaRecorder.start();
+  mediaRecorder.start(100); // Collect data every 100ms for better audio sync
 
   // Start background video and audio if available
   if (backgroundVideo) {
     backgroundVideo.play();
   }
   if (backgroundAudio) {
+    backgroundAudio.volume = 0.8; // Slightly lower volume
     backgroundAudio.play();
   }
 
