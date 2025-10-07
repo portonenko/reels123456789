@@ -14,7 +14,117 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      assets: {
+        Row: {
+          created_at: string | null
+          duration: number
+          height: number
+          id: string
+          url: string
+          user_id: string
+          width: number
+        }
+        Insert: {
+          created_at?: string | null
+          duration: number
+          height: number
+          id?: string
+          url: string
+          user_id: string
+          width: number
+        }
+        Update: {
+          created_at?: string | null
+          duration?: number
+          height?: number
+          id?: string
+          url?: string
+          user_id?: string
+          width?: number
+        }
+        Relationships: []
+      }
+      music_tracks: {
+        Row: {
+          created_at: string | null
+          duration: number
+          id: string
+          name: string
+          url: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string | null
+          duration: number
+          id?: string
+          name: string
+          url: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string | null
+          duration?: number
+          id?: string
+          name?: string
+          url?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      projects: {
+        Row: {
+          created_at: string | null
+          data: Json
+          id: string
+          language: string
+          name: string
+          updated_at: string | null
+          user_id: string
+        }
+        Insert: {
+          created_at?: string | null
+          data: Json
+          id?: string
+          language?: string
+          name: string
+          updated_at?: string | null
+          user_id: string
+        }
+        Update: {
+          created_at?: string | null
+          data?: Json
+          id?: string
+          language?: string
+          name?: string
+          updated_at?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
+      user_preferences: {
+        Row: {
+          created_at: string | null
+          favorite_colors: string[] | null
+          keep_music_across_languages: boolean | null
+          updated_at: string | null
+          user_id: string
+        }
+        Insert: {
+          created_at?: string | null
+          favorite_colors?: string[] | null
+          keep_music_across_languages?: boolean | null
+          updated_at?: string | null
+          user_id: string
+        }
+        Update: {
+          created_at?: string | null
+          favorite_colors?: string[] | null
+          keep_music_across_languages?: boolean | null
+          updated_at?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
