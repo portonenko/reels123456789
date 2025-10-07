@@ -10,6 +10,7 @@ export interface TextStyle {
   lineHeight: number;
   letterSpacing: number;
   color: string;
+  bodyColor?: string; // Separate color for body text
   textShadow: string;
   alignment: "left" | "center" | "right";
   // Text effects (when plate is disabled)

@@ -8,7 +8,8 @@ import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { useEditorStore } from "@/store/useEditorStore";
 import { toast } from "sonner";
-import { MusicUpload } from "./MusicUpload";
+import { MusicUploadSimple } from "./MusicUploadSimple";
+import { ColorPicker } from "./ColorPicker";
 
 interface StylePanelProps {
   slide: Slide | null;
@@ -62,6 +63,13 @@ export const StylePanel = ({
         style: {
           ...s.style,
           plate: { ...slide.style.plate },
+          text: {
+            ...s.style.text,
+            stroke: slide.style.text.stroke,
+            strokeWidth: slide.style.text.strokeWidth,
+            glow: slide.style.text.glow,
+            textShadow: slide.style.text.textShadow,
+          },
         },
       });
     });
@@ -79,11 +87,10 @@ export const StylePanel = ({
   return (
     <div className="h-full bg-panel rounded-lg overflow-hidden flex flex-col">
       <Tabs defaultValue="text" className="flex-1 flex flex-col">
-        <TabsList className="grid w-full grid-cols-5 bg-secondary">
+        <TabsList className="grid w-full grid-cols-4 bg-secondary">
           <TabsTrigger value="text">Text</TabsTrigger>
           <TabsTrigger value="position">Position</TabsTrigger>
           <TabsTrigger value="plate">Plate</TabsTrigger>
-          <TabsTrigger value="shadow">Shadow</TabsTrigger>
           <TabsTrigger value="global">Global</TabsTrigger>
         </TabsList>
 
@@ -213,21 +220,31 @@ export const StylePanel = ({
               />
             </div>
 
-            <div>
-              <Label>Color</Label>
-              <Input
-                type="color"
-                value={slide.style.text.color}
-                onChange={(e) =>
-                  onUpdateSlide({
-                    style: {
-                      ...slide.style,
-                      text: { ...slide.style.text, color: e.target.value },
-                    },
-                  })
-                }
-              />
-            </div>
+            <ColorPicker
+              label="Title Color"
+              value={slide.style.text.color}
+              onChange={(color) =>
+                onUpdateSlide({
+                  style: {
+                    ...slide.style,
+                    text: { ...slide.style.text, color },
+                  },
+                })
+              }
+            />
+
+            <ColorPicker
+              label="Body Color"
+              value={slide.style.text.bodyColor || slide.style.text.color}
+              onChange={(color) =>
+                onUpdateSlide({
+                  style: {
+                    ...slide.style,
+                    text: { ...slide.style.text, bodyColor: color },
+                  },
+                })
+              }
+            />
 
             <div>
               <Label>Alignment</Label>
@@ -470,34 +487,9 @@ export const StylePanel = ({
             </Button>
           </TabsContent>
 
-          <TabsContent value="shadow" className="space-y-4 mt-0">
-            <div>
-              <Label>Text Shadow</Label>
-              <Input
-                value={slide.style.text.textShadow}
-                onChange={(e) =>
-                  onUpdateSlide({
-                    style: {
-                      ...slide.style,
-                      text: { ...slide.style.text, textShadow: e.target.value },
-                    },
-                  })
-                }
-                placeholder="0 2px 8px rgba(0,0,0,0.5)"
-              />
-            </div>
-
-            <Button 
-              variant="outline" 
-              className="w-full" 
-              onClick={handleApplyStyleToAll}
-            >
-              Apply Shadow & Effects to All Slides
-            </Button>
-          </TabsContent>
 
           <TabsContent value="global" className="space-y-4 mt-0">
-            <MusicUpload lang={lang} />
+            <MusicUploadSimple lang={lang} />
 
             <div className="pt-4 border-t">
               <Label>Video Overlay Dimming: {globalOverlay}%</Label>

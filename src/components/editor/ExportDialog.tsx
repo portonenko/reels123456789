@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import {
   Dialog,
   DialogContent,
@@ -8,10 +8,13 @@ import {
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
+import { Switch } from "@/components/ui/switch";
+import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
 import { Loader2, Download } from "lucide-react";
 import { Slide, Asset } from "@/types";
 import { exportVideo } from "@/utils/videoExport";
+import { supabase } from "@/integrations/supabase/client";
 
 interface ProjectData {
   slides: Slide[];
@@ -31,6 +34,38 @@ export const ExportDialog = ({ open, onClose, projects, assets }: ExportDialogPr
   const [isExporting, setIsExporting] = useState(false);
   const [progress, setProgress] = useState(0);
   const [currentStep, setCurrentStep] = useState("");
+  const [keepMusicAcrossLanguages, setKeepMusicAcrossLanguages] = useState(false);
+
+  // Load user preference for keeping music
+  useEffect(() => {
+    const loadPreference = async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+
+      const { data } = await supabase
+        .from("user_preferences")
+        .select("keep_music_across_languages")
+        .eq("user_id", user.id)
+        .maybeSingle();
+
+      if (data) {
+        setKeepMusicAcrossLanguages(data.keep_music_across_languages);
+      }
+    };
+    loadPreference();
+  }, []);
+
+  const handleToggleKeepMusic = async (checked: boolean) => {
+    setKeepMusicAcrossLanguages(checked);
+    
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return;
+
+    await supabase.from("user_preferences").upsert({
+      user_id: user.id,
+      keep_music_across_languages: checked,
+    });
+  };
 
   // projects is already organized by language
 
@@ -47,6 +82,10 @@ export const ExportDialog = ({ open, onClose, projects, assets }: ExportDialogPr
         toast.error("No projects to export");
         return;
       }
+
+      // Use first project's music if keeping across languages
+      const firstProject = Object.values(projects)[0];
+      const sharedMusic = keepMusicAcrossLanguages ? firstProject.backgroundMusicUrl : null;
       
       for (let i = 0; i < languages.length; i++) {
         const lang = languages[i];
@@ -56,7 +95,8 @@ export const ExportDialog = ({ open, onClose, projects, assets }: ExportDialogPr
         console.log(`Processing export ${i + 1}/${languages.length}: ${lang}`);
         
         try {
-          await exportLanguageVideo(lang, project);
+          const musicUrl = sharedMusic || project.backgroundMusicUrl;
+          await exportLanguageVideo(lang, { ...project, backgroundMusicUrl: musicUrl });
           console.log(`Successfully exported ${lang}`);
           
           // Small delay between exports to ensure cleanup
@@ -140,6 +180,22 @@ export const ExportDialog = ({ open, onClose, projects, assets }: ExportDialogPr
         </DialogHeader>
 
         <div className="space-y-4 py-4">
+          <div className="flex items-center justify-between p-3 bg-secondary rounded-lg">
+            <div className="flex flex-col gap-1">
+              <Label htmlFor="keep-music" className="text-sm font-medium cursor-pointer">
+                Keep Same Music Across All Languages
+              </Label>
+              <p className="text-xs text-muted-foreground">
+                Use the same background music for all exported videos
+              </p>
+            </div>
+            <Switch
+              id="keep-music"
+              checked={keepMusicAcrossLanguages}
+              onCheckedChange={handleToggleKeepMusic}
+            />
+          </div>
+
           <div className="space-y-2">
             <h4 className="text-sm font-medium">Available Versions:</h4>
             {Object.entries(projects).map(([lang, project]) => (
