@@ -52,7 +52,7 @@ export interface Slide {
   assetId?: string;
   style: SlideStyle;
   language?: string; // Language code for translated slides
-  transition?: "none" | "fade" | "flash" | "glow" | "slide-left" | "slide-right";
+  transition?: "none" | "fade" | "flash" | "glow" | "slide-left" | "slide-right" | "sunlight";
 }
 
 export interface Asset {

@@ -36,6 +36,15 @@ const renderSlideToCanvas = (
         filterValue = `brightness(${1 + (1 - progress)}) contrast(${1 + (0.2 - progress * 0.2)})`;
         opacity = progress;
         break;
+      case "sunlight":
+        // Sunlight flash: intense white flash at start, then fade in
+        if (progress < 0.2) {
+          filterValue = `brightness(${1 + (5 - progress / 0.2 * 5)})`;
+          opacity = progress / 0.2;
+        } else {
+          opacity = 0.2 + (progress - 0.2) * 1.25; // fade in after flash
+        }
+        break;
       case "slide-left":
         offsetX = canvas.width * (1 - progress);
         break;
@@ -451,23 +460,15 @@ export const exportVideo = async (
       onProgress(96 + progress * 3, `Converting to MP4... ${Math.round(progress * 100)}%`);
     });
     
-    // Use jsdelivr CDN for more reliable loading
-    const baseURL = 'https://cdn.jsdelivr.net/npm/@ffmpeg/core@0.12.6/dist/esm';
+    // Use unpkg CDN as it's more reliable
+    const baseURL = 'https://unpkg.com/@ffmpeg/core@0.12.6/dist/esm';
     console.log('Loading FFmpeg from:', baseURL);
     
-    try {
-      await ffmpeg.load({
-        coreURL: await toBlobURL(`${baseURL}/ffmpeg-core.js`, 'text/javascript'),
-        wasmURL: await toBlobURL(`${baseURL}/ffmpeg-core.wasm`, 'application/wasm'),
-      });
-      console.log('FFmpeg loaded successfully');
-    } catch (loadError) {
-      console.error('FFmpeg loading failed:', loadError);
-      // Fallback to webm if MP4 conversion fails
-      console.log('Falling back to WebM export');
-      onProgress(100, "Export complete (WebM format)");
-      return webmBlob;
-    }
+    await ffmpeg.load({
+      coreURL: await toBlobURL(`${baseURL}/ffmpeg-core.js`, 'text/javascript'),
+      wasmURL: await toBlobURL(`${baseURL}/ffmpeg-core.wasm`, 'application/wasm'),
+    });
+    console.log('FFmpeg loaded successfully');
 
     // Write WebM file
     onProgress(97, "Writing video file...");

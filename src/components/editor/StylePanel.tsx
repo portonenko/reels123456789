@@ -513,6 +513,14 @@ export const StylePanel = ({
                 onChange={(value: TransitionType) =>
                   onUpdateSlide({ transition: value })
                 }
+                onApplyToAll={() => {
+                  slides.forEach(s => {
+                    if (s.id !== slide.id) {
+                      updateSlide(s.id, { ...s, transition: slide.transition });
+                    }
+                  });
+                  toast.success("Transition applied to all slides");
+                }}
               />
             </div>
 
