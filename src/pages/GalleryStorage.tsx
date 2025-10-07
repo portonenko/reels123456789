@@ -49,23 +49,30 @@ const GalleryStorage = () => {
     }
 
     if (data) {
-      const loadedAssets = await Promise.all(
-        data.map(async (a: AssetDb) => {
-          // Get the storage URL for each asset
-          const { data: urlData } = supabase.storage
-            .from('video-assets')
-            .getPublicUrl(`${uid}/${a.id}`);
-          
-          return {
-            id: a.id,
-            url: urlData.publicUrl,
-            duration: Number(a.duration),
-            width: a.width,
-            height: a.height,
-            createdAt: new Date(a.created_at),
-          };
-        })
-      );
+      // Remove duplicates by ID
+      const uniqueAssets = data.reduce((acc: AssetDb[], curr: AssetDb) => {
+        if (!acc.find(a => a.id === curr.id)) {
+          acc.push(curr);
+        }
+        return acc;
+      }, []);
+
+      const loadedAssets = uniqueAssets.map((a: AssetDb) => {
+        // Get the storage URL for each asset
+        const { data: urlData } = supabase.storage
+          .from('video-assets')
+          .getPublicUrl(`${uid}/${a.id}`);
+        
+        return {
+          id: a.id,
+          url: urlData.publicUrl,
+          duration: Number(a.duration),
+          width: a.width,
+          height: a.height,
+          createdAt: new Date(a.created_at),
+        };
+      });
+      
       setAssets(loadedAssets);
     }
   };

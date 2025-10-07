@@ -86,6 +86,9 @@ const Editor = () => {
   };
 
   const handleParseText = (text: string) => {
+    // Store the original text for unused text tracking
+    localStorage.setItem('lastParsedText', text);
+    
     const parsedSlides = parseTextToSlides(text, "project-1", getDefaultStyle());
     setSlides(parsedSlides);
     if (parsedSlides.length > 0) {

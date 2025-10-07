@@ -375,21 +375,31 @@ export const exportVideo = async (
   
   // Combine video and audio streams if music is available
   let combinedStream: MediaStream;
+  let audioContext: AudioContext | undefined;
+  
   if (backgroundAudio) {
-    const audioContext = new AudioContext();
-    const audioSource = audioContext.createMediaElementSource(backgroundAudio);
-    const audioDestination = audioContext.createMediaStreamDestination();
-    
-    // Connect audio source to destination
-    audioSource.connect(audioDestination);
-    
-    // Also connect to the audio context destination so we can hear it during recording
-    audioSource.connect(audioContext.destination);
-    
-    combinedStream = new MediaStream([
-      ...videoStream.getVideoTracks(),
-      ...audioDestination.stream.getAudioTracks()
-    ]);
+    try {
+      audioContext = new AudioContext();
+      const audioSource = audioContext.createMediaElementSource(backgroundAudio);
+      const gainNode = audioContext.createGain();
+      const audioDestination = audioContext.createMediaStreamDestination();
+      
+      // Connect: source -> gain -> destination
+      audioSource.connect(gainNode);
+      gainNode.connect(audioDestination);
+      gainNode.gain.value = 0.8; // Set volume
+      
+      combinedStream = new MediaStream([
+        ...videoStream.getVideoTracks(),
+        ...audioDestination.stream.getAudioTracks()
+      ]);
+      
+      console.log("Audio stream added:", audioDestination.stream.getAudioTracks().length, "tracks");
+    } catch (error) {
+      console.error("Failed to setup audio stream:", error);
+      combinedStream = videoStream;
+      backgroundAudio = undefined;
+    }
   } else {
     combinedStream = videoStream;
   }
@@ -408,6 +418,10 @@ export const exportVideo = async (
 
   const recordingPromise = new Promise<Blob>((resolve, reject) => {
     mediaRecorder.onstop = () => {
+      // Clean up audio context
+      if (audioContext) {
+        audioContext.close();
+      }
       const blob = new Blob(chunks, { type: mimeType.split(';')[0] });
       resolve(blob);
     };
@@ -421,8 +435,9 @@ export const exportVideo = async (
     backgroundVideo.play();
   }
   if (backgroundAudio) {
-    backgroundAudio.volume = 0.8; // Slightly lower volume
-    backgroundAudio.play();
+    // Don't set volume here as it's controlled by gain node
+    await backgroundAudio.play();
+    console.log("Background audio playing");
   }
 
   // Animate through slides
