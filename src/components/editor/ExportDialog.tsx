@@ -82,15 +82,11 @@ export const ExportDialog = ({ open, onClose, slides, assets }: ExportDialogProp
         backgroundMusicUrl
       );
 
-      // Determine file extension from blob type
-      const isMP4 = videoBlob.type.includes('mp4');
-      const extension = isMP4 ? 'mp4' : 'webm';
-
-      // Download the video
+      // Download the video as MP4
       const url = URL.createObjectURL(videoBlob);
       const a = document.createElement("a");
       a.href = url;
-      a.download = `video-${language}-${Date.now()}.${extension}`;
+      a.download = `video-${language}-${Date.now()}.mp4`;
       a.click();
       URL.revokeObjectURL(url);
     } catch (error) {
@@ -137,8 +133,7 @@ export const ExportDialog = ({ open, onClose, slides, assets }: ExportDialogProp
 
           <div className="bg-blue-500/10 border border-blue-500/20 rounded-lg p-3">
             <p className="text-xs text-blue-200">
-              <strong>Note:</strong> Videos are exported as WebM format. 
-              If your device doesn't support WebM audio playback, please use a media player like VLC or convert the video to MP4 using a free online converter like CloudConvert.
+              <strong>Format:</strong> Videos are exported as MP4 (H.264 + AAC) for maximum compatibility with mobile devices and social media platforms.
             </p>
           </div>
         </div>
