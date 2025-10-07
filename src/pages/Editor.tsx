@@ -8,8 +8,10 @@ import { TextInputDialog } from "@/components/editor/TextInputDialog";
 import { TranslationDialog } from "@/components/editor/TranslationDialog";
 import { ExportDialog } from "@/components/editor/ExportDialog";
 import { LanguageSwitcher } from "@/components/editor/LanguageSwitcher";
+import { TextTemplateManager } from "@/components/editor/TextTemplateManager";
+import { RandomVideoButton } from "@/components/editor/RandomVideoButton";
 import { Button } from "@/components/ui/button";
-import { Sparkles, Home, Download, Shuffle, Globe } from "lucide-react";
+import { Sparkles, Home, Download, Shuffle, Globe, FileText } from "lucide-react";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -28,6 +30,7 @@ const Editor = () => {
   const [showTextDialog, setShowTextDialog] = useState(false);
   const [showTranslationDialog, setShowTranslationDialog] = useState(false);
   const [showExportDialog, setShowExportDialog] = useState(false);
+  const [showTemplateManager, setShowTemplateManager] = useState(false);
   const [showTextBoxControls, setShowTextBoxControls] = useState(false);
   const [draggedSlideIndex, setDraggedSlideIndex] = useState<number | null>(null);
   
@@ -211,6 +214,17 @@ const Editor = () => {
           <Button
             variant="outline"
             size="sm"
+            onClick={() => setShowTemplateManager(true)}
+          >
+            <FileText className="w-4 h-4 mr-2" />
+            {language === 'ru' ? 'Шаблоны' : 'Templates'}
+          </Button>
+          
+          <RandomVideoButton />
+          
+          <Button
+            variant="outline"
+            size="sm"
             onClick={() => setShowTextDialog(true)}
           >
             <Sparkles className="w-4 h-4 mr-2" />
@@ -312,6 +326,11 @@ const Editor = () => {
         open={showTextDialog}
         onClose={() => setShowTextDialog(false)}
         onParse={handleParseText}
+      />
+
+      <TextTemplateManager
+        open={showTemplateManager}
+        onClose={() => setShowTemplateManager(false)}
       />
 
       <TranslationDialog
