@@ -399,8 +399,10 @@ export const exportVideo = async (
       onProgress(96 + progress * 3, `Converting to MP4... ${Math.round(progress * 100)}%`);
     });
     
-    // Load FFmpeg with timeout
-    const baseURL = 'https://unpkg.com/@ffmpeg/core@0.12.6/dist/umd';
+    // Try jsdelivr CDN instead of unpkg - more reliable
+    const baseURL = 'https://cdn.jsdelivr.net/npm/@ffmpeg/core@0.12.6/dist/umd';
+    console.log('Loading FFmpeg from:', baseURL);
+    
     const loadPromise = ffmpeg.load({
       coreURL: await toBlobURL(`${baseURL}/ffmpeg-core.js`, 'text/javascript'),
       wasmURL: await toBlobURL(`${baseURL}/ffmpeg-core.wasm`, 'application/wasm'),
@@ -408,22 +410,23 @@ export const exportVideo = async (
     
     await Promise.race([
       loadPromise,
-      new Promise((_, reject) => setTimeout(() => reject(new Error('FFmpeg load timeout')), 30000))
+      new Promise((_, reject) => setTimeout(() => reject(new Error('FFmpeg load timeout after 60s')), 60000))
     ]);
     
     console.log('FFmpeg loaded successfully');
 
     // Write WebM file
+    onProgress(97, "Writing video file...");
     await ffmpeg.writeFile('input.webm', await fetchFile(webmBlob));
     console.log('WebM file written to FFmpeg');
 
     // Convert to MP4 with timeout
-    onProgress(97, "Converting to MP4...");
+    onProgress(98, "Converting to MP4...");
     const execPromise = ffmpeg.exec([
       '-i', 'input.webm',
       '-c:v', 'libx264',
-      '-preset', 'ultrafast',  // Fastest encoding
-      '-crf', '28',            // Faster but still decent quality
+      '-preset', 'ultrafast',
+      '-crf', '28',
       '-c:a', 'aac',
       '-b:a', '128k',
       '-movflags', '+faststart',
@@ -432,7 +435,7 @@ export const exportVideo = async (
     
     await Promise.race([
       execPromise,
-      new Promise((_, reject) => setTimeout(() => reject(new Error('FFmpeg conversion timeout')), 120000))
+      new Promise((_, reject) => setTimeout(() => reject(new Error('FFmpeg conversion timeout after 3min')), 180000))
     ]);
     
     console.log('FFmpeg conversion complete');
