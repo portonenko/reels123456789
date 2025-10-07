@@ -12,7 +12,6 @@ import { toast } from "sonner";
 import { Loader2, Download } from "lucide-react";
 import { Slide, Asset } from "@/types";
 import { exportVideo } from "@/utils/videoExport";
-import { useEditorStore } from "@/store/useEditorStore";
 
 interface ProjectData {
   slides: Slide[];
@@ -76,36 +75,31 @@ export const ExportDialog = ({ open, onClose, projects, assets }: ExportDialogPr
   };
 
   const exportLanguageVideo = async (language: string, project: ProjectData) => {
-    try {
-      const langSlides = project.slides;
-      
-      // Get the background asset for this language
-      const firstSlide = langSlides[0];
-      const backgroundAsset = firstSlide?.assetId 
-        ? assets.find(a => a.id === firstSlide.assetId) || null
-        : null;
+    const langSlides = project.slides;
+    
+    // Get the background asset for the first slide
+    const firstSlide = langSlides[0];
+    const backgroundAsset = firstSlide?.assetId 
+      ? assets.find(a => a.id === firstSlide.assetId) || null
+      : null;
 
-      const videoBlob = await exportVideo(
-        langSlides,
-        backgroundAsset,
-        (progress, message) => {
-          setProgress(progress);
-          setCurrentStep(`${language}: ${message}`);
-        },
-        project.backgroundMusicUrl
-      );
+    const videoBlob = await exportVideo(
+      langSlides,
+      backgroundAsset,
+      (progress, message) => {
+        setProgress(progress);
+        setCurrentStep(`${language}: ${message}`);
+      },
+      project.backgroundMusicUrl
+    );
 
-      // Download the video as MP4
-      const url = URL.createObjectURL(videoBlob);
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = `video-${language}-${Date.now()}.mp4`;
-      a.click();
-      URL.revokeObjectURL(url);
-    } catch (error) {
-      console.error(`Export error for ${language}:`, error);
-      throw error;
-    }
+    // Download the video as MP4
+    const url = URL.createObjectURL(videoBlob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `video-${language}-${Date.now()}.mp4`;
+    a.click();
+    URL.revokeObjectURL(url);
   };
 
   return (
