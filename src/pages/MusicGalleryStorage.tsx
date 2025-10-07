@@ -49,20 +49,15 @@ const MusicGalleryStorage = () => {
     }
 
     if (data) {
-      const loadedTracks = await Promise.all(
-        data.map(async (track) => {
-          // Get the storage URL for each track
-          const { data: urlData } = supabase.storage
-            .from('music-tracks')
-            .getPublicUrl(`${uid}/${track.id}`);
-          
-          return {
-            ...track,
-            url: urlData.publicUrl,
-          };
-        })
-      );
-      setTracks(loadedTracks);
+      // Remove duplicates by ID and use the URL already stored in the database
+      const uniqueTracks = data.reduce((acc: any[], curr: any) => {
+        if (!acc.find(t => t.id === curr.id)) {
+          acc.push(curr);
+        }
+        return acc;
+      }, []);
+
+      setTracks(uniqueTracks);
     }
   };
 
