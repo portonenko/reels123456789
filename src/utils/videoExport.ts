@@ -169,7 +169,7 @@ const renderSlideToCanvas = (
   // Draw body if exists
   if (cleanBody) {
     currentY += 30; // Space between title and body
-    ctx.font = `${slide.style.text.bodyFontWeight || slide.style.text.fontWeight - 200} ${slide.style.text.bodyFontSize || slide.style.text.fontSize * 0.5}px ${slide.style.text.fontFamily}`;
+    ctx.font = `${slide.style.text.bodyFontWeight || slide.style.text.fontWeight - 200} ${slide.style.text.bodyFontSize || slide.style.text.fontSize * 0.5}px ${slide.style.text.bodyFontFamily || slide.style.text.fontFamily}`;
     
     // Wrap body text
     const bodyWords = cleanBody.split(' ');

@@ -150,7 +150,7 @@ export const CanvasPreview = ({ slide, globalOverlay, showTextBoxControls = fals
         )}
       </div>
 
-      {/* 9:16 aspect ratio container */}
+      {/* 9:16 aspect ratio container - scaled down 3x from export (1080x1920) */}
       <div className="relative bg-black rounded-lg overflow-hidden shadow-2xl" style={{ width: "360px", height: "640px" }}>
         {/* Background video - plays continuously */}
         {backgroundAsset ? (
@@ -203,7 +203,7 @@ export const CanvasPreview = ({ slide, globalOverlay, showTextBoxControls = fals
                   className={cn("font-bold")}
                   style={{
                     fontFamily: currentSlide.style.text.fontFamily,
-                    fontSize: `${currentSlide.style.text.fontSize}px`,
+                    fontSize: `${currentSlide.style.text.fontSize / 3}px`,
                     fontWeight: currentSlide.style.text.fontWeight,
                     lineHeight: currentSlide.style.text.lineHeight,
                     letterSpacing: `${currentSlide.style.text.letterSpacing}em`,
@@ -219,8 +219,8 @@ export const CanvasPreview = ({ slide, globalOverlay, showTextBoxControls = fals
                   <p
                     className="mt-3"
                     style={{
-                      fontFamily: currentSlide.style.text.fontFamily,
-                      fontSize: `${currentSlide.style.text.bodyFontSize || currentSlide.style.text.fontSize * 0.5}px`,
+                      fontFamily: currentSlide.style.text.bodyFontFamily || currentSlide.style.text.fontFamily,
+                      fontSize: `${(currentSlide.style.text.bodyFontSize || currentSlide.style.text.fontSize * 0.5) / 3}px`,
                       fontWeight: currentSlide.style.text.bodyFontWeight || currentSlide.style.text.fontWeight - 200,
                       lineHeight: currentSlide.style.text.lineHeight * 1.2,
                       color: currentSlide.style.text.color,
@@ -239,16 +239,16 @@ export const CanvasPreview = ({ slide, globalOverlay, showTextBoxControls = fals
                   className={cn("font-bold")}
                   style={{
                     fontFamily: currentSlide.style.text.fontFamily,
-                    fontSize: `${currentSlide.style.text.fontSize}px`,
+                    fontSize: `${currentSlide.style.text.fontSize / 3}px`,
                     fontWeight: currentSlide.style.text.fontWeight,
                     lineHeight: currentSlide.style.text.lineHeight,
                     letterSpacing: `${currentSlide.style.text.letterSpacing}em`,
                     color: currentSlide.style.text.color,
                     textShadow: currentSlide.style.text.textShadow,
                     textAlign: currentSlide.style.text.alignment,
-                    WebkitTextStroke: `${currentSlide.style.text.strokeWidth || 2}px ${currentSlide.style.text.stroke || "#000000"}`,
+                    WebkitTextStroke: `${(currentSlide.style.text.strokeWidth || 2) / 3}px ${currentSlide.style.text.stroke || "#000000"}`,
                     paintOrder: "stroke fill",
-                    filter: `drop-shadow(0 0 ${(currentSlide.style.text.fontSize || 48) * 0.2}px ${currentSlide.style.text.glow || "rgba(255,255,255,0.8)"})`,
+                    filter: `drop-shadow(0 0 ${(currentSlide.style.text.fontSize || 48) * 0.2 / 3}px ${currentSlide.style.text.glow || "rgba(255,255,255,0.8)"})`,
                     wordWrap: "break-word",
                   }}
                 >
@@ -258,14 +258,14 @@ export const CanvasPreview = ({ slide, globalOverlay, showTextBoxControls = fals
                   <p
                     className="mt-3"
                     style={{
-                      fontFamily: currentSlide.style.text.fontFamily,
-                      fontSize: `${currentSlide.style.text.bodyFontSize || currentSlide.style.text.fontSize * 0.5}px`,
+                      fontFamily: currentSlide.style.text.bodyFontFamily || currentSlide.style.text.fontFamily,
+                      fontSize: `${(currentSlide.style.text.bodyFontSize || currentSlide.style.text.fontSize * 0.5) / 3}px`,
                       fontWeight: currentSlide.style.text.bodyFontWeight || currentSlide.style.text.fontWeight - 200,
                       lineHeight: currentSlide.style.text.lineHeight * 1.2,
                       color: currentSlide.style.text.color,
                       textShadow: currentSlide.style.text.textShadow,
                       textAlign: currentSlide.style.text.alignment,
-                      WebkitTextStroke: `${(currentSlide.style.text.strokeWidth || 2) * 0.75}px ${currentSlide.style.text.stroke || "#000000"}`,
+                      WebkitTextStroke: `${(currentSlide.style.text.strokeWidth || 2) * 0.75 / 3}px ${currentSlide.style.text.stroke || "#000000"}`,
                       paintOrder: "stroke fill",
                       wordWrap: "break-word",
                     }}
@@ -299,7 +299,7 @@ export const CanvasPreview = ({ slide, globalOverlay, showTextBoxControls = fals
                   className={cn("font-bold")}
                   style={{
                     fontFamily: currentSlide.style.text.fontFamily,
-                    fontSize: `${currentSlide.style.text.fontSize}px`,
+                    fontSize: `${currentSlide.style.text.fontSize / 3}px`,
                     fontWeight: currentSlide.style.text.fontWeight,
                     lineHeight: currentSlide.style.text.lineHeight,
                     letterSpacing: `${currentSlide.style.text.letterSpacing}em`,
@@ -316,8 +316,8 @@ export const CanvasPreview = ({ slide, globalOverlay, showTextBoxControls = fals
                   <p
                     className="mt-3"
                     style={{
-                      fontFamily: currentSlide.style.text.fontFamily,
-                      fontSize: `${currentSlide.style.text.bodyFontSize || currentSlide.style.text.fontSize * 0.5}px`,
+                      fontFamily: currentSlide.style.text.bodyFontFamily || currentSlide.style.text.fontFamily,
+                      fontSize: `${(currentSlide.style.text.bodyFontSize || currentSlide.style.text.fontSize * 0.5) / 3}px`,
                       fontWeight: currentSlide.style.text.bodyFontWeight || currentSlide.style.text.fontWeight - 200,
                       lineHeight: currentSlide.style.text.lineHeight * 1.2,
                       color: currentSlide.style.text.color,
@@ -337,16 +337,16 @@ export const CanvasPreview = ({ slide, globalOverlay, showTextBoxControls = fals
                   className={cn("font-bold")}
                   style={{
                     fontFamily: currentSlide.style.text.fontFamily,
-                    fontSize: `${currentSlide.style.text.fontSize}px`,
+                    fontSize: `${currentSlide.style.text.fontSize / 3}px`,
                     fontWeight: currentSlide.style.text.fontWeight,
                     lineHeight: currentSlide.style.text.lineHeight,
                     letterSpacing: `${currentSlide.style.text.letterSpacing}em`,
                     color: currentSlide.style.text.color,
                     textShadow: currentSlide.style.text.textShadow,
                     textAlign: currentSlide.style.text.alignment,
-                    WebkitTextStroke: `${currentSlide.style.text.strokeWidth || 2}px ${currentSlide.style.text.stroke || "#000000"}`,
+                    WebkitTextStroke: `${(currentSlide.style.text.strokeWidth || 2) / 3}px ${currentSlide.style.text.stroke || "#000000"}`,
                     paintOrder: "stroke fill",
-                    filter: `drop-shadow(0 0 ${(currentSlide.style.text.fontSize || 48) * 0.2}px ${currentSlide.style.text.glow || "rgba(255,255,255,0.8)"})`,
+                    filter: `drop-shadow(0 0 ${(currentSlide.style.text.fontSize || 48) * 0.2 / 3}px ${currentSlide.style.text.glow || "rgba(255,255,255,0.8)"})`,
                     wordWrap: "break-word",
                     maxWidth: "80%",
                   }}
@@ -357,14 +357,14 @@ export const CanvasPreview = ({ slide, globalOverlay, showTextBoxControls = fals
                   <p
                     className="mt-3"
                     style={{
-                      fontFamily: currentSlide.style.text.fontFamily,
-                      fontSize: `${currentSlide.style.text.bodyFontSize || currentSlide.style.text.fontSize * 0.5}px`,
+                      fontFamily: currentSlide.style.text.bodyFontFamily || currentSlide.style.text.fontFamily,
+                      fontSize: `${(currentSlide.style.text.bodyFontSize || currentSlide.style.text.fontSize * 0.5) / 3}px`,
                       fontWeight: currentSlide.style.text.bodyFontWeight || currentSlide.style.text.fontWeight - 200,
                       lineHeight: currentSlide.style.text.lineHeight * 1.2,
                       color: currentSlide.style.text.color,
                       textShadow: currentSlide.style.text.textShadow,
                       textAlign: currentSlide.style.text.alignment,
-                      WebkitTextStroke: `${(currentSlide.style.text.strokeWidth || 2) * 0.75}px ${currentSlide.style.text.stroke || "#000000"}`,
+                      WebkitTextStroke: `${(currentSlide.style.text.strokeWidth || 2) * 0.75 / 3}px ${currentSlide.style.text.stroke || "#000000"}`,
                       paintOrder: "stroke fill",
                       wordWrap: "break-word",
                       maxWidth: "80%",

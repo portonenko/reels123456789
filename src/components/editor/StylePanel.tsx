@@ -41,7 +41,7 @@ export const StylePanel = ({
   onToggleTextBoxControls,
   lang = 'en',
 }: StylePanelProps) => {
-  const { applyStyleToAll, applyDurationToAll, slides } = useEditorStore();
+  const { applyStyleToAll, applyDurationToAll, slides, updateSlide } = useEditorStore();
 
   const handleApplyStyleToAll = () => {
     if (!slide) return;
@@ -53,6 +53,21 @@ export const StylePanel = ({
     if (!slide) return;
     applyDurationToAll(slide.durationSec);
     toast.success(`Applied ${slide.durationSec}s duration to all ${slides.length} slides`);
+  };
+
+  const handleApplyPlateToAll = () => {
+    if (!slide) return;
+    slides.forEach((s) => {
+      if (s.id !== slide.id) {
+        updateSlide(s.id, {
+          style: {
+            ...s.style,
+            plate: { ...slide.style.plate },
+          },
+        });
+      }
+    });
+    toast.success(`Applied plate style to all ${slides.length} slides`);
   };
   
   if (!slide) {
@@ -77,7 +92,7 @@ export const StylePanel = ({
         <div className="flex-1 overflow-y-auto p-4">
           <TabsContent value="text" className="space-y-4 mt-0">
             <div>
-              <Label>Font Family</Label>
+              <Label>Title Font Family</Label>
               <Select
                 value={slide.style.text.fontFamily}
                 onValueChange={(value) =>
@@ -85,6 +100,32 @@ export const StylePanel = ({
                     style: {
                       ...slide.style,
                       text: { ...slide.style.text, fontFamily: value },
+                    },
+                  })
+                }
+              >
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {FONT_FAMILIES.map((font) => (
+                    <SelectItem key={font} value={font}>
+                      {font}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div>
+              <Label>Body Font Family</Label>
+              <Select
+                value={slide.style.text.bodyFontFamily || slide.style.text.fontFamily}
+                onValueChange={(value) =>
+                  onUpdateSlide({
+                    style: {
+                      ...slide.style,
+                      text: { ...slide.style.text, bodyFontFamily: value },
                     },
                   })
                 }
@@ -421,6 +462,14 @@ export const StylePanel = ({
                 </div>
               </>
             )}
+
+            <Button 
+              variant="outline" 
+              className="w-full mt-4" 
+              onClick={handleApplyPlateToAll}
+            >
+              Apply Plate Style to All Slides
+            </Button>
           </TabsContent>
 
           <TabsContent value="shadow" className="space-y-4 mt-0">
