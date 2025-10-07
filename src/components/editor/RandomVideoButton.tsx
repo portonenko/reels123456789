@@ -52,14 +52,12 @@ export const RandomVideoButton = () => {
         getDefaultStyle()
       );
 
-      // 5. Assign random assets to slides
-      const slidesWithAssets = parsedSlides.map((slide) => {
-        const randomAsset = assets[Math.floor(Math.random() * assets.length)];
-        return {
-          ...slide,
-          assetId: randomAsset.id,
-        };
-      });
+      // 5. Pick ONE random asset for ALL slides
+      const randomAsset = assets[Math.floor(Math.random() * assets.length)];
+      const slidesWithAssets = parsedSlides.map((slide) => ({
+        ...slide,
+        assetId: randomAsset.id,
+      }));
 
       // 6. Update store
       setSlides(slidesWithAssets);

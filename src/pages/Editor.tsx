@@ -10,8 +10,10 @@ import { ExportDialog } from "@/components/editor/ExportDialog";
 import { LanguageSwitcher } from "@/components/editor/LanguageSwitcher";
 import { TextTemplateManager } from "@/components/editor/TextTemplateManager";
 import { RandomVideoButton } from "@/components/editor/RandomVideoButton";
+import { PresetManager } from "@/components/editor/PresetManager";
+import { SmartRandomVideoDialog } from "@/components/editor/SmartRandomVideoDialog";
 import { Button } from "@/components/ui/button";
-import { Sparkles, Home, Download, Shuffle, Globe, FileText } from "lucide-react";
+import { Sparkles, Home, Download, Shuffle, Globe, FileText, Palette } from "lucide-react";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -31,6 +33,8 @@ const Editor = () => {
   const [showTranslationDialog, setShowTranslationDialog] = useState(false);
   const [showExportDialog, setShowExportDialog] = useState(false);
   const [showTemplateManager, setShowTemplateManager] = useState(false);
+  const [showPresetManager, setShowPresetManager] = useState(false);
+  const [showSmartRandomDialog, setShowSmartRandomDialog] = useState(false);
   const [showTextBoxControls, setShowTextBoxControls] = useState(false);
   const [draggedSlideIndex, setDraggedSlideIndex] = useState<number | null>(null);
   
@@ -219,8 +223,25 @@ const Editor = () => {
             <FileText className="w-4 h-4 mr-2" />
             {language === 'ru' ? 'Шаблоны' : 'Templates'}
           </Button>
+
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setShowPresetManager(true)}
+          >
+            <Palette className="w-4 h-4 mr-2" />
+            {language === 'ru' ? 'Пресеты' : 'Presets'}
+          </Button>
           
-          <RandomVideoButton />
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setShowSmartRandomDialog(true)}
+            className="bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600 text-white"
+          >
+            <Sparkles className="w-4 h-4 mr-2" />
+            {language === 'ru' ? 'Умный рандом' : 'Smart Random'}
+          </Button>
           
           <Button
             variant="outline"
@@ -331,6 +352,16 @@ const Editor = () => {
       <TextTemplateManager
         open={showTemplateManager}
         onClose={() => setShowTemplateManager(false)}
+      />
+
+      <PresetManager
+        open={showPresetManager}
+        onOpenChange={setShowPresetManager}
+      />
+
+      <SmartRandomVideoDialog
+        open={showSmartRandomDialog}
+        onOpenChange={setShowSmartRandomDialog}
       />
 
       <TranslationDialog
