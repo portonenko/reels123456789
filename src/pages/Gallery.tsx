@@ -196,10 +196,14 @@ const Gallery = () => {
                     className="w-full h-full object-cover"
                     muted
                     loop
+                    preload="metadata"
                     onMouseEnter={(e) => e.currentTarget.play()}
                     onMouseLeave={(e) => {
                       e.currentTarget.pause();
                       e.currentTarget.currentTime = 0;
+                    }}
+                    onError={(e) => {
+                      console.error('Video load error:', asset.url);
                     }}
                   />
                 </div>

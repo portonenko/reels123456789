@@ -12,6 +12,7 @@ import { MusicUploadSimple } from "./MusicUploadSimple";
 import { ColorPicker } from "./ColorPicker";
 import { TransitionPicker, TransitionType } from "./TransitionPicker";
 import { Separator } from "@/components/ui/separator";
+import { SlideTextPreview } from "./SlideTextPreview";
 
 interface StylePanelProps {
   slide: Slide | null;
@@ -546,6 +547,10 @@ export const StylePanel = ({
             >
               Apply Duration to All Slides
             </Button>
+
+            <Separator className="my-4" />
+
+            <SlideTextPreview slides={slides} lang={lang} />
           </TabsContent>
         </div>
       </Tabs>

@@ -108,8 +108,18 @@ export const PresetManager = ({ open, onOpenChange }: PresetManagerProps) => {
           ? preset.title_slide_duration
           : preset.other_slides_duration;
 
+      // Ensure font family is properly applied
+      const updatedStyle = {
+        ...preset.style,
+        text: {
+          ...preset.style.text,
+          fontFamily: preset.style.text.fontFamily || "Inter",
+          bodyFontFamily: preset.style.text.bodyFontFamily || preset.style.text.fontFamily || "Inter",
+        },
+      };
+
       updateSlide(slide.id, {
-        style: preset.style,
+        style: updatedStyle,
         durationSec: duration,
       });
     });
