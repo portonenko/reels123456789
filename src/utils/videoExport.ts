@@ -267,16 +267,16 @@ export const exportVideo = async (
 
   onProgress(10, "Starting recording...");
 
-  // Try to get the best supported video format
-  let mimeType = 'video/webm;codecs=vp8'; // VP8 is more widely supported than VP9
+  // Try to get the best supported video format with compatible audio
+  let mimeType = 'video/webm;codecs=vp8'; // Fallback
   
-  // Check if browser supports MP4 (rare but possible)
-  if (MediaRecorder.isTypeSupported('video/mp4')) {
-    mimeType = 'video/mp4';
-  } else if (MediaRecorder.isTypeSupported('video/webm;codecs=h264')) {
-    mimeType = 'video/webm;codecs=h264'; // H264 in WebM is better for compatibility
-  } else if (MediaRecorder.isTypeSupported('video/webm;codecs=vp8,opus')) {
-    mimeType = 'video/webm;codecs=vp8,opus';
+  // Check for better codec support
+  if (MediaRecorder.isTypeSupported('video/webm;codecs=vp8,pcm')) {
+    mimeType = 'video/webm;codecs=vp8,pcm'; // PCM audio is more compatible
+  } else if (MediaRecorder.isTypeSupported('video/webm;codecs=h264,aac')) {
+    mimeType = 'video/webm;codecs=h264,aac'; // AAC is widely supported
+  } else if (MediaRecorder.isTypeSupported('video/webm;codecs=vp8,vorbis')) {
+    mimeType = 'video/webm;codecs=vp8,vorbis'; // Vorbis is better than opus for compatibility
   }
 
   console.log('Using video format:', mimeType);
@@ -291,7 +291,12 @@ export const exportVideo = async (
     const audioContext = new AudioContext();
     const audioSource = audioContext.createMediaElementSource(backgroundAudio);
     const audioDestination = audioContext.createMediaStreamDestination();
+    
+    // Connect audio source to destination
     audioSource.connect(audioDestination);
+    
+    // Also connect to the audio context destination so we can hear it during recording
+    audioSource.connect(audioContext.destination);
     
     combinedStream = new MediaStream([
       ...videoStream.getVideoTracks(),

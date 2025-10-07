@@ -137,9 +137,8 @@ export const ExportDialog = ({ open, onClose, slides, assets }: ExportDialogProp
 
           <div className="bg-blue-500/10 border border-blue-500/20 rounded-lg p-3">
             <p className="text-xs text-blue-200">
-              <strong>Processing:</strong> Video export happens in your browser. 
-              Videos are exported as WebM format (widely supported). 
-              To convert to MP4 for maximum compatibility, you can use free online converters like CloudConvert or HandBrake.
+              <strong>Note:</strong> Videos are exported as WebM format. 
+              If your device doesn't support WebM audio playback, please use a media player like VLC or convert the video to MP4 using a free online converter like CloudConvert.
             </p>
           </div>
         </div>
