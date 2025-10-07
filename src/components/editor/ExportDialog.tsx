@@ -47,12 +47,23 @@ export const ExportDialog = ({ open, onClose, projects, assets }: ExportDialogPr
         const project = projects[lang];
         
         setCurrentStep(`Exporting ${lang} (${i + 1}/${languages.length})...`);
-        await exportLanguageVideo(lang, project);
+        
+        try {
+          await exportLanguageVideo(lang, project);
+          
+          // Small delay between exports to ensure cleanup
+          if (i < languages.length - 1) {
+            await new Promise(resolve => setTimeout(resolve, 1000));
+          }
+        } catch (error) {
+          console.error(`Export failed for ${lang}:`, error);
+          toast.error(`Export failed for ${lang}. Continuing with others...`);
+        }
         
         setProgress(((i + 1) / languages.length) * 100);
       }
       
-      toast.success(`Exported ${languages.length} video(s) successfully!`);
+      toast.success(`Export complete!`);
       onClose();
     } catch (error) {
       console.error("Export error:", error);

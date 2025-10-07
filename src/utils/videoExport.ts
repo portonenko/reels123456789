@@ -383,11 +383,12 @@ export const exportVideo = async (
   const webmBlob = await recordingPromise;
 
   // Convert WebM to MP4 using FFmpeg
+  let ffmpeg: FFmpeg | null = null;
   try {
     onProgress(96, "Loading MP4 converter...");
     console.log('Starting FFmpeg MP4 conversion...');
     
-    const ffmpeg = new FFmpeg();
+    ffmpeg = new FFmpeg();
     
     // Add logging
     ffmpeg.on('log', ({ message }) => {
@@ -439,6 +440,14 @@ export const exportVideo = async (
     const mp4Data = await ffmpeg.readFile('output.mp4');
     const mp4Blob = new Blob([new Uint8Array(mp4Data as Uint8Array)], { type: 'video/mp4' });
 
+    // Clean up FFmpeg files
+    try {
+      await ffmpeg.deleteFile('input.webm');
+      await ffmpeg.deleteFile('output.mp4');
+    } catch (cleanupError) {
+      console.warn('FFmpeg cleanup warning:', cleanupError);
+    }
+
     onProgress(100, "Complete!");
     console.log('MP4 export successful!');
     return mp4Blob;
@@ -447,6 +456,16 @@ export const exportVideo = async (
     console.error('MP4 conversion failed:', error);
     onProgress(100, "Export failed - please try again");
     throw error;
+  } finally {
+    // Terminate FFmpeg to free resources
+    if (ffmpeg) {
+      try {
+        await ffmpeg.terminate();
+        console.log('FFmpeg terminated successfully');
+      } catch (termError) {
+        console.warn('FFmpeg termination warning:', termError);
+      }
+    }
   }
 };
 
