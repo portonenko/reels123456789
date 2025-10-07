@@ -301,9 +301,14 @@ export const exportVideo = async (
     backgroundVideo.src = backgroundAsset.url;
     backgroundVideo.muted = true;
     backgroundVideo.loop = true;
+    backgroundVideo.crossOrigin = "anonymous"; // Important for blob URLs
     await new Promise((resolve, reject) => {
       backgroundVideo!.onloadeddata = resolve;
-      backgroundVideo!.onerror = reject;
+      backgroundVideo!.onerror = (e) => {
+        console.error("Video loading error:", e);
+        reject(new Error("Failed to load background video"));
+      };
+      backgroundVideo!.load();
     });
   }
 
@@ -312,9 +317,14 @@ export const exportVideo = async (
     backgroundAudio = document.createElement("audio");
     backgroundAudio.src = backgroundMusicUrl;
     backgroundAudio.loop = true;
+    backgroundAudio.crossOrigin = "anonymous"; // Important for blob URLs
     await new Promise((resolve, reject) => {
       backgroundAudio!.onloadeddata = resolve;
-      backgroundAudio!.onerror = reject;
+      backgroundAudio!.onerror = (e) => {
+        console.error("Audio loading error:", e);
+        reject(new Error("Failed to load background music"));
+      };
+      backgroundAudio!.load();
     });
   }
 

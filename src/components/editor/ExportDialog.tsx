@@ -160,13 +160,17 @@ export const ExportDialog = ({ open, onClose, projects, assets }: ExportDialogPr
     const a = document.createElement("a");
     a.href = url;
     a.download = `video-${language}-${Date.now()}.mp4`;
+    a.style.display = 'none';
     document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
     
-    // Cleanup URL after a delay
-    setTimeout(() => URL.revokeObjectURL(url), 100);
-    console.log(`Download triggered for ${language}`);
+    // Use a timeout to ensure the link is in DOM before clicking
+    setTimeout(() => {
+      a.click();
+      document.body.removeChild(a);
+      // Cleanup URL after download
+      setTimeout(() => URL.revokeObjectURL(url), 1000);
+      console.log(`Download triggered for ${language}`);
+    }, 100);
   };
 
   return (
