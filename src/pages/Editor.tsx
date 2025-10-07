@@ -36,6 +36,7 @@ const Editor = () => {
     selectedSlideId,
     globalOverlay,
     currentLanguage,
+    projects,
     setSlides,
     setCurrentLanguage,
     updateSlide,
@@ -101,20 +102,29 @@ const Editor = () => {
         slidesByLanguage[lang].push(ts);
       });
 
-      // Set slides for each language and switch to the first one
+      // Get current project settings to copy to new language versions
+      const currentProject = projects[currentLanguage];
+
+      // Store current language before switching
+      const originalLanguage = currentLanguage;
+
+      // Create project for each language with the translated slides
       const newLanguages = Object.keys(slidesByLanguage);
       newLanguages.forEach((lang) => {
+        // First switch to the language (this creates the project if it doesn't exist)
         setCurrentLanguage(lang);
+        // Then set the slides for that language, copying settings from original
         setSlides(slidesByLanguage[lang].map((slide, idx) => ({
           ...slide,
           index: idx,
+          assetId: currentProject.slides[idx]?.assetId, // Preserve asset assignments
         })));
+        // Copy global settings from original project
+        setGlobalOverlay(currentProject.globalOverlay);
       });
 
-      // Switch to the first new language
-      if (newLanguages.length > 0) {
-        setCurrentLanguage(newLanguages[0]);
-      }
+      // Switch back to original language so user can continue working
+      setCurrentLanguage(originalLanguage);
 
       toast.success(`Created ${newLanguages.length} language versions`);
     } catch (error: any) {
