@@ -12,6 +12,7 @@ import { toast } from "sonner";
 import { Loader2, Download } from "lucide-react";
 import { Slide, Asset } from "@/types";
 import { exportVideo } from "@/utils/videoExport";
+import { useEditorStore } from "@/store/useEditorStore";
 
 interface ExportDialogProps {
   open: boolean;
@@ -24,6 +25,7 @@ export const ExportDialog = ({ open, onClose, slides, assets }: ExportDialogProp
   const [isExporting, setIsExporting] = useState(false);
   const [progress, setProgress] = useState(0);
   const [currentStep, setCurrentStep] = useState("");
+  const { backgroundMusicUrl } = useEditorStore();
 
   // Group slides by language
   const slidesByLanguage = slides.reduce((acc, slide) => {
@@ -76,7 +78,8 @@ export const ExportDialog = ({ open, onClose, slides, assets }: ExportDialogProp
         (progress, message) => {
           setProgress(progress);
           setCurrentStep(`${language}: ${message}`);
-        }
+        },
+        backgroundMusicUrl
       );
 
       // Determine file extension from blob type

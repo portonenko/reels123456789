@@ -230,7 +230,8 @@ const roundRect = (
 export const exportVideo = async (
   slides: Slide[],
   backgroundAsset: Asset | null,
-  onProgress: (progress: number, message: string) => void
+  onProgress: (progress: number, message: string) => void,
+  backgroundMusicUrl?: string
 ): Promise<Blob> => {
   onProgress(5, "Initializing video recorder...");
 
@@ -239,6 +240,7 @@ export const exportVideo = async (
   canvas.height = 1920;
 
   let backgroundVideo: HTMLVideoElement | undefined;
+  let backgroundAudio: HTMLAudioElement | undefined;
   
   // Load background video if available
   if (backgroundAsset) {
@@ -249,6 +251,17 @@ export const exportVideo = async (
     await new Promise((resolve, reject) => {
       backgroundVideo!.onloadeddata = resolve;
       backgroundVideo!.onerror = reject;
+    });
+  }
+
+  // Load background music if available
+  if (backgroundMusicUrl) {
+    backgroundAudio = document.createElement("audio");
+    backgroundAudio.src = backgroundMusicUrl;
+    backgroundAudio.loop = true;
+    await new Promise((resolve, reject) => {
+      backgroundAudio!.onloadeddata = resolve;
+      backgroundAudio!.onerror = reject;
     });
   }
 
@@ -268,11 +281,27 @@ export const exportVideo = async (
 
   console.log('Using video format:', mimeType);
 
-  // Create MediaRecorder
-  const stream = canvas.captureStream(30); // 30 FPS
+  // Create MediaRecorder with audio support
+  const videoStream = canvas.captureStream(30); // 30 FPS
   const chunks: Blob[] = [];
   
-  const mediaRecorder = new MediaRecorder(stream, {
+  // Combine video and audio streams if music is available
+  let combinedStream: MediaStream;
+  if (backgroundAudio) {
+    const audioContext = new AudioContext();
+    const audioSource = audioContext.createMediaElementSource(backgroundAudio);
+    const audioDestination = audioContext.createMediaStreamDestination();
+    audioSource.connect(audioDestination);
+    
+    combinedStream = new MediaStream([
+      ...videoStream.getVideoTracks(),
+      ...audioDestination.stream.getAudioTracks()
+    ]);
+  } else {
+    combinedStream = videoStream;
+  }
+  
+  const mediaRecorder = new MediaRecorder(combinedStream, {
     mimeType,
     videoBitsPerSecond: 8000000, // 8 Mbps for better quality
   });
@@ -295,9 +324,12 @@ export const exportVideo = async (
 
   mediaRecorder.start();
 
-  // Start background video if available
+  // Start background video and audio if available
   if (backgroundVideo) {
     backgroundVideo.play();
+  }
+  if (backgroundAudio) {
+    backgroundAudio.play();
   }
 
   // Animate through slides
@@ -334,6 +366,9 @@ export const exportVideo = async (
         // Stop recording
         if (backgroundVideo) {
           backgroundVideo.pause();
+        }
+        if (backgroundAudio) {
+          backgroundAudio.pause();
         }
         mediaRecorder.stop();
       }
