@@ -1,4 +1,6 @@
 import { Slide, Asset } from "@/types";
+import { FFmpeg } from '@ffmpeg/ffmpeg';
+import { fetchFile, toBlobURL } from '@ffmpeg/util';
 
 const renderSlideToCanvas = (
   slide: Slide,
@@ -378,9 +380,41 @@ export const exportVideo = async (
   animate();
 
   onProgress(95, "Finalizing video...");
-  const videoBlob = await recordingPromise;
+  const webmBlob = await recordingPromise;
+
+  // Convert WebM to MP4 using FFmpeg for mobile compatibility
+  onProgress(96, "Converting to MP4 (this may take a minute)...");
+  
+  const ffmpeg = new FFmpeg();
+  
+  // Load FFmpeg
+  const baseURL = 'https://unpkg.com/@ffmpeg/core@0.12.6/dist/umd';
+  await ffmpeg.load({
+    coreURL: await toBlobURL(`${baseURL}/ffmpeg-core.js`, 'text/javascript'),
+    wasmURL: await toBlobURL(`${baseURL}/ffmpeg-core.wasm`, 'application/wasm'),
+  });
+
+  // Write WebM file to FFmpeg virtual file system
+  await ffmpeg.writeFile('input.webm', await fetchFile(webmBlob));
+
+  // Convert to MP4 with H.264 video and AAC audio for maximum compatibility
+  onProgress(97, "Encoding MP4 with H.264 + AAC...");
+  await ffmpeg.exec([
+    '-i', 'input.webm',
+    '-c:v', 'libx264',      // H.264 video codec (universally supported)
+    '-preset', 'fast',      // Faster encoding
+    '-crf', '23',            // Good quality
+    '-c:a', 'aac',           // AAC audio codec (universally supported)
+    '-b:a', '192k',          // Audio bitrate
+    '-movflags', '+faststart', // Optimize for mobile playback
+    'output.mp4'
+  ]);
+
+  // Read the output MP4 file
+  const mp4Data = await ffmpeg.readFile('output.mp4');
+  const mp4Blob = new Blob([mp4Data], { type: 'video/mp4' });
 
   onProgress(100, "Complete!");
-  return videoBlob;
+  return mp4Blob;
 };
 

@@ -82,11 +82,11 @@ export const ExportDialog = ({ open, onClose, slides, assets }: ExportDialogProp
         backgroundMusicUrl
       );
 
-      // Download the video as WebM
+      // Download the video as MP4
       const url = URL.createObjectURL(videoBlob);
       const a = document.createElement("a");
       a.href = url;
-      a.download = `video-${language}-${Date.now()}.webm`;
+      a.download = `video-${language}-${Date.now()}.mp4`;
       a.click();
       URL.revokeObjectURL(url);
     } catch (error) {
@@ -133,7 +133,7 @@ export const ExportDialog = ({ open, onClose, slides, assets }: ExportDialogProp
 
           <div className="bg-blue-500/10 border border-blue-500/20 rounded-lg p-3">
             <p className="text-xs text-blue-200">
-              <strong>Format:</strong> Videos export as WebM (VP9/VP8). For MP4, use a free converter like CloudConvert or upload directly to social media (they auto-convert).
+              <strong>Format:</strong> Videos are exported as MP4 (H.264 + AAC) for maximum compatibility with mobile devices. Note: MP4 conversion takes extra time for encoding.
             </p>
           </div>
         </div>
