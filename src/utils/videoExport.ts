@@ -1,6 +1,4 @@
 import { Slide, Asset } from "@/types";
-import { FFmpeg } from '@ffmpeg/ffmpeg';
-import { fetchFile, toBlobURL } from '@ffmpeg/util';
 
 const renderSlideToCanvas = (
   slide: Slide,
@@ -330,11 +328,15 @@ export const exportVideo = async (
 
   onProgress(10, "Starting recording...");
 
-  // Use VP9 with Opus for better quality and compatibility
-  // Most modern mobile browsers support VP9
-  let mimeType = 'video/webm;codecs=vp9,opus';
+  // Use H.264 for MP4 - best compatibility across all devices
+  let mimeType = 'video/mp4;codecs=h264,aac';
   
-  // Fallback to VP8 if VP9 is not supported
+  // Fallback to VP9 WebM if H.264 not supported
+  if (!MediaRecorder.isTypeSupported(mimeType)) {
+    mimeType = 'video/webm;codecs=vp9,opus';
+  }
+  
+  // Final fallback to VP8 WebM
   if (!MediaRecorder.isTypeSupported(mimeType)) {
     mimeType = 'video/webm;codecs=vp8,opus';
   }
@@ -379,7 +381,7 @@ export const exportVideo = async (
 
   const recordingPromise = new Promise<Blob>((resolve, reject) => {
     mediaRecorder.onstop = () => {
-      const blob = new Blob(chunks, { type: 'video/webm' });
+      const blob = new Blob(chunks, { type: mimeType.split(';')[0] });
       resolve(blob);
     };
     mediaRecorder.onerror = reject;
@@ -450,91 +452,9 @@ export const exportVideo = async (
   animate();
 
   onProgress(95, "Finalizing video...");
-  const webmBlob = await recordingPromise;
-
-  // Convert WebM to MP4 using FFmpeg
-  let ffmpeg: FFmpeg | null = null;
-  try {
-    onProgress(96, "Loading MP4 converter...");
-    console.log('Starting FFmpeg MP4 conversion...');
-    
-    ffmpeg = new FFmpeg();
-    
-    // Add logging
-    ffmpeg.on('log', ({ message }) => {
-      console.log('FFmpeg:', message);
-    });
-    
-    ffmpeg.on('progress', ({ progress, time }) => {
-      console.log(`FFmpeg progress: ${progress * 100}% (time: ${time})`);
-      onProgress(96 + progress * 3, `Converting to MP4... ${Math.round(progress * 100)}%`);
-    });
-    
-    // Use unpkg CDN as it's more reliable
-    const baseURL = 'https://unpkg.com/@ffmpeg/core@0.12.6/dist/esm';
-    console.log('Loading FFmpeg from:', baseURL);
-    
-    await ffmpeg.load({
-      coreURL: await toBlobURL(`${baseURL}/ffmpeg-core.js`, 'text/javascript'),
-      wasmURL: await toBlobURL(`${baseURL}/ffmpeg-core.wasm`, 'application/wasm'),
-    });
-    console.log('FFmpeg loaded successfully');
-
-    // Write WebM file
-    onProgress(97, "Writing video file...");
-    await ffmpeg.writeFile('input.webm', await fetchFile(webmBlob));
-    console.log('WebM file written to FFmpeg');
-
-    // Convert to MP4 with timeout
-    onProgress(98, "Converting to MP4...");
-    const execPromise = ffmpeg.exec([
-      '-i', 'input.webm',
-      '-c:v', 'libx264',
-      '-preset', 'ultrafast',
-      '-crf', '28',
-      '-c:a', 'aac',
-      '-b:a', '128k',
-      '-movflags', '+faststart',
-      'output.mp4'
-    ]);
-    
-    await Promise.race([
-      execPromise,
-      new Promise((_, reject) => setTimeout(() => reject(new Error('FFmpeg conversion timeout after 3min')), 180000))
-    ]);
-    
-    console.log('FFmpeg conversion complete');
-
-    // Read the output MP4 file
-    const mp4Data = await ffmpeg.readFile('output.mp4');
-    const mp4Blob = new Blob([new Uint8Array(mp4Data as Uint8Array)], { type: 'video/mp4' });
-
-    // Clean up FFmpeg files
-    try {
-      await ffmpeg.deleteFile('input.webm');
-      await ffmpeg.deleteFile('output.mp4');
-    } catch (cleanupError) {
-      console.warn('FFmpeg cleanup warning:', cleanupError);
-    }
-
-    onProgress(100, "Complete!");
-    console.log('MP4 export successful!');
-    return mp4Blob;
-    
-  } catch (error) {
-    console.error('MP4 conversion failed:', error);
-    onProgress(100, "Export failed - please try again");
-    throw error;
-  } finally {
-    // Terminate FFmpeg to free resources
-    if (ffmpeg) {
-      try {
-        await ffmpeg.terminate();
-        console.log('FFmpeg terminated successfully');
-      } catch (termError) {
-        console.warn('FFmpeg termination warning:', termError);
-      }
-    }
-  }
+  const videoBlob = await recordingPromise;
+  
+  onProgress(100, "Complete!");
+  return videoBlob;
 };
 
