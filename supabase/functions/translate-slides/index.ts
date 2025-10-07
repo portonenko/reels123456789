@@ -11,7 +11,7 @@ serve(async (req) => {
   }
 
   try {
-    const { slides, targetLanguages } = await req.json();
+    const { slides, targetLanguages, unusedText } = await req.json();
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
 
     if (!LOVABLE_API_KEY) {
@@ -32,9 +32,40 @@ serve(async (req) => {
     };
 
     const translatedResults = [];
+    const translatedUnusedText: Record<string, string> = {};
 
     for (const langCode of targetLanguages) {
       const langName = languageNames[langCode];
+      
+      // Translate unused text if provided
+      if (unusedText && unusedText.trim()) {
+        const unusedPrompt = `Translate the following text to ${langName}. Keep the same structure and formatting.
+
+${unusedText}`;
+
+        const unusedResponse = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${LOVABLE_API_KEY}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            model: "google/gemini-2.5-flash",
+            messages: [
+              {
+                role: "system",
+                content: "You are a professional translator. Translate text accurately while preserving meaning, tone, and formatting.",
+              },
+              { role: "user", content: unusedPrompt },
+            ],
+          }),
+        });
+
+        if (unusedResponse.ok) {
+          const unusedData = await unusedResponse.json();
+          translatedUnusedText[langCode] = unusedData.choices[0].message.content.trim();
+        }
+      }
       
       for (const slide of slides) {
         const prompt = `Translate the following text to ${langName}. 
@@ -116,7 +147,10 @@ ${slide.body || ""}`;
       }
     }
 
-    return new Response(JSON.stringify({ translatedSlides: translatedResults }), {
+    return new Response(JSON.stringify({ 
+      translatedSlides: translatedResults,
+      translatedUnusedText: Object.keys(translatedUnusedText).length > 0 ? translatedUnusedText : undefined
+    }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   } catch (error) {

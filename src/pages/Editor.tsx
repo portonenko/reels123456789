@@ -86,8 +86,8 @@ const Editor = () => {
   };
 
   const handleParseText = (text: string) => {
-    // Store the original text for unused text tracking
-    localStorage.setItem('lastParsedText', text);
+    // Store the original text for unused text tracking (language-specific)
+    localStorage.setItem(`lastParsedText_${currentLanguage}`, text);
     
     const parsedSlides = parseTextToSlides(text, "project-1", getDefaultStyle());
     setSlides(parsedSlides);
@@ -106,6 +106,9 @@ const Editor = () => {
     try {
       toast.info("Translating slides...");
 
+      // Get the unused text for the current language to translate it too
+      const currentUnusedText = localStorage.getItem(`lastParsedText_${currentLanguage}`) || '';
+
       const { data, error } = await supabase.functions.invoke("translate-slides", {
         body: {
           slides: slides.map((slide) => ({
@@ -118,6 +121,7 @@ const Editor = () => {
             projectId: slide.projectId,
           })),
           targetLanguages: languages,
+          unusedText: currentUnusedText,
         },
       });
 
@@ -159,6 +163,11 @@ const Editor = () => {
         })));
         // Copy global settings from original project
         setGlobalOverlay(currentProject.globalOverlay);
+        
+        // Save translated unused text for this language if available
+        if (data.translatedUnusedText && data.translatedUnusedText[lang]) {
+          localStorage.setItem(`lastParsedText_${lang}`, data.translatedUnusedText[lang]);
+        }
       });
 
       // Switch back to original language so user can continue working

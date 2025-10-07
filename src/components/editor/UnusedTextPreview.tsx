@@ -14,15 +14,15 @@ interface UnusedTextPreviewProps {
 
 export const UnusedTextPreview = ({ slides, lang = 'en' }: UnusedTextPreviewProps) => {
   const [unusedText, setUnusedText] = useState("");
-  const { getDefaultStyle } = useEditorStore();
+  const { getDefaultStyle, currentLanguage } = useEditorStore();
 
   useEffect(() => {
     console.log('UnusedTextPreview: checking for unused text, current slides:', slides.length);
     
-    // Get all text that was parsed from templates
-    const storedText = localStorage.getItem('lastParsedText') || '';
+    // Get all text that was parsed from templates (language-specific)
+    const storedText = localStorage.getItem(`lastParsedText_${currentLanguage}`) || '';
     
-    console.log('Stored text length:', storedText.length);
+    console.log('Stored text length:', storedText.length, 'for language:', currentLanguage);
     
     if (!storedText) {
       setUnusedText('');
@@ -71,7 +71,7 @@ export const UnusedTextPreview = ({ slides, lang = 'en' }: UnusedTextPreviewProp
       console.error('Error parsing unused text:', error);
       setUnusedText('');
     }
-  }, [slides, getDefaultStyle]);
+  }, [slides, getDefaultStyle, currentLanguage]);
 
   const handleCopy = () => {
     navigator.clipboard.writeText(unusedText);
