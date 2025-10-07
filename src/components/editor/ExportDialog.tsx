@@ -38,21 +38,31 @@ export const ExportDialog = ({ open, onClose, projects, assets }: ExportDialogPr
     setIsExporting(true);
     setProgress(0);
     
+    console.log('Starting export for all projects:', Object.keys(projects));
+    
     try {
       const languages = Object.keys(projects);
+      
+      if (languages.length === 0) {
+        toast.error("No projects to export");
+        return;
+      }
       
       for (let i = 0; i < languages.length; i++) {
         const lang = languages[i];
         const project = projects[lang];
         
         setCurrentStep(`Exporting ${lang} (${i + 1}/${languages.length})...`);
+        console.log(`Processing export ${i + 1}/${languages.length}: ${lang}`);
         
         try {
           await exportLanguageVideo(lang, project);
+          console.log(`Successfully exported ${lang}`);
           
           // Small delay between exports to ensure cleanup
           if (i < languages.length - 1) {
-            await new Promise(resolve => setTimeout(resolve, 1000));
+            console.log('Waiting before next export...');
+            await new Promise(resolve => setTimeout(resolve, 2000));
           }
         } catch (error) {
           console.error(`Export failed for ${lang}:`, error);
@@ -75,7 +85,16 @@ export const ExportDialog = ({ open, onClose, projects, assets }: ExportDialogPr
   };
 
   const exportLanguageVideo = async (language: string, project: ProjectData) => {
+    console.log(`Starting export for ${language}`, {
+      slidesCount: project.slides.length,
+      hasMusicUrl: !!project.backgroundMusicUrl
+    });
+    
     const langSlides = project.slides;
+    
+    if (langSlides.length === 0) {
+      throw new Error(`No slides found for language: ${language}`);
+    }
     
     // Get the background asset for the first slide
     const firstSlide = langSlides[0];
@@ -83,23 +102,31 @@ export const ExportDialog = ({ open, onClose, projects, assets }: ExportDialogPr
       ? assets.find(a => a.id === firstSlide.assetId) || null
       : null;
 
+    console.log(`Calling exportVideo for ${language}...`);
     const videoBlob = await exportVideo(
       langSlides,
       backgroundAsset,
       (progress, message) => {
+        console.log(`Export progress for ${language}: ${progress}% - ${message}`);
         setProgress(progress);
         setCurrentStep(`${language}: ${message}`);
       },
-      project.backgroundMusicUrl
+      project.backgroundMusicUrl || undefined
     );
 
+    console.log(`Export complete for ${language}, downloading...`);
     // Download the video as MP4
     const url = URL.createObjectURL(videoBlob);
     const a = document.createElement("a");
     a.href = url;
     a.download = `video-${language}-${Date.now()}.mp4`;
+    document.body.appendChild(a);
     a.click();
-    URL.revokeObjectURL(url);
+    document.body.removeChild(a);
+    
+    // Cleanup URL after a delay
+    setTimeout(() => URL.revokeObjectURL(url), 100);
+    console.log(`Download triggered for ${language}`);
   };
 
   return (
