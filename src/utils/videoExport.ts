@@ -382,39 +382,73 @@ export const exportVideo = async (
   onProgress(95, "Finalizing video...");
   const webmBlob = await recordingPromise;
 
-  // Convert WebM to MP4 using FFmpeg for mobile compatibility
-  onProgress(96, "Converting to MP4 (this may take a minute)...");
-  
-  const ffmpeg = new FFmpeg();
-  
-  // Load FFmpeg
-  const baseURL = 'https://unpkg.com/@ffmpeg/core@0.12.6/dist/umd';
-  await ffmpeg.load({
-    coreURL: await toBlobURL(`${baseURL}/ffmpeg-core.js`, 'text/javascript'),
-    wasmURL: await toBlobURL(`${baseURL}/ffmpeg-core.wasm`, 'application/wasm'),
-  });
+  // Convert WebM to MP4 using FFmpeg
+  try {
+    onProgress(96, "Loading MP4 converter...");
+    console.log('Starting FFmpeg MP4 conversion...');
+    
+    const ffmpeg = new FFmpeg();
+    
+    // Add logging
+    ffmpeg.on('log', ({ message }) => {
+      console.log('FFmpeg:', message);
+    });
+    
+    ffmpeg.on('progress', ({ progress, time }) => {
+      console.log(`FFmpeg progress: ${progress * 100}% (time: ${time})`);
+      onProgress(96 + progress * 3, `Converting to MP4... ${Math.round(progress * 100)}%`);
+    });
+    
+    // Load FFmpeg with timeout
+    const baseURL = 'https://unpkg.com/@ffmpeg/core@0.12.6/dist/umd';
+    const loadPromise = ffmpeg.load({
+      coreURL: await toBlobURL(`${baseURL}/ffmpeg-core.js`, 'text/javascript'),
+      wasmURL: await toBlobURL(`${baseURL}/ffmpeg-core.wasm`, 'application/wasm'),
+    });
+    
+    await Promise.race([
+      loadPromise,
+      new Promise((_, reject) => setTimeout(() => reject(new Error('FFmpeg load timeout')), 30000))
+    ]);
+    
+    console.log('FFmpeg loaded successfully');
 
-  // Write WebM file to FFmpeg virtual file system
-  await ffmpeg.writeFile('input.webm', await fetchFile(webmBlob));
+    // Write WebM file
+    await ffmpeg.writeFile('input.webm', await fetchFile(webmBlob));
+    console.log('WebM file written to FFmpeg');
 
-  // Convert to MP4 with H.264 video and AAC audio for maximum compatibility
-  onProgress(97, "Encoding MP4 with H.264 + AAC...");
-  await ffmpeg.exec([
-    '-i', 'input.webm',
-    '-c:v', 'libx264',      // H.264 video codec (universally supported)
-    '-preset', 'fast',      // Faster encoding
-    '-crf', '23',           // Good quality
-    '-c:a', 'aac',          // AAC audio codec (universally supported)
-    '-b:a', '192k',         // Audio bitrate
-    '-movflags', '+faststart', // Optimize for mobile playback
-    'output.mp4'
-  ]);
+    // Convert to MP4 with timeout
+    onProgress(97, "Converting to MP4...");
+    const execPromise = ffmpeg.exec([
+      '-i', 'input.webm',
+      '-c:v', 'libx264',
+      '-preset', 'ultrafast',  // Fastest encoding
+      '-crf', '28',            // Faster but still decent quality
+      '-c:a', 'aac',
+      '-b:a', '128k',
+      '-movflags', '+faststart',
+      'output.mp4'
+    ]);
+    
+    await Promise.race([
+      execPromise,
+      new Promise((_, reject) => setTimeout(() => reject(new Error('FFmpeg conversion timeout')), 120000))
+    ]);
+    
+    console.log('FFmpeg conversion complete');
 
-  // Read the output MP4 file
-  const mp4Data = await ffmpeg.readFile('output.mp4');
-  const mp4Blob = new Blob([new Uint8Array(mp4Data as Uint8Array)], { type: 'video/mp4' });
+    // Read the output MP4 file
+    const mp4Data = await ffmpeg.readFile('output.mp4');
+    const mp4Blob = new Blob([new Uint8Array(mp4Data as Uint8Array)], { type: 'video/mp4' });
 
-  onProgress(100, "Complete!");
-  return mp4Blob;
+    onProgress(100, "Complete!");
+    console.log('MP4 export successful!');
+    return mp4Blob;
+    
+  } catch (error) {
+    console.error('MP4 conversion failed:', error);
+    onProgress(100, "Export failed - please try again");
+    throw error;
+  }
 };
 
