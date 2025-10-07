@@ -331,16 +331,18 @@ export const exportVideo = async (
       await new Promise((resolve, reject) => {
         const timeout = setTimeout(() => {
           console.warn("Audio loading timeout, continuing without music");
+          backgroundAudio = undefined;
           resolve(null);
         }, 5000); // 5 second timeout
         
         backgroundAudio!.onloadeddata = () => {
           clearTimeout(timeout);
+          console.log("Background music loaded successfully:", backgroundMusicUrl);
           resolve(null);
         };
         backgroundAudio!.onerror = (e) => {
           clearTimeout(timeout);
-          console.warn("Audio loading failed, continuing without music:", e);
+          console.error("Audio loading failed:", e, "URL:", backgroundMusicUrl);
           backgroundAudio = undefined; // Clear failed audio
           resolve(null); // Continue without music instead of failing
         };
