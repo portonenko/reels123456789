@@ -399,19 +399,14 @@ export const exportVideo = async (
       onProgress(96 + progress * 3, `Converting to MP4... ${Math.round(progress * 100)}%`);
     });
     
-    // Try jsdelivr CDN instead of unpkg - more reliable
-    const baseURL = 'https://cdn.jsdelivr.net/npm/@ffmpeg/core@0.12.6/dist/umd';
+    // Use unpkg CDN directly for faster loading
+    const baseURL = 'https://unpkg.com/@ffmpeg/core@0.12.6/dist/esm';
     console.log('Loading FFmpeg from:', baseURL);
     
-    const loadPromise = ffmpeg.load({
+    await ffmpeg.load({
       coreURL: await toBlobURL(`${baseURL}/ffmpeg-core.js`, 'text/javascript'),
       wasmURL: await toBlobURL(`${baseURL}/ffmpeg-core.wasm`, 'application/wasm'),
     });
-    
-    await Promise.race([
-      loadPromise,
-      new Promise((_, reject) => setTimeout(() => reject(new Error('FFmpeg load timeout after 60s')), 60000))
-    ]);
     
     console.log('FFmpeg loaded successfully');
 
