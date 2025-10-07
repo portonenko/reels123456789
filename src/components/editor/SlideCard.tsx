@@ -10,6 +10,10 @@ interface SlideCardProps {
   onDuplicate: () => void;
   onDelete: () => void;
   index: number;
+  onDragStart?: (e: React.DragEvent) => void;
+  onDragOver?: (e: React.DragEvent) => void;
+  onDrop?: (e: React.DragEvent) => void;
+  isDraggable?: boolean;
 }
 
 export const SlideCard = ({
@@ -19,10 +23,18 @@ export const SlideCard = ({
   onDuplicate,
   onDelete,
   index,
+  onDragStart,
+  onDragOver,
+  onDrop,
+  isDraggable = false,
 }: SlideCardProps) => {
   return (
     <div
       onClick={onSelect}
+      draggable={isDraggable}
+      onDragStart={onDragStart}
+      onDragOver={onDragOver}
+      onDrop={onDrop}
       className={cn(
         "group p-4 rounded-lg border cursor-pointer transition-all",
         isSelected
@@ -31,9 +43,14 @@ export const SlideCard = ({
       )}
     >
       <div className="flex items-start gap-3">
-        <div className="cursor-grab active:cursor-grabbing text-muted-foreground hover:text-foreground transition-colors">
-          <GripVertical className="w-4 h-4" />
-        </div>
+        {isDraggable && (
+          <div 
+            className="cursor-grab active:cursor-grabbing text-muted-foreground hover:text-foreground transition-colors"
+            onMouseDown={(e) => e.stopPropagation()}
+          >
+            <GripVertical className="w-4 h-4" />
+          </div>
+        )}
 
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 mb-2">

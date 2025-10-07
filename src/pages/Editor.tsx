@@ -29,6 +29,7 @@ const Editor = () => {
   const [showTranslationDialog, setShowTranslationDialog] = useState(false);
   const [showExportDialog, setShowExportDialog] = useState(false);
   const [showTextBoxControls, setShowTextBoxControls] = useState(false);
+  const [draggedSlideIndex, setDraggedSlideIndex] = useState<number | null>(null);
   
   const {
     slides,
@@ -46,9 +47,36 @@ const Editor = () => {
     setGlobalOverlay,
     randomizeBackgrounds,
     getDefaultStyle,
+    reorderSlides,
   } = useEditorStore();
 
   const selectedSlide = slides.find((s) => s.id === selectedSlideId) || null;
+
+  const handleDragStart = (index: number) => (e: React.DragEvent) => {
+    setDraggedSlideIndex(index);
+    e.dataTransfer.effectAllowed = 'move';
+  };
+
+  const handleDragOver = (index: number) => (e: React.DragEvent) => {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
+    
+    if (draggedSlideIndex === null || draggedSlideIndex === index) return;
+    
+    // Reorder slides while dragging for visual feedback
+    const newSlides = [...slides];
+    const draggedSlide = newSlides[draggedSlideIndex];
+    newSlides.splice(draggedSlideIndex, 1);
+    newSlides.splice(index, 0, draggedSlide);
+    
+    setSlides(newSlides);
+    setDraggedSlideIndex(index);
+  };
+
+  const handleDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    setDraggedSlideIndex(null);
+  };
 
   const handleParseText = (text: string) => {
     const parsedSlides = parseTextToSlides(text, "project-1", getDefaultStyle());
@@ -241,6 +269,10 @@ const Editor = () => {
                   onSelect={() => setSelectedSlideId(slide.id)}
                   onDuplicate={() => duplicateSlide(slide.id)}
                   onDelete={() => deleteSlide(slide.id)}
+                  isDraggable={index > 0}
+                  onDragStart={index > 0 ? handleDragStart(index) : undefined}
+                  onDragOver={index > 0 ? handleDragOver(index) : undefined}
+                  onDrop={index > 0 ? handleDrop : undefined}
                 />
               ))}
             </div>

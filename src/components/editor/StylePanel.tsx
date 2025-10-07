@@ -10,6 +10,8 @@ import { useEditorStore } from "@/store/useEditorStore";
 import { toast } from "sonner";
 import { MusicUploadSimple } from "./MusicUploadSimple";
 import { ColorPicker } from "./ColorPicker";
+import { TransitionPicker, TransitionType } from "./TransitionPicker";
+import { Separator } from "@/components/ui/separator";
 
 interface StylePanelProps {
   slide: Slide | null;
@@ -501,6 +503,20 @@ export const StylePanel = ({
                 step={5}
               />
             </div>
+
+            <Separator />
+
+            {/* Transition */}
+            <div className="space-y-4">
+              <TransitionPicker
+                value={slide.transition || "none"}
+                onChange={(value: TransitionType) =>
+                  onUpdateSlide({ transition: value })
+                }
+              />
+            </div>
+
+            <Separator />
 
             <div>
               <Label>Slide Duration: {slide.durationSec}s</Label>

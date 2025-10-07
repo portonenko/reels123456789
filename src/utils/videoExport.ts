@@ -5,7 +5,8 @@ import { fetchFile, toBlobURL } from '@ffmpeg/util';
 const renderSlideToCanvas = (
   slide: Slide,
   canvas: HTMLCanvasElement,
-  backgroundVideo?: HTMLVideoElement
+  backgroundVideo?: HTMLVideoElement,
+  transitionProgress?: number
 ): void => {
   const ctx = canvas.getContext("2d");
   if (!ctx) return;
@@ -13,6 +14,44 @@ const renderSlideToCanvas = (
   // Set canvas size to 1080x1920 (9:16 vertical)
   canvas.width = 1080;
   canvas.height = 1920;
+
+  // Calculate transition effects
+  const progress = transitionProgress ?? 1;
+  let opacity = 1;
+  let offsetX = 0;
+  let filterValue = 'none';
+  
+  if (progress < 1 && slide.transition) {
+    switch (slide.transition) {
+      case "fade":
+        opacity = progress;
+        break;
+      case "flash":
+        if (progress < 0.3) {
+          filterValue = `brightness(${1 + (3 - progress / 0.3 * 3)})`;
+          opacity = progress / 0.3;
+        }
+        break;
+      case "glow":
+        filterValue = `brightness(${1 + (1 - progress)}) contrast(${1 + (0.2 - progress * 0.2)})`;
+        opacity = progress;
+        break;
+      case "slide-left":
+        offsetX = canvas.width * (1 - progress);
+        break;
+      case "slide-right":
+        offsetX = -canvas.width * (1 - progress);
+        break;
+    }
+  }
+
+  // Save context for transitions
+  ctx.save();
+  ctx.globalAlpha = opacity;
+  ctx.translate(offsetX, 0);
+  if (filterValue !== 'none') {
+    ctx.filter = filterValue;
+  }
 
   // Draw background
   if (backgroundVideo) {
@@ -205,6 +244,9 @@ const renderSlideToCanvas = (
   ctx.shadowOffsetX = 0;
   ctx.shadowOffsetY = 0;
   ctx.shadowBlur = 0;
+
+  // Restore context after transitions
+  ctx.restore();
 };
 
 const roundRect = (
@@ -358,9 +400,18 @@ export const exportVideo = async (
       accumulatedTime += slides[i].durationSec;
     }
 
-    // Render current slide
+    // Render current slide with transition
     if (currentSlideIndex < slides.length) {
-      renderSlideToCanvas(slides[currentSlideIndex], canvas, backgroundVideo);
+      const slideElapsed = elapsed - slideStartTime;
+      const transitionDuration = 0.5; // 0.5 seconds
+      const transitionProgress = Math.min(slideElapsed / transitionDuration, 1);
+      
+      renderSlideToCanvas(
+        slides[currentSlideIndex], 
+        canvas, 
+        backgroundVideo, 
+        transitionProgress
+      );
       
       if (elapsed < totalDuration) {
         requestAnimationFrame(animate);
@@ -400,16 +451,23 @@ export const exportVideo = async (
       onProgress(96 + progress * 3, `Converting to MP4... ${Math.round(progress * 100)}%`);
     });
     
-    // Use unpkg CDN directly for faster loading
-    const baseURL = 'https://unpkg.com/@ffmpeg/core@0.12.6/dist/esm';
+    // Use jsdelivr CDN for more reliable loading
+    const baseURL = 'https://cdn.jsdelivr.net/npm/@ffmpeg/core@0.12.6/dist/esm';
     console.log('Loading FFmpeg from:', baseURL);
     
-    await ffmpeg.load({
-      coreURL: await toBlobURL(`${baseURL}/ffmpeg-core.js`, 'text/javascript'),
-      wasmURL: await toBlobURL(`${baseURL}/ffmpeg-core.wasm`, 'application/wasm'),
-    });
-    
-    console.log('FFmpeg loaded successfully');
+    try {
+      await ffmpeg.load({
+        coreURL: await toBlobURL(`${baseURL}/ffmpeg-core.js`, 'text/javascript'),
+        wasmURL: await toBlobURL(`${baseURL}/ffmpeg-core.wasm`, 'application/wasm'),
+      });
+      console.log('FFmpeg loaded successfully');
+    } catch (loadError) {
+      console.error('FFmpeg loading failed:', loadError);
+      // Fallback to webm if MP4 conversion fails
+      console.log('Falling back to WebM export');
+      onProgress(100, "Export complete (WebM format)");
+      return webmBlob;
+    }
 
     // Write WebM file
     onProgress(97, "Writing video file...");

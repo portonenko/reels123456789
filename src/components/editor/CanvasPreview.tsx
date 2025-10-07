@@ -3,7 +3,7 @@ import { Slide } from "@/types";
 import { cn } from "@/lib/utils";
 import { useEditorStore } from "@/store/useEditorStore";
 import { Button } from "@/components/ui/button";
-import { Play, Pause, RotateCcw, Move } from "lucide-react";
+import { Play, Pause, RotateCcw } from "lucide-react";
 import { DraggableTextBox } from "./DraggableTextBox";
 
 interface CanvasPreviewProps {
@@ -17,8 +17,10 @@ export const CanvasPreview = ({ slide, globalOverlay, showTextBoxControls = fals
   const { assets, slides, updateSlide } = useEditorStore();
   const [isPlaying, setIsPlaying] = useState(false);
   const [currentSlideIndex, setCurrentSlideIndex] = useState(0);
+  const [slideTime, setSlideTime] = useState(0);
   const timerRef = useRef<NodeJS.Timeout | null>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
+  const animationRef = useRef<number | null>(null);
 
   const currentSlide = isPlaying ? slides[currentSlideIndex] : slide;
   
@@ -34,25 +36,39 @@ export const CanvasPreview = ({ slide, globalOverlay, showTextBoxControls = fals
     }
   }, [slide, slides, isPlaying]);
 
+  // Animate slide time for transitions
   useEffect(() => {
     if (isPlaying && slides.length > 0) {
       const currentSlideDuration = slides[currentSlideIndex]?.durationSec || 2;
+      const startTime = Date.now();
       
-      timerRef.current = setTimeout(() => {
-        if (currentSlideIndex < slides.length - 1) {
-          setCurrentSlideIndex(currentSlideIndex + 1);
+      const animate = () => {
+        const elapsed = (Date.now() - startTime) / 1000;
+        setSlideTime(elapsed);
+        
+        if (elapsed < currentSlideDuration) {
+          animationRef.current = requestAnimationFrame(animate);
         } else {
-          setIsPlaying(false);
-          setCurrentSlideIndex(0);
-          // Stop video at the end
-          if (videoRef.current) {
-            videoRef.current.pause();
+          if (currentSlideIndex < slides.length - 1) {
+            setCurrentSlideIndex(currentSlideIndex + 1);
+            setSlideTime(0);
+          } else {
+            setIsPlaying(false);
+            setCurrentSlideIndex(0);
+            setSlideTime(0);
+            if (videoRef.current) {
+              videoRef.current.pause();
+            }
           }
         }
-      }, currentSlideDuration * 1000);
+      };
+      
+      animationRef.current = requestAnimationFrame(animate);
       
       return () => {
-        if (timerRef.current) clearTimeout(timerRef.current);
+        if (animationRef.current) {
+          cancelAnimationFrame(animationRef.current);
+        }
       };
     }
   }, [isPlaying, currentSlideIndex, slides]);
@@ -60,13 +76,15 @@ export const CanvasPreview = ({ slide, globalOverlay, showTextBoxControls = fals
   const handlePlayPause = () => {
     if (isPlaying) {
       setIsPlaying(false);
-      if (timerRef.current) clearTimeout(timerRef.current);
+      if (animationRef.current) {
+        cancelAnimationFrame(animationRef.current);
+      }
       if (videoRef.current) {
         videoRef.current.pause();
       }
     } else {
       setIsPlaying(true);
-      // Start video from current position or beginning
+      setSlideTime(0);
       if (videoRef.current) {
         if (currentSlideIndex === 0) {
           videoRef.current.currentTime = 0;
@@ -78,8 +96,11 @@ export const CanvasPreview = ({ slide, globalOverlay, showTextBoxControls = fals
 
   const handleRestart = () => {
     setCurrentSlideIndex(0);
+    setSlideTime(0);
     setIsPlaying(false);
-    if (timerRef.current) clearTimeout(timerRef.current);
+    if (animationRef.current) {
+      cancelAnimationFrame(animationRef.current);
+    }
     if (videoRef.current) {
       videoRef.current.currentTime = 0;
       videoRef.current.pause();
@@ -96,6 +117,42 @@ export const CanvasPreview = ({ slide, globalOverlay, showTextBoxControls = fals
 
   const overlayOpacity = globalOverlay / 100;
   const backgroundAsset = assets.find((a) => a.id === currentSlide.assetId);
+
+  // Calculate transition effects
+  const transitionDuration = 0.5; // 0.5 seconds
+  const transitionProgress = Math.min(slideTime / transitionDuration, 1);
+  
+  let transitionStyle: React.CSSProperties = {};
+  
+  if (isPlaying && slideTime < transitionDuration && currentSlide.transition) {
+    switch (currentSlide.transition) {
+      case "fade":
+        transitionStyle = { opacity: transitionProgress };
+        break;
+      case "flash":
+        if (transitionProgress < 0.3) {
+          transitionStyle = { 
+            filter: `brightness(${1 + (3 - transitionProgress / 0.3 * 3)})`,
+            opacity: transitionProgress / 0.3
+          };
+        } else {
+          transitionStyle = { opacity: 1 };
+        }
+        break;
+      case "glow":
+        transitionStyle = {
+          filter: `brightness(${1 + (1 - transitionProgress)}) contrast(${1 + (0.2 - transitionProgress * 0.2)})`,
+          opacity: transitionProgress
+        };
+        break;
+      case "slide-left":
+        transitionStyle = { transform: `translateX(${100 - transitionProgress * 100}%)` };
+        break;
+      case "slide-right":
+        transitionStyle = { transform: `translateX(${-100 + transitionProgress * 100}%)` };
+        break;
+    }
+  }
 
   const handleTextBoxUpdate = (position: { x: number; y: number; width: number; height: number }) => {
     if (!slide) return;
@@ -172,7 +229,8 @@ export const CanvasPreview = ({ slide, globalOverlay, showTextBoxControls = fals
           style={{ opacity: overlayOpacity }}
         />
 
-        {/* Text content */}
+        {/* Text content with transition */}
+        <div style={transitionStyle} className="absolute inset-0">
         {currentSlide.style.text.position ? (
           // Positioned text box mode
           <div
@@ -377,6 +435,7 @@ export const CanvasPreview = ({ slide, globalOverlay, showTextBoxControls = fals
             )}
           </div>
         )}
+        </div>
 
           {/* Duration indicator */}
           <div className="absolute bottom-4 left-4 bg-black/70 text-white text-xs px-2 py-1 rounded">
