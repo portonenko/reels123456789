@@ -4,6 +4,8 @@ import { Copy } from "lucide-react";
 import { toast } from "sonner";
 import { Slide } from "@/types";
 import { useState, useEffect } from "react";
+import { parseTextToSlides } from "@/utils/textParser";
+import { useEditorStore } from "@/store/useEditorStore";
 
 interface UnusedTextPreviewProps {
   slides: Slide[];
@@ -12,37 +14,64 @@ interface UnusedTextPreviewProps {
 
 export const UnusedTextPreview = ({ slides, lang = 'en' }: UnusedTextPreviewProps) => {
   const [unusedText, setUnusedText] = useState("");
+  const { getDefaultStyle } = useEditorStore();
 
   useEffect(() => {
+    console.log('UnusedTextPreview: checking for unused text, current slides:', slides.length);
+    
     // Get all text that was parsed from templates
     const storedText = localStorage.getItem('lastParsedText') || '';
+    
+    console.log('Stored text length:', storedText.length);
     
     if (!storedText) {
       setUnusedText('');
       return;
     }
 
-    // Split by double newlines to get paragraphs/sections
-    const allParagraphs = storedText.split(/\n\n+/).filter(p => p.trim());
-    
-    // Get all text currently used in slides (title + body)
-    const usedText = slides.map(slide => {
-      const parts = [slide.title];
-      if (slide.body) parts.push(slide.body);
-      return parts.join('\n').toLowerCase().trim();
-    });
+    if (slides.length === 0) {
+      // If no slides, show all the stored text as unused
+      setUnusedText(storedText);
+      return;
+    }
 
-    // Find paragraphs that are not used in any slide
-    const unused = allParagraphs.filter(paragraph => {
-      const normalizedParagraph = paragraph.toLowerCase().trim();
-      // Check if this paragraph appears in any slide
-      return !usedText.some(used => 
-        used.includes(normalizedParagraph) || normalizedParagraph.includes(used)
+    try {
+      // Parse the original text to get all potential slides
+      const allParsedSlides = parseTextToSlides(storedText, "temp", getDefaultStyle());
+      console.log('Parsed all slides from stored text:', allParsedSlides.length);
+      
+      // Get the titles that are currently used in slides (normalize them)
+      const usedTitles = new Set(
+        slides.map(s => s.title.replace(/^\[.*?\]\s*/, '').trim().toLowerCase())
       );
-    });
+      
+      console.log('Used titles:', Array.from(usedTitles));
+      
+      // Find slides that weren't used
+      const unusedSlides = allParsedSlides.filter(parsedSlide => {
+        const normalizedTitle = parsedSlide.title.replace(/^\[.*?\]\s*/, '').trim().toLowerCase();
+        return !usedTitles.has(normalizedTitle);
+      });
+      
+      console.log('Found unused slides:', unusedSlides.length);
+      
+      // Format unused slides as text
+      const unused = unusedSlides
+        .map(slide => {
+          let text = slide.title.replace(/^\[.*?\]\s*/, ''); // Remove language tags
+          if (slide.body) {
+            text += `\n${slide.body.replace(/^\[.*?\]\s*/, '')}`;
+          }
+          return text;
+        })
+        .join('\n\n');
 
-    setUnusedText(unused.join('\n\n'));
-  }, [slides]);
+      setUnusedText(unused);
+    } catch (error) {
+      console.error('Error parsing unused text:', error);
+      setUnusedText('');
+    }
+  }, [slides, getDefaultStyle]);
 
   const handleCopy = () => {
     navigator.clipboard.writeText(unusedText);
