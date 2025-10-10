@@ -148,12 +148,16 @@ export const useEditorStore = create<EditorStore>((set, get) => ({
   
   setSlides: (slides) => set((state) => {
     const newProject = { ...state.getCurrentProject(), slides };
+    // Auto-select first slide when slides are set
+    const firstSlideId = slides.length > 0 ? slides[0].id : null;
+    
     return {
       projects: {
         ...state.projects,
         [state.currentLanguage]: newProject,
       },
       slides: newProject.slides,
+      selectedSlideId: firstSlideId,
     };
   }),
   

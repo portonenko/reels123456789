@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { Checkbox } from "@/components/ui/checkbox";
 import {
   Dialog,
   DialogContent,
@@ -35,6 +36,14 @@ export const ExportDialog = ({ open, onClose, projects, assets }: ExportDialogPr
   const [progress, setProgress] = useState(0);
   const [currentStep, setCurrentStep] = useState("");
   const [keepMusicAcrossLanguages, setKeepMusicAcrossLanguages] = useState(false);
+  const [selectedLanguages, setSelectedLanguages] = useState<Set<string>>(new Set());
+
+  // Initialize with all languages selected
+  useEffect(() => {
+    if (open) {
+      setSelectedLanguages(new Set(Object.keys(projects)));
+    }
+  }, [open, projects]);
 
   // Load user preference for keeping music
   useEffect(() => {
@@ -67,6 +76,18 @@ export const ExportDialog = ({ open, onClose, projects, assets }: ExportDialogPr
     });
   };
 
+  const toggleLanguage = (lang: string) => {
+    setSelectedLanguages(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(lang)) {
+        newSet.delete(lang);
+      } else {
+        newSet.add(lang);
+      }
+      return newSet;
+    });
+  };
+
   // projects is already organized by language
 
   const handleExportAll = async () => {
@@ -76,10 +97,10 @@ export const ExportDialog = ({ open, onClose, projects, assets }: ExportDialogPr
     console.log('Starting export for all projects:', Object.keys(projects));
     
     try {
-      const languages = Object.keys(projects);
+      const languages = Object.keys(projects).filter(lang => selectedLanguages.has(lang));
       
       if (languages.length === 0) {
-        toast.error("No projects to export");
+        toast.error("Please select at least one language to export");
         return;
       }
 
@@ -198,18 +219,26 @@ export const ExportDialog = ({ open, onClose, projects, assets }: ExportDialogPr
           </div>
 
           <div className="space-y-2">
-            <h4 className="text-sm font-medium">Available Versions:</h4>
+            <h4 className="text-sm font-medium">Select Videos to Export:</h4>
             {Object.entries(projects).map(([lang, project]) => (
               <div
                 key={lang}
-                className="flex items-center justify-between p-3 bg-secondary rounded-lg"
+                className="flex items-center gap-3 p-3 bg-secondary rounded-lg"
               >
-                <div>
+                <Checkbox
+                  id={`export-${lang}`}
+                  checked={selectedLanguages.has(lang)}
+                  onCheckedChange={() => toggleLanguage(lang)}
+                />
+                <label
+                  htmlFor={`export-${lang}`}
+                  className="flex-1 cursor-pointer"
+                >
                   <p className="font-medium capitalize">{lang}</p>
                   <p className="text-xs text-muted-foreground">
                     {project.slides.length} slides, {project.slides.reduce((sum, s) => sum + s.durationSec, 0)}s total
                   </p>
-                </div>
+                </label>
                 <Download className="w-4 h-4 text-muted-foreground" />
               </div>
             ))}
@@ -233,9 +262,9 @@ export const ExportDialog = ({ open, onClose, projects, assets }: ExportDialogPr
           <Button variant="outline" onClick={onClose} disabled={isExporting}>
             Cancel
           </Button>
-          <Button onClick={handleExportAll} disabled={isExporting}>
+          <Button onClick={handleExportAll} disabled={isExporting || selectedLanguages.size === 0}>
             {isExporting && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
-            Export All ({Object.keys(projects).length} videos)
+            Export Selected ({selectedLanguages.size} {selectedLanguages.size === 1 ? 'video' : 'videos'})
           </Button>
         </div>
       </DialogContent>
