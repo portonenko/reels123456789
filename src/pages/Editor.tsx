@@ -134,6 +134,12 @@ const Editor = () => {
         throw new Error("No translated slides returned");
       }
 
+      console.log('Translation response received:', {
+        slidesCount: data.translatedSlides.length,
+        hasUnusedText: !!data.translatedUnusedText,
+        unusedTextLanguages: data.translatedUnusedText ? Object.keys(data.translatedUnusedText) : []
+      });
+
       // Create separate projects for each language
       const slidesByLanguage: Record<string, Slide[]> = {};
       data.translatedSlides.forEach((ts: any) => {
@@ -166,7 +172,10 @@ const Editor = () => {
         
         // Save translated unused text for this language if available
         if (data.translatedUnusedText && data.translatedUnusedText[lang]) {
+          console.log(`Saving unused text for ${lang}, length:`, data.translatedUnusedText[lang].length);
           localStorage.setItem(`lastUnusedText_${lang}`, data.translatedUnusedText[lang]);
+        } else {
+          console.log(`No unused text received for ${lang}`);
         }
       });
 
