@@ -133,6 +133,7 @@ const renderSlideToCanvas = (
       const g = parseInt(bgColor.slice(3, 5), 16);
       const b = parseInt(bgColor.slice(5, 7), 16);
       rgbaColor = `rgba(${r}, ${g}, ${b}, ${opacity})`;
+      console.log(`Converting hex ${bgColor} to rgba: rgba(${r}, ${g}, ${b}, ${opacity})`);
     } else if (bgColor.startsWith('rgb(')) {
       // rgb color - convert to rgba
       const match = bgColor.match(/rgb\((\d+),\s*(\d+),\s*(\d+)\)/);
@@ -146,8 +147,11 @@ const renderSlideToCanvas = (
       rgbaColor = bgColor;
     } else {
       // Unknown format - use black as fallback
+      console.warn('Unknown color format:', bgColor);
       rgbaColor = `rgba(0, 0, 0, ${opacity})`;
     }
+    
+    console.log('Final plate color:', rgbaColor);
     
     if (slide.style.text.position) {
       // Positioned text box - plate fits the text box
