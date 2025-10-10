@@ -122,10 +122,23 @@ const renderSlideToCanvas = (
     }
 
     // Only draw plate if positioned, or draw full-width plate
+    // Convert hex color to rgba with opacity to avoid affecting subsequent draws
+    const hexColor = slide.style.plate.backgroundColor;
+    const opacity = slide.style.plate.opacity;
+    let rgbaColor: string;
+    
+    if (hexColor.startsWith('#')) {
+      const r = parseInt(hexColor.slice(1, 3), 16);
+      const g = parseInt(hexColor.slice(3, 5), 16);
+      const b = parseInt(hexColor.slice(5, 7), 16);
+      rgbaColor = `rgba(${r}, ${g}, ${b}, ${opacity})`;
+    } else {
+      rgbaColor = hexColor; // Assume it's already rgba
+    }
+    
     if (slide.style.text.position) {
       // Positioned text box - plate fits the text box
-      ctx.fillStyle = slide.style.plate.backgroundColor;
-      ctx.globalAlpha = slide.style.plate.opacity;
+      ctx.fillStyle = rgbaColor;
       const plateX = (slide.style.text.position.x / 100) * canvas.width;
       const plateY = (slide.style.text.position.y / 100) * canvas.height;
       const plateW = (slide.style.text.position.width / 100) * canvas.width;
@@ -136,11 +149,9 @@ const renderSlideToCanvas = (
       } else {
         ctx.fillRect(plateX, plateY, plateW, plateH);
       }
-      ctx.globalAlpha = 1;
     } else {
       // Default centered - plate wraps text
-      ctx.fillStyle = slide.style.plate.backgroundColor;
-      ctx.globalAlpha = slide.style.plate.opacity;
+      ctx.fillStyle = rgbaColor;
       const plateX = centerX - plateWidth / 2;
       const plateY = textY - plateHeight / 2;
       
@@ -149,7 +160,6 @@ const renderSlideToCanvas = (
       } else {
         ctx.fillRect(plateX, plateY, plateWidth, plateHeight);
       }
-      ctx.globalAlpha = 1;
     }
   }
 
