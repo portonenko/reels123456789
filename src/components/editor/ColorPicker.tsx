@@ -106,9 +106,19 @@ export const ColorPicker = ({ label, value, onChange }: ColorPickerProps) => {
           onChange={(e) => onChange(e.target.value)}
           className="w-20"
         />
-        <div className="flex-1 px-3 py-2 bg-secondary rounded text-sm font-mono">
-          {value.toUpperCase()}
-        </div>
+        <Input
+          type="text"
+          value={value.toUpperCase()}
+          onChange={(e) => {
+            const color = e.target.value;
+            // Allow hex colors with or without #
+            if (/^#?[0-9A-Fa-f]{0,6}$/.test(color)) {
+              onChange(color.startsWith('#') ? color : `#${color}`);
+            }
+          }}
+          className="flex-1 font-mono text-sm"
+          placeholder="#000000"
+        />
       </div>
 
       {favoriteColors.length > 0 && (

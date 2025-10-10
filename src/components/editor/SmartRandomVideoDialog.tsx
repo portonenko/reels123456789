@@ -273,9 +273,13 @@ export const SmartRandomVideoDialog = ({
           </div>
         </div>
 
-        <DialogFooter>
+        <DialogFooter className="gap-2">
           <Button variant="outline" onClick={() => onOpenChange(false)}>
             Cancel
+          </Button>
+          <Button variant="outline" onClick={loadRandomTemplate}>
+            <Sparkles className="w-4 h-4 mr-2" />
+            Pick Another Text
           </Button>
           <Button onClick={generateVideo}>
             <Sparkles className="w-4 h-4 mr-2" />
