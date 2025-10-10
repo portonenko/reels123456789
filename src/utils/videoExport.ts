@@ -121,10 +121,7 @@ const renderSlideToCanvas = (
       plateHeight += (slide.style.text.bodyFontSize || slide.style.text.fontSize * 0.5) * slide.style.text.lineHeight * 1.2 + slide.style.plate.padding;
     }
 
-    // Only draw plate if positioned, or draw full-width plate
-    // IMPORTANT: Save context to draw plate with its own opacity independent of transitions
-    ctx.save();
-    
+    // Draw plate background
     const bgColor = slide.style.plate.backgroundColor;
     const plateOpacity = slide.style.plate.opacity;
     
@@ -146,11 +143,15 @@ const renderSlideToCanvas = (
       }
     }
     
-    // Use rgba with the plate's opacity
-    const plateColor = `rgba(${r}, ${g}, ${b}, ${plateOpacity})`;
-    ctx.fillStyle = plateColor;
-    // Reset globalAlpha to 1 so only the rgba opacity applies
+    // Calculate plate opacity: combine transition opacity with plate opacity
+    const currentGlobalAlpha = ctx.globalAlpha; // Get current transition opacity
+    const combinedOpacity = plateOpacity * currentGlobalAlpha;
+    const plateColor = `rgba(${r}, ${g}, ${b}, ${combinedOpacity})`;
+    
+    // Draw plate with combined opacity, but reset globalAlpha so rgba is the only opacity
+    ctx.save();
     ctx.globalAlpha = 1;
+    ctx.fillStyle = plateColor;
     
     if (slide.style.text.position) {
       // Positioned text box - plate fits the text box
@@ -176,7 +177,7 @@ const renderSlideToCanvas = (
       }
     }
     
-    ctx.restore(); // Restore context so text gets the transition opacity
+    ctx.restore(); // Restore globalAlpha for text
   }
 
   // Draw title with text wrapping - use narrower width to avoid blind zones
