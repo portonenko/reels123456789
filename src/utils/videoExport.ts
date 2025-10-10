@@ -232,7 +232,14 @@ const renderSlideToCanvas = (
   // Adjust starting Y position to center the entire text block
   let currentY = textY - (titleBlockHeight / 2);
   
-  if (cleanBody) {
+  // If plate is enabled, adjust for padding at the top
+  if (slide.style.plate.enabled) {
+    currentY = textY - (titleBlockHeight / 2);
+    if (cleanBody) {
+      const totalHeight = titleBlockHeight + 30 + bodyBlockHeight;
+      currentY = textY - (totalHeight / 2);
+    }
+  } else if (cleanBody) {
     // If there's body text, recalculate Y to center both title and body
     const totalHeight = titleBlockHeight + 30 + bodyBlockHeight;
     currentY = textY - (totalHeight / 2);
