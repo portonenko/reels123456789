@@ -122,19 +122,36 @@ const renderSlideToCanvas = (
     }
 
     // Only draw plate if positioned, or draw full-width plate
-    // Convert hex color to rgba with opacity to avoid affecting subsequent draws
-    const hexColor = slide.style.plate.backgroundColor;
+    // Convert color to rgba with opacity to avoid affecting subsequent draws
+    const bgColor = slide.style.plate.backgroundColor;
     const opacity = slide.style.plate.opacity;
     let rgbaColor: string;
     
-    if (hexColor.startsWith('#')) {
-      const r = parseInt(hexColor.slice(1, 3), 16);
-      const g = parseInt(hexColor.slice(3, 5), 16);
-      const b = parseInt(hexColor.slice(5, 7), 16);
+    console.log('Plate backgroundColor:', bgColor, 'opacity:', opacity);
+    
+    if (bgColor.startsWith('#')) {
+      // Hex color - convert to rgba
+      const r = parseInt(bgColor.slice(1, 3), 16);
+      const g = parseInt(bgColor.slice(3, 5), 16);
+      const b = parseInt(bgColor.slice(5, 7), 16);
       rgbaColor = `rgba(${r}, ${g}, ${b}, ${opacity})`;
+    } else if (bgColor.startsWith('rgb(')) {
+      // rgb color - convert to rgba
+      const match = bgColor.match(/rgb\((\d+),\s*(\d+),\s*(\d+)\)/);
+      if (match) {
+        rgbaColor = `rgba(${match[1]}, ${match[2]}, ${match[3]}, ${opacity})`;
+      } else {
+        rgbaColor = `rgba(0, 0, 0, ${opacity})`; // fallback to black
+      }
+    } else if (bgColor.startsWith('rgba(')) {
+      // Already rgba - use as is (ignore stored opacity)
+      rgbaColor = bgColor;
     } else {
-      rgbaColor = hexColor; // Assume it's already rgba
+      // Unknown format - use black as fallback
+      rgbaColor = `rgba(0, 0, 0, ${opacity})`;
     }
+    
+    console.log('Converted to rgba:', rgbaColor);
     
     if (slide.style.text.position) {
       // Positioned text box - plate fits the text box
