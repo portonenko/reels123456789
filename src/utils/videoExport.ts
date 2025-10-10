@@ -164,6 +164,7 @@ const renderSlideToCanvas = (
       ctx.beginPath();
       if (slide.style.plate.borderRadius > 0) {
         const radius = slide.style.plate.borderRadius;
+        console.log('Drawing plate with border radius:', radius, 'at position:', plateX, plateY, plateW, plateH);
         ctx.moveTo(plateX + radius, plateY);
         ctx.lineTo(plateX + plateW - radius, plateY);
         ctx.quadraticCurveTo(plateX + plateW, plateY, plateX + plateW, plateY + radius);
