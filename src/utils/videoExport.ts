@@ -127,8 +127,6 @@ const renderSlideToCanvas = (
     const opacity = slide.style.plate.opacity;
     let rgbaColor: string;
     
-    console.log('Plate backgroundColor:', bgColor, 'opacity:', opacity);
-    
     if (bgColor.startsWith('#')) {
       // Hex color - convert to rgba
       const r = parseInt(bgColor.slice(1, 3), 16);
@@ -150,8 +148,6 @@ const renderSlideToCanvas = (
       // Unknown format - use black as fallback
       rgbaColor = `rgba(0, 0, 0, ${opacity})`;
     }
-    
-    console.log('Converted to rgba:', rgbaColor);
     
     if (slide.style.text.position) {
       // Positioned text box - plate fits the text box
