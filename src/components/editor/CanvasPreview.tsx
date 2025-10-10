@@ -253,8 +253,23 @@ export const CanvasPreview = ({ slide, globalOverlay, showTextBoxControls = fals
                 style={{
                   padding: `${currentSlide.style.plate.padding}px`,
                   borderRadius: `${currentSlide.style.plate.borderRadius}px`,
-                  backgroundColor: currentSlide.style.plate.backgroundColor,
-                  opacity: currentSlide.style.plate.opacity,
+                  backgroundColor: (() => {
+                    const color = currentSlide.style.plate.backgroundColor;
+                    const opacity = currentSlide.style.plate.opacity;
+                    
+                    if (color.startsWith('#')) {
+                      const r = parseInt(color.slice(1, 3), 16);
+                      const g = parseInt(color.slice(3, 5), 16);
+                      const b = parseInt(color.slice(5, 7), 16);
+                      return `rgba(${r}, ${g}, ${b}, ${opacity})`;
+                    } else if (color.startsWith('rgb')) {
+                      const match = color.match(/(\d+),\s*(\d+),\s*(\d+)/);
+                      if (match) {
+                        return `rgba(${match[1]}, ${match[2]}, ${match[3]}, ${opacity})`;
+                      }
+                    }
+                    return color;
+                  })(),
                 }}
               >
                 <h1
@@ -349,8 +364,23 @@ export const CanvasPreview = ({ slide, globalOverlay, showTextBoxControls = fals
                 style={{
                   padding: `${currentSlide.style.plate.padding}px`,
                   borderRadius: `${currentSlide.style.plate.borderRadius}px`,
-                  backgroundColor: currentSlide.style.plate.backgroundColor,
-                  opacity: currentSlide.style.plate.opacity,
+                  backgroundColor: (() => {
+                    const color = currentSlide.style.plate.backgroundColor;
+                    const opacity = currentSlide.style.plate.opacity;
+                    
+                    if (color.startsWith('#')) {
+                      const r = parseInt(color.slice(1, 3), 16);
+                      const g = parseInt(color.slice(3, 5), 16);
+                      const b = parseInt(color.slice(5, 7), 16);
+                      return `rgba(${r}, ${g}, ${b}, ${opacity})`;
+                    } else if (color.startsWith('rgb')) {
+                      const match = color.match(/(\d+),\s*(\d+),\s*(\d+)/);
+                      if (match) {
+                        return `rgba(${match[1]}, ${match[2]}, ${match[3]}, ${opacity})`;
+                      }
+                    }
+                    return color;
+                  })(),
                 }}
               >
                 <h1
