@@ -14,64 +14,17 @@ interface UnusedTextPreviewProps {
 
 export const UnusedTextPreview = ({ slides, lang = 'en' }: UnusedTextPreviewProps) => {
   const [unusedText, setUnusedText] = useState("");
-  const { getDefaultStyle, currentLanguage } = useEditorStore();
+  const { currentLanguage } = useEditorStore();
 
   useEffect(() => {
     console.log('UnusedTextPreview: checking for unused text, current slides:', slides.length);
     
-    // Get all text that was parsed from templates (language-specific)
-    const storedText = localStorage.getItem(`lastParsedText_${currentLanguage}`) || '';
+    // Simply read the saved unused text for this language
+    const savedUnusedText = localStorage.getItem(`lastUnusedText_${currentLanguage}`) || '';
     
-    console.log('Stored text length:', storedText.length, 'for language:', currentLanguage);
-    
-    if (!storedText) {
-      setUnusedText('');
-      return;
-    }
-
-    if (slides.length === 0) {
-      // If no slides, show all the stored text as unused
-      setUnusedText(storedText);
-      return;
-    }
-
-    try {
-      // Parse the original text to get all potential slides
-      const allParsedSlides = parseTextToSlides(storedText, "temp", getDefaultStyle());
-      console.log('Parsed all slides from stored text:', allParsedSlides.length);
-      
-      // Get the titles that are currently used in slides (normalize them)
-      const usedTitles = new Set(
-        slides.map(s => s.title.replace(/^\[.*?\]\s*/, '').trim().toLowerCase())
-      );
-      
-      console.log('Used titles:', Array.from(usedTitles));
-      
-      // Find slides that weren't used
-      const unusedSlides = allParsedSlides.filter(parsedSlide => {
-        const normalizedTitle = parsedSlide.title.replace(/^\[.*?\]\s*/, '').trim().toLowerCase();
-        return !usedTitles.has(normalizedTitle);
-      });
-      
-      console.log('Found unused slides:', unusedSlides.length);
-      
-      // Format unused slides as text
-      const unused = unusedSlides
-        .map(slide => {
-          let text = slide.title.replace(/^\[.*?\]\s*/, ''); // Remove language tags
-          if (slide.body) {
-            text += `\n${slide.body.replace(/^\[.*?\]\s*/, '')}`;
-          }
-          return text;
-        })
-        .join('\n\n');
-
-      setUnusedText(unused);
-    } catch (error) {
-      console.error('Error parsing unused text:', error);
-      setUnusedText('');
-    }
-  }, [slides, getDefaultStyle, currentLanguage]);
+    console.log('Found unused text for language', currentLanguage, ':', savedUnusedText.substring(0, 100));
+    setUnusedText(savedUnusedText);
+  }, [slides, currentLanguage]);
 
   const handleCopy = () => {
     navigator.clipboard.writeText(unusedText);

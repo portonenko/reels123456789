@@ -107,7 +107,7 @@ const Editor = () => {
       toast.info("Translating slides...");
 
       // Get the unused text for the current language to translate it too
-      const currentUnusedText = localStorage.getItem(`lastParsedText_${currentLanguage}`) || '';
+      const currentUnusedText = localStorage.getItem(`lastUnusedText_${currentLanguage}`) || '';
 
       const { data, error } = await supabase.functions.invoke("translate-slides", {
         body: {
@@ -166,7 +166,7 @@ const Editor = () => {
         
         // Save translated unused text for this language if available
         if (data.translatedUnusedText && data.translatedUnusedText[lang]) {
-          localStorage.setItem(`lastParsedText_${lang}`, data.translatedUnusedText[lang]);
+          localStorage.setItem(`lastUnusedText_${lang}`, data.translatedUnusedText[lang]);
         }
       });
 

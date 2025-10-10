@@ -176,10 +176,12 @@ export const SmartRandomVideoDialog = ({
         assetId: selectedAsset.id,
       }));
 
-      // Save the template content for the Global tab (language-specific)
-      // We need to import currentLanguage from the store
+      // Save the full template content for the Global tab (language-specific)
       const { currentLanguage } = useEditorStore.getState();
       localStorage.setItem(`lastParsedText_${currentLanguage}`, templateContent);
+      
+      // Save the actual unused text (only unselected slides)
+      localStorage.setItem(`lastUnusedText_${currentLanguage}`, unusedText);
       
       // Update store - music URL is already the public URL from the database
       setSlides(selectedSlides);
