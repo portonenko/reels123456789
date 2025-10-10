@@ -131,9 +131,6 @@ export const SmartRandomVideoDialog = ({
       }
 
       const randomMusic = music[Math.floor(Math.random() * music.length)];
-      const randomAsset = assets[Math.floor(Math.random() * assets.length)];
-
-      console.log('Selected music:', randomMusic.name, 'URL:', randomMusic.url);
 
       // Create slides only from selected indices
       const projectId = crypto.randomUUID();
@@ -144,12 +141,40 @@ export const SmartRandomVideoDialog = ({
       );
 
       const selectedSlides = allSlides
-        .filter((_, index) => selectedIndices.has(index))
-        .map((slide, newIndex) => ({
-          ...slide,
-          index: newIndex,
-          assetId: randomAsset.id,
-        }));
+        .filter((_, index) => selectedIndices.has(index));
+
+      // Calculate total duration needed
+      const totalDuration = selectedSlides.reduce((sum, slide) => sum + slide.durationSec, 0);
+      
+      // Find assets that match the total duration (within 2 seconds tolerance)
+      const matchingAssets = assets.filter(asset => {
+        const assetDuration = Number(asset.duration);
+        return Math.abs(assetDuration - totalDuration) <= 2;
+      });
+
+      // If no close matches, find the closest one
+      let selectedAsset;
+      if (matchingAssets.length > 0) {
+        selectedAsset = matchingAssets[Math.floor(Math.random() * matchingAssets.length)];
+      } else {
+        selectedAsset = assets.reduce((closest, asset) => {
+          const assetDuration = Number(asset.duration);
+          const closestDuration = Number(closest.duration);
+          return Math.abs(assetDuration - totalDuration) < Math.abs(closestDuration - totalDuration)
+            ? asset
+            : closest;
+        });
+      }
+
+      console.log('Selected music:', randomMusic.name, 'URL:', randomMusic.url);
+      console.log('Total duration needed:', totalDuration, 'Selected asset duration:', selectedAsset.duration);
+
+      // Apply the selected asset to all slides
+      const finalSlides = selectedSlides.map((slide, newIndex) => ({
+        ...slide,
+        index: newIndex,
+        assetId: selectedAsset.id,
+      }));
 
       // Save the template content for the Global tab (language-specific)
       // We need to import currentLanguage from the store

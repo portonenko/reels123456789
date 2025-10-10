@@ -68,13 +68,26 @@ ${unusedText}`;
       }
       
       for (const slide of slides) {
-        const prompt = `Translate the following text to ${langName}. 
+        const hasBody = slide.body && slide.body.trim();
+        const prompt = hasBody 
+          ? `Translate this two-part text to ${langName}. First part is a title, second part is body text.
 
-IMPORTANT: Return ONLY the translated text without any labels, prefixes, or formatting. Do not include words like "Title:", "Text:", "Titel:", "Texto:", etc.
-
-Original text to translate:
+Title:
 ${slide.title}
-${slide.body || ""}`;
+
+Body:
+${slide.body}
+
+Return the translation in exactly this format:
+[translated title]
+[translated body]
+
+Do not add labels, markers, or extra formatting.`
+          : `Translate this title to ${langName}:
+
+${slide.title}
+
+Return only the translated title, nothing else.`;
 
         const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
           method: "POST",
@@ -83,11 +96,11 @@ ${slide.body || ""}`;
             "Content-Type": "application/json",
           },
           body: JSON.stringify({
-            model: "google/gemini-2.5-flash",
+            model: "google/gemini-2.5-pro",
             messages: [
               {
                 role: "system",
-                content: "You are a professional translator. Translate text accurately while preserving meaning and tone. Return ONLY the translated text without any labels, metadata, or formatting markers.",
+                content: "You are a professional translator. Preserve the exact meaning, tone, and style of the original text. Return only the translated text with no labels or metadata.",
               },
               { role: "user", content: prompt },
             ],
@@ -119,22 +132,21 @@ ${slide.body || ""}`;
         const data = await response.json();
         const translatedText = data.choices[0].message.content.trim();
         
-        // Remove common labels in multiple languages
-        let cleanedText = translatedText
-          .replace(/^(Title|Titel|Título|Titre|Titolo):\s*/i, '')
-          .replace(/\n(Body|Text|Texto|Texte|Testo):\s*/gi, '\n')
-          .replace(/^(Body|Text|Texto|Texte|Testo):\s*/i, '');
-        
-        // Split into title and body
-        const lines = cleanedText.split("\n").filter((line: string) => line.trim());
+        // Parse the translation based on whether we expect body text
         let translatedTitle = "";
         let translatedBody = "";
 
-        if (lines.length > 0) {
-          translatedTitle = lines[0].trim();
-          if (lines.length > 1) {
-            translatedBody = lines.slice(1).join(" ").trim();
+        if (hasBody) {
+          // Split by first newline for title/body separation
+          const firstNewline = translatedText.indexOf("\n");
+          if (firstNewline > 0) {
+            translatedTitle = translatedText.substring(0, firstNewline).trim();
+            translatedBody = translatedText.substring(firstNewline + 1).trim();
+          } else {
+            translatedTitle = translatedText;
           }
+        } else {
+          translatedTitle = translatedText;
         }
 
         translatedResults.push({
