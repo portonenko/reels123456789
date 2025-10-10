@@ -103,25 +103,67 @@ const renderSlideToCanvas = (
     textY = (slide.style.text.position.y / 100) * canvas.height + (slide.style.text.position.height / 100 * canvas.height) / 2;
   }
 
-  // Draw background plate or text effects
-  if (slide.style.plate.enabled) {
-    // Measure text to create plate
-    ctx.font = `${slide.style.text.fontWeight} ${slide.style.text.fontSize}px ${slide.style.text.fontFamily}`;
-    const titleMetrics = ctx.measureText(cleanTitle);
-    const titleWidth = titleMetrics.width;
-    const titleHeight = slide.style.text.fontSize * slide.style.text.lineHeight;
+  // Calculate wrapped text dimensions first (needed for plate sizing)
+  ctx.font = `${slide.style.text.fontWeight} ${slide.style.text.fontSize}px ${slide.style.text.fontFamily}`;
+  const titleWords = cleanTitle.split(' ');
+  let titleLine = '';
+  const titleLines: string[] = [];
+  let maxTitleWidth = 0;
 
-    let plateHeight = titleHeight + slide.style.plate.padding * 2;
-    let plateWidth = titleWidth + slide.style.plate.padding * 4;
-
-    if (cleanBody) {
-      ctx.font = `${slide.style.text.bodyFontWeight || slide.style.text.fontWeight - 200} ${slide.style.text.bodyFontSize || slide.style.text.fontSize * 0.5}px ${slide.style.text.fontFamily}`;
-      const bodyMetrics = ctx.measureText(cleanBody);
-      plateWidth = Math.max(plateWidth, bodyMetrics.width + slide.style.plate.padding * 4);
-      plateHeight += (slide.style.text.bodyFontSize || slide.style.text.fontSize * 0.5) * slide.style.text.lineHeight * 1.2 + slide.style.plate.padding;
+  for (const word of titleWords) {
+    const testLine = titleLine + word + ' ';
+    const metrics = ctx.measureText(testLine);
+    if (metrics.width > textBoxWidth && titleLine.length > 0) {
+      titleLines.push(titleLine.trim());
+      maxTitleWidth = Math.max(maxTitleWidth, ctx.measureText(titleLine.trim()).width);
+      titleLine = word + ' ';
+    } else {
+      titleLine = testLine;
     }
+  }
+  if (titleLine.trim()) {
+    titleLines.push(titleLine.trim());
+    maxTitleWidth = Math.max(maxTitleWidth, ctx.measureText(titleLine.trim()).width);
+  }
 
-    // Draw plate background - always wrap the text, don't fill the entire text box
+  const titleLineHeight = slide.style.text.fontSize * slide.style.text.lineHeight;
+  const titleBlockHeight = titleLines.length * titleLineHeight;
+
+  // Calculate body dimensions if exists
+  let bodyLines: string[] = [];
+  let maxBodyWidth = 0;
+  let bodyBlockHeight = 0;
+  
+  if (cleanBody) {
+    ctx.font = `${slide.style.text.bodyFontWeight || slide.style.text.fontWeight - 200} ${slide.style.text.bodyFontSize || slide.style.text.fontSize * 0.5}px ${slide.style.text.fontFamily}`;
+    const bodyWords = cleanBody.split(' ');
+    let bodyLine = '';
+
+    for (const word of bodyWords) {
+      const testLine = bodyLine + word + ' ';
+      const metrics = ctx.measureText(testLine);
+      if (metrics.width > textBoxWidth && bodyLine.length > 0) {
+        bodyLines.push(bodyLine.trim());
+        maxBodyWidth = Math.max(maxBodyWidth, ctx.measureText(bodyLine.trim()).width);
+        bodyLine = word + ' ';
+      } else {
+        bodyLine = testLine;
+      }
+    }
+    if (bodyLine.trim()) {
+      bodyLines.push(bodyLine.trim());
+      maxBodyWidth = Math.max(maxBodyWidth, ctx.measureText(bodyLine.trim()).width);
+    }
+    
+    const bodyLineHeight = (slide.style.text.bodyFontSize || slide.style.text.fontSize * 0.5) * slide.style.text.lineHeight * 1.2;
+    bodyBlockHeight = bodyLines.length * bodyLineHeight;
+  }
+
+  // Draw background plate using wrapped text dimensions
+  if (slide.style.plate.enabled) {
+    const plateWidth = Math.max(maxTitleWidth, maxBodyWidth) + slide.style.plate.padding * 4;
+    const plateHeight = titleBlockHeight + (cleanBody ? (30 + bodyBlockHeight) : 0) + slide.style.plate.padding * 2;
+
     const bgColor = slide.style.plate.backgroundColor;
     const plateOpacity = slide.style.plate.opacity;
     
@@ -129,12 +171,10 @@ const renderSlideToCanvas = (
     let r = 0, g = 0, b = 0;
     
     if (bgColor.startsWith('#')) {
-      // Parse hex color
       r = parseInt(bgColor.slice(1, 3), 16);
       g = parseInt(bgColor.slice(3, 5), 16);
       b = parseInt(bgColor.slice(5, 7), 16);
     } else if (bgColor.startsWith('rgb')) {
-      // Parse rgb/rgba color
       const match = bgColor.match(/(\d+),\s*(\d+),\s*(\d+)/);
       if (match) {
         r = parseInt(match[1]);
@@ -143,19 +183,15 @@ const renderSlideToCanvas = (
       }
     }
     
-    // Don't combine with transition opacity - plate should fade independently
     const plateColor = `rgba(${r}, ${g}, ${b}, ${plateOpacity})`;
     
-    // Draw plate that wraps the text content
     ctx.save();
-    ctx.globalAlpha = 1; // Use rgba opacity only
+    ctx.globalAlpha = 1;
     ctx.fillStyle = plateColor;
     
-    // Calculate plate dimensions to wrap text
     const plateX = textX - plateWidth / 2;
     const plateY = textY - plateHeight / 2;
     
-    // Draw with border radius
     ctx.beginPath();
     if (slide.style.plate.borderRadius > 0) {
       const radius = slide.style.plate.borderRadius;
@@ -174,7 +210,7 @@ const renderSlideToCanvas = (
     }
     ctx.fill();
     
-    ctx.restore(); // Restore context
+    ctx.restore();
   }
 
   // Draw title with text wrapping - use narrower width to avoid blind zones
@@ -191,37 +227,13 @@ const renderSlideToCanvas = (
     }
   }
 
-  const titleWords = cleanTitle.split(' ');
-  let titleLine = '';
-  const titleLines: string[] = [];
-
-  for (const word of titleWords) {
-    const testLine = titleLine + word + ' ';
-    const metrics = ctx.measureText(testLine);
-    if (metrics.width > textBoxWidth && titleLine.length > 0) {
-      titleLines.push(titleLine.trim());
-      titleLine = word + ' ';
-    } else {
-      titleLine = testLine;
-    }
-  }
-  if (titleLine.trim()) {
-    titleLines.push(titleLine.trim());
-  }
-
-  // Calculate title block height
-  const titleLineHeight = slide.style.text.fontSize * slide.style.text.lineHeight;
-  const titleBlockHeight = titleLines.length * titleLineHeight;
-  
+  // Use the pre-calculated wrapped title lines
   // Adjust starting Y position to center the entire text block
   let currentY = textY - (titleBlockHeight / 2);
   
   if (cleanBody) {
-    // If there's body text, adjust to account for both title and body
-    const bodyFontSize = slide.style.text.bodyFontSize || slide.style.text.fontSize * 0.5;
-    const bodyLineHeight = bodyFontSize * slide.style.text.lineHeight * 1.2;
-    const estimatedBodyHeight = bodyLineHeight * 3; // Rough estimate
-    const totalHeight = titleBlockHeight + 30 + estimatedBodyHeight;
+    // If there's body text, recalculate Y to center both title and body
+    const totalHeight = titleBlockHeight + 30 + bodyBlockHeight;
     currentY = textY - (totalHeight / 2);
   }
 
@@ -236,7 +248,7 @@ const renderSlideToCanvas = (
     currentY += titleLineHeight;
   });
 
-  // Draw body if exists
+  // Draw body if exists - use pre-calculated wrapped body lines
   if (cleanBody) {
     currentY += 30; // Space between title and body
     
@@ -245,25 +257,6 @@ const renderSlideToCanvas = (
     ctx.fillStyle = bodyColor;
     
     ctx.font = `${slide.style.text.bodyFontWeight || slide.style.text.fontWeight - 200} ${slide.style.text.bodyFontSize || slide.style.text.fontSize * 0.5}px ${slide.style.text.bodyFontFamily || slide.style.text.fontFamily}`;
-    
-    // Wrap body text
-    const bodyWords = cleanBody.split(' ');
-    let bodyLine = '';
-    const bodyLines: string[] = [];
-
-    for (const word of bodyWords) {
-      const testLine = bodyLine + word + ' ';
-      const metrics = ctx.measureText(testLine);
-      if (metrics.width > textBoxWidth && bodyLine.length > 0) {
-        bodyLines.push(bodyLine.trim());
-        bodyLine = word + ' ';
-      } else {
-        bodyLine = testLine;
-      }
-    }
-    if (bodyLine.trim()) {
-      bodyLines.push(bodyLine.trim());
-    }
 
     const bodyLineHeight = (slide.style.text.bodyFontSize || slide.style.text.fontSize * 0.5) * slide.style.text.lineHeight * 1.2;
     bodyLines.forEach((line) => {
