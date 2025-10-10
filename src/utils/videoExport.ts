@@ -161,7 +161,7 @@ const renderSlideToCanvas = (
 
   // Draw background plate using wrapped text dimensions
   if (slide.style.plate.enabled) {
-    const plateWidth = Math.max(maxTitleWidth, maxBodyWidth) + slide.style.plate.padding * 4;
+    const plateWidth = Math.max(maxTitleWidth, maxBodyWidth) + slide.style.plate.padding * 2;
     const plateHeight = titleBlockHeight + (cleanBody ? (30 + bodyBlockHeight) : 0) + slide.style.plate.padding * 2;
 
     const bgColor = slide.style.plate.backgroundColor;
