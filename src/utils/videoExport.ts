@@ -122,12 +122,31 @@ const renderSlideToCanvas = (
     }
 
     // Only draw plate if positioned, or draw full-width plate
+    // IMPORTANT: Use rgba color to avoid affecting text opacity
     const bgColor = slide.style.plate.backgroundColor;
     const opacity = slide.style.plate.opacity;
     
-    // Set the fill style with opacity applied
-    ctx.fillStyle = bgColor;
-    ctx.globalAlpha = opacity;
+    // Convert any color format to rgba with opacity
+    let r = 0, g = 0, b = 0;
+    
+    if (bgColor.startsWith('#')) {
+      // Parse hex color
+      r = parseInt(bgColor.slice(1, 3), 16);
+      g = parseInt(bgColor.slice(3, 5), 16);
+      b = parseInt(bgColor.slice(5, 7), 16);
+    } else if (bgColor.startsWith('rgb')) {
+      // Parse rgb/rgba color
+      const match = bgColor.match(/(\d+),\s*(\d+),\s*(\d+)/);
+      if (match) {
+        r = parseInt(match[1]);
+        g = parseInt(match[2]);
+        b = parseInt(match[3]);
+      }
+    }
+    
+    // Use rgba with the plate's opacity
+    const plateColor = `rgba(${r}, ${g}, ${b}, ${opacity})`;
+    ctx.fillStyle = plateColor;
     
     if (slide.style.text.position) {
       // Positioned text box - plate fits the text box
@@ -152,9 +171,6 @@ const renderSlideToCanvas = (
         ctx.fillRect(plateX, plateY, plateWidth, plateHeight);
       }
     }
-    
-    // Reset globalAlpha for subsequent draws
-    ctx.globalAlpha = 1;
   }
 
   // Draw title with text wrapping - use narrower width to avoid blind zones
