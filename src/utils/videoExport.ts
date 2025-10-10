@@ -121,7 +121,7 @@ const renderSlideToCanvas = (
       plateHeight += (slide.style.text.bodyFontSize || slide.style.text.fontSize * 0.5) * slide.style.text.lineHeight * 1.2 + slide.style.plate.padding;
     }
 
-    // Draw plate background
+    // Draw plate background - always wrap the text, don't fill the entire text box
     const bgColor = slide.style.plate.backgroundColor;
     const plateOpacity = slide.style.plate.opacity;
     
@@ -143,68 +143,38 @@ const renderSlideToCanvas = (
       }
     }
     
-    // Calculate plate opacity: combine transition opacity with plate opacity
-    const currentGlobalAlpha = ctx.globalAlpha; // Get current transition opacity
-    const combinedOpacity = plateOpacity * currentGlobalAlpha;
-    const plateColor = `rgba(${r}, ${g}, ${b}, ${combinedOpacity})`;
+    // Don't combine with transition opacity - plate should fade independently
+    const plateColor = `rgba(${r}, ${g}, ${b}, ${plateOpacity})`;
     
-    // Draw plate with combined opacity
+    // Draw plate that wraps the text content
     ctx.save();
-    ctx.globalAlpha = 1;
+    ctx.globalAlpha = 1; // Use rgba opacity only
     ctx.fillStyle = plateColor;
     
-    if (slide.style.text.position) {
-      // Positioned text box - plate fits the text box
-      const plateX = (slide.style.text.position.x / 100) * canvas.width;
-      const plateY = (slide.style.text.position.y / 100) * canvas.height;
-      const plateW = (slide.style.text.position.width / 100) * canvas.width;
-      const plateH = (slide.style.text.position.height / 100) * canvas.height;
-      
-      // Draw with border radius
-      ctx.beginPath();
-      if (slide.style.plate.borderRadius > 0) {
-        const radius = slide.style.plate.borderRadius;
-        console.log('Drawing plate with border radius:', radius, 'at position:', plateX, plateY, plateW, plateH);
-        ctx.moveTo(plateX + radius, plateY);
-        ctx.lineTo(plateX + plateW - radius, plateY);
-        ctx.quadraticCurveTo(plateX + plateW, plateY, plateX + plateW, plateY + radius);
-        ctx.lineTo(plateX + plateW, plateY + plateH - radius);
-        ctx.quadraticCurveTo(plateX + plateW, plateY + plateH, plateX + plateW - radius, plateY + plateH);
-        ctx.lineTo(plateX + radius, plateY + plateH);
-        ctx.quadraticCurveTo(plateX, plateY + plateH, plateX, plateY + plateH - radius);
-        ctx.lineTo(plateX, plateY + radius);
-        ctx.quadraticCurveTo(plateX, plateY, plateX + radius, plateY);
-        ctx.closePath();
-      } else {
-        ctx.rect(plateX, plateY, plateW, plateH);
-      }
-      ctx.fill();
-    } else {
-      // Default centered - plate wraps text
-      const plateX = centerX - plateWidth / 2;
-      const plateY = textY - plateHeight / 2;
-      
-      // Draw with border radius
-      ctx.beginPath();
-      if (slide.style.plate.borderRadius > 0) {
-        const radius = slide.style.plate.borderRadius;
-        ctx.moveTo(plateX + radius, plateY);
-        ctx.lineTo(plateX + plateWidth - radius, plateY);
-        ctx.quadraticCurveTo(plateX + plateWidth, plateY, plateX + plateWidth, plateY + radius);
-        ctx.lineTo(plateX + plateWidth, plateY + plateHeight - radius);
-        ctx.quadraticCurveTo(plateX + plateWidth, plateY + plateHeight, plateX + plateWidth - radius, plateY + plateHeight);
-        ctx.lineTo(plateX + radius, plateY + plateHeight);
-        ctx.quadraticCurveTo(plateX, plateY + plateHeight, plateX, plateY + plateHeight - radius);
-        ctx.lineTo(plateX, plateY + radius);
-        ctx.quadraticCurveTo(plateX, plateY, plateX + radius, plateY);
-        ctx.closePath();
-      } else {
-        ctx.rect(plateX, plateY, plateWidth, plateHeight);
-      }
-      ctx.fill();
-    }
+    // Calculate plate dimensions to wrap text
+    const plateX = textX - plateWidth / 2;
+    const plateY = textY - plateHeight / 2;
     
-    ctx.restore(); // Restore globalAlpha for text
+    // Draw with border radius
+    ctx.beginPath();
+    if (slide.style.plate.borderRadius > 0) {
+      const radius = slide.style.plate.borderRadius;
+      ctx.moveTo(plateX + radius, plateY);
+      ctx.lineTo(plateX + plateWidth - radius, plateY);
+      ctx.quadraticCurveTo(plateX + plateWidth, plateY, plateX + plateWidth, plateY + radius);
+      ctx.lineTo(plateX + plateWidth, plateY + plateHeight - radius);
+      ctx.quadraticCurveTo(plateX + plateWidth, plateY + plateHeight, plateX + plateWidth - radius, plateY + plateHeight);
+      ctx.lineTo(plateX + radius, plateY + plateHeight);
+      ctx.quadraticCurveTo(plateX, plateY + plateHeight, plateX, plateY + plateHeight - radius);
+      ctx.lineTo(plateX, plateY + radius);
+      ctx.quadraticCurveTo(plateX, plateY, plateX + radius, plateY);
+      ctx.closePath();
+    } else {
+      ctx.rect(plateX, plateY, plateWidth, plateHeight);
+    }
+    ctx.fill();
+    
+    ctx.restore(); // Restore context
   }
 
   // Draw title with text wrapping - use narrower width to avoid blind zones
