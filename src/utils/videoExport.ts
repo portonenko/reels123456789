@@ -191,7 +191,7 @@ const renderSlideToCanvas = (
     ctx.fillStyle = plateColor;
     
     const plateX = textX - plateWidth / 2;
-    const plateY = textY - plateHeight / 2;
+    const plateY = textY - totalContentHeight / 2 - slide.style.plate.padding;
     
     ctx.beginPath();
     if (slide.style.plate.borderRadius > 0) {
