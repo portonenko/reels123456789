@@ -229,20 +229,20 @@ const renderSlideToCanvas = (
   }
 
   // Use the pre-calculated wrapped title lines
-  // Adjust starting Y position to center the entire text block
-  let currentY = textY - (titleBlockHeight / 2);
+  // Adjust starting Y position - account for plate padding if enabled
+  let currentY;
   
-  // If plate is enabled, adjust for padding at the top
   if (slide.style.plate.enabled) {
+    // When plate is enabled, start text after the top padding
+    const plateTop = textY - (titleBlockHeight + (cleanBody ? (30 + bodyBlockHeight) : 0)) / 2 - slide.style.plate.padding;
+    currentY = plateTop + slide.style.plate.padding + titleLineHeight / 2;
+  } else {
+    // No plate - center the text normally
     currentY = textY - (titleBlockHeight / 2);
     if (cleanBody) {
       const totalHeight = titleBlockHeight + 30 + bodyBlockHeight;
       currentY = textY - (totalHeight / 2);
     }
-  } else if (cleanBody) {
-    // If there's body text, recalculate Y to center both title and body
-    const totalHeight = titleBlockHeight + 30 + bodyBlockHeight;
-    currentY = textY - (totalHeight / 2);
   }
 
   // Draw title lines
