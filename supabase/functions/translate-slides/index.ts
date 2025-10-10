@@ -69,25 +69,9 @@ ${unusedText}`;
       
       for (const slide of slides) {
         const hasBody = slide.body && slide.body.trim();
-        const prompt = hasBody 
-          ? `Translate this two-part text to ${langName}. First part is a title, second part is body text.
-
-Title:
-${slide.title}
-
-Body:
-${slide.body}
-
-Return the translation in exactly this format:
-[translated title]
-[translated body]
-
-Do not add labels, markers, or extra formatting.`
-          : `Translate this title to ${langName}:
-
-${slide.title}
-
-Return only the translated title, nothing else.`;
+        const textToTranslate = hasBody 
+          ? `${slide.title}\n${slide.body}`
+          : slide.title;
 
         const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
           method: "POST",
@@ -96,13 +80,13 @@ Return only the translated title, nothing else.`;
             "Content-Type": "application/json",
           },
           body: JSON.stringify({
-            model: "google/gemini-2.5-pro",
+            model: "google/gemini-2.5-flash",
             messages: [
               {
                 role: "system",
-                content: "You are a professional translator. Preserve the exact meaning, tone, and style of the original text. Return only the translated text with no labels or metadata.",
+                content: `You are a translator. Translate to ${langName}. Return only the translation, preserving line breaks.`,
               },
-              { role: "user", content: prompt },
+              { role: "user", content: textToTranslate },
             ],
           }),
         });
