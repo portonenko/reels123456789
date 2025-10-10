@@ -226,14 +226,20 @@ export const StylePanel = ({
             <ColorPicker
               label="Title Color"
               value={slide.style.text.color}
-              onChange={(color) =>
+              onChange={(color) => {
+                // Preserve the current body color when changing title color
+                const currentBodyColor = slide.style.text.bodyColor || slide.style.text.color;
                 onUpdateSlide({
                   style: {
                     ...slide.style,
-                    text: { ...slide.style.text, color },
+                    text: { 
+                      ...slide.style.text, 
+                      color,
+                      bodyColor: currentBodyColor
+                    },
                   },
-                })
-              }
+                });
+              }}
             />
 
             <ColorPicker
