@@ -39,10 +39,8 @@ serve(async (req) => {
       
       // Translate unused text if provided
       if (unusedText && unusedText.trim()) {
-        const unusedPrompt = `Translate the following text to ${langName}. Keep the same structure and formatting.
-
-${unusedText}`;
-
+        console.log(`Translating unused text to ${langName}, length:`, unusedText.length);
+        
         const unusedResponse = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
           method: "POST",
           headers: {
@@ -54,17 +52,23 @@ ${unusedText}`;
             messages: [
               {
                 role: "system",
-                content: "You are a professional translator. Translate text accurately while preserving meaning, tone, and formatting.",
+                content: `You are a translator. Translate to ${langName}. Preserve line breaks and structure.`,
               },
-              { role: "user", content: unusedPrompt },
+              { role: "user", content: unusedText },
             ],
           }),
         });
 
         if (unusedResponse.ok) {
           const unusedData = await unusedResponse.json();
-          translatedUnusedText[langCode] = unusedData.choices[0].message.content.trim();
+          const translated = unusedData.choices[0].message.content.trim();
+          translatedUnusedText[langCode] = translated;
+          console.log(`Translated unused text to ${langCode}, length:`, translated.length);
+        } else {
+          console.error(`Failed to translate unused text to ${langCode}:`, unusedResponse.status);
         }
+      } else {
+        console.log(`No unused text to translate for ${langName}`);
       }
       
       for (const slide of slides) {
