@@ -148,7 +148,7 @@ const renderSlideToCanvas = (
     const combinedOpacity = plateOpacity * currentGlobalAlpha;
     const plateColor = `rgba(${r}, ${g}, ${b}, ${combinedOpacity})`;
     
-    // Draw plate with combined opacity, but reset globalAlpha so rgba is the only opacity
+    // Draw plate with combined opacity
     ctx.save();
     ctx.globalAlpha = 1;
     ctx.fillStyle = plateColor;
@@ -160,21 +160,47 @@ const renderSlideToCanvas = (
       const plateW = (slide.style.text.position.width / 100) * canvas.width;
       const plateH = (slide.style.text.position.height / 100) * canvas.height;
       
+      // Draw with border radius
+      ctx.beginPath();
       if (slide.style.plate.borderRadius > 0) {
-        roundRect(ctx, plateX, plateY, plateW, plateH, slide.style.plate.borderRadius);
+        const radius = slide.style.plate.borderRadius;
+        ctx.moveTo(plateX + radius, plateY);
+        ctx.lineTo(plateX + plateW - radius, plateY);
+        ctx.quadraticCurveTo(plateX + plateW, plateY, plateX + plateW, plateY + radius);
+        ctx.lineTo(plateX + plateW, plateY + plateH - radius);
+        ctx.quadraticCurveTo(plateX + plateW, plateY + plateH, plateX + plateW - radius, plateY + plateH);
+        ctx.lineTo(plateX + radius, plateY + plateH);
+        ctx.quadraticCurveTo(plateX, plateY + plateH, plateX, plateY + plateH - radius);
+        ctx.lineTo(plateX, plateY + radius);
+        ctx.quadraticCurveTo(plateX, plateY, plateX + radius, plateY);
+        ctx.closePath();
       } else {
-        ctx.fillRect(plateX, plateY, plateW, plateH);
+        ctx.rect(plateX, plateY, plateW, plateH);
       }
+      ctx.fill();
     } else {
       // Default centered - plate wraps text
       const plateX = centerX - plateWidth / 2;
       const plateY = textY - plateHeight / 2;
       
+      // Draw with border radius
+      ctx.beginPath();
       if (slide.style.plate.borderRadius > 0) {
-        roundRect(ctx, plateX, plateY, plateWidth, plateHeight, slide.style.plate.borderRadius);
+        const radius = slide.style.plate.borderRadius;
+        ctx.moveTo(plateX + radius, plateY);
+        ctx.lineTo(plateX + plateWidth - radius, plateY);
+        ctx.quadraticCurveTo(plateX + plateWidth, plateY, plateX + plateWidth, plateY + radius);
+        ctx.lineTo(plateX + plateWidth, plateY + plateHeight - radius);
+        ctx.quadraticCurveTo(plateX + plateWidth, plateY + plateHeight, plateX + plateWidth - radius, plateY + plateHeight);
+        ctx.lineTo(plateX + radius, plateY + plateHeight);
+        ctx.quadraticCurveTo(plateX, plateY + plateHeight, plateX, plateY + plateHeight - radius);
+        ctx.lineTo(plateX, plateY + radius);
+        ctx.quadraticCurveTo(plateX, plateY, plateX + radius, plateY);
+        ctx.closePath();
       } else {
-        ctx.fillRect(plateX, plateY, plateWidth, plateHeight);
+        ctx.rect(plateX, plateY, plateWidth, plateHeight);
       }
+      ctx.fill();
     }
     
     ctx.restore(); // Restore globalAlpha for text
