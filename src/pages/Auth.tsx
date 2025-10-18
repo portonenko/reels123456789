@@ -15,16 +15,24 @@ const Auth = () => {
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
-    // Check if user is already logged in
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      if (session) {
+    // Clear any existing anonymous session first
+    const initAuth = async () => {
+      const { data: { session } } = await supabase.auth.getSession();
+      
+      // If there's an anonymous session, sign out
+      if (session?.user?.is_anonymous) {
+        await supabase.auth.signOut();
+      } else if (session && !session.user?.is_anonymous) {
+        // If there's a real user session, redirect to editor
         navigate("/editor");
       }
-    });
+    };
 
-    // Listen for auth changes
+    initAuth();
+
+    // Listen for auth changes (only redirect for real user sessions)
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
-      if (session) {
+      if (session && !session.user?.is_anonymous) {
         navigate("/editor");
       }
     });
