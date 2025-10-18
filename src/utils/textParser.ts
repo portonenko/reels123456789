@@ -2,7 +2,7 @@ import { Slide, SlideType } from "@/types";
 
 const READING_SPEED_WPM = 160;
 
-function isHeading(line: string): boolean {
+function isHeading(line: string, nextLine?: string): boolean {
   const trimmed = line.trim();
   
   // Check for Markdown heading
@@ -14,10 +14,21 @@ function isHeading(line: string): boolean {
     return true;
   }
   
-  // Check if it's a short line (likely a heading if under 60 chars and doesn't end with punctuation)
-  if (trimmed.length < 60 && !/[.!?;,]$/.test(trimmed)) {
-    // Also check if first letter is uppercase
-    return /^[A-Z]/.test(trimmed);
+  // If line ends with period and is followed by longer text, it's likely a heading
+  if (nextLine && trimmed.endsWith('.')) {
+    const nextTrimmed = nextLine.trim();
+    // If next line is significantly longer (body text), current line is heading
+    if (nextTrimmed.length > trimmed.length * 1.5) {
+      return true;
+    }
+  }
+  
+  // Check if it's a short line (likely a heading if under 80 chars and doesn't end with multiple punctuation)
+  if (trimmed.length < 80 && !/[.!?;,]\s+[A-Z]/.test(trimmed)) {
+    // Check if first letter is uppercase
+    if (/^[A-Z]/.test(trimmed)) {
+      return true;
+    }
   }
   
   return false;
@@ -60,15 +71,16 @@ export function parseTextToSlides(
   let i = 1;
   while (i < lines.length) {
     const line = lines[i].trim();
+    const nextLine = i + 1 < lines.length ? lines[i + 1].trim() : undefined;
     
-    if (isHeading(line)) {
+    if (isHeading(line, nextLine)) {
       // Found a heading, collect body text until next heading
       const title = cleanMarkdown(line);
       const bodyLines: string[] = [];
       
       // Look ahead for body text
       i++;
-      while (i < lines.length && !isHeading(lines[i])) {
+      while (i < lines.length && !isHeading(lines[i], i + 1 < lines.length ? lines[i + 1] : undefined)) {
         bodyLines.push(lines[i].trim());
         i++;
       }
