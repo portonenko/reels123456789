@@ -5,6 +5,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import Index from "./pages/Index";
 import Editor from "./pages/Editor";
+import Auth from "./pages/Auth";
 import Gallery from "./pages/Gallery";
 import GalleryStorage from "./pages/GalleryStorage";
 import MusicGallery from "./pages/MusicGallery";
@@ -21,6 +22,7 @@ const App = () => (
       <BrowserRouter>
         <Routes>
           <Route path="/" element={<Index />} />
+          <Route path="/auth" element={<Auth />} />
           <Route path="/editor" element={<Editor />} />
           <Route path="/gallery" element={<GalleryStorage />} />
           <Route path="/music" element={<MusicGalleryStorage />} />

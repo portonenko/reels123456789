@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useLanguageStore } from "@/store/useLanguageStore";
 import { useEditorStore } from "@/store/useEditorStore";
 import { SlideCard } from "@/components/editor/SlideCard";
@@ -29,6 +29,18 @@ import { supabase } from "@/integrations/supabase/client";
 const Editor = () => {
   const navigate = useNavigate();
   const { language, setLanguage } = useLanguageStore();
+
+  // Check authentication on mount
+  useEffect(() => {
+    const checkAuth = async () => {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) {
+        navigate("/auth");
+        toast.error("Please sign in to access the editor");
+      }
+    };
+    checkAuth();
+  }, [navigate]);
   const [showTextDialog, setShowTextDialog] = useState(false);
   const [showTranslationDialog, setShowTranslationDialog] = useState(false);
   const [showExportDialog, setShowExportDialog] = useState(false);
