@@ -89,6 +89,9 @@ const Editor = () => {
     // Store the original text for unused text tracking (language-specific)
     localStorage.setItem(`lastParsedText_${currentLanguage}`, text);
     
+    // Clear unused text when parsing new text from input dialog
+    localStorage.setItem(`lastUnusedText_${currentLanguage}`, '');
+    
     const parsedSlides = parseTextToSlides(text, "project-1", getDefaultStyle());
     setSlides(parsedSlides);
     if (parsedSlides.length > 0) {
