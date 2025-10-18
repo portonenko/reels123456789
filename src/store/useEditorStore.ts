@@ -69,6 +69,7 @@ interface EditorStore {
   
   randomizeBackgrounds: () => void;
   getDefaultStyle: () => SlideStyle;
+  addToUnusedText: (text: string) => void;
 }
 
 const createEmptyProject = (): ProjectData => ({
@@ -195,6 +196,22 @@ export const useEditorStore = create<EditorStore>((set, get) => ({
   
   deleteSlide: (id) => {
     set((state) => {
+      const deletedSlide = state.getCurrentProject().slides.find((slide) => slide.id === id);
+      
+      // Add deleted slide text to unused text
+      if (deletedSlide) {
+        const slideText = deletedSlide.body 
+          ? `${deletedSlide.title}\n${deletedSlide.body}`
+          : deletedSlide.title;
+        
+        const currentUnusedText = localStorage.getItem(`lastUnusedText_${state.currentLanguage}`) || '';
+        const newUnusedText = currentUnusedText 
+          ? `${currentUnusedText}\n\n${slideText}`
+          : slideText;
+        
+        localStorage.setItem(`lastUnusedText_${state.currentLanguage}`, newUnusedText);
+      }
+      
       const newSlides = state.getCurrentProject().slides.filter((slide) => slide.id !== id);
       const newProject = { ...state.getCurrentProject(), slides: newSlides };
       return {
@@ -358,4 +375,14 @@ export const useEditorStore = create<EditorStore>((set, get) => ({
   },
   
   getDefaultStyle: () => DEFAULT_STYLE,
+  
+  addToUnusedText: (text) => {
+    const state = get();
+    const currentUnusedText = localStorage.getItem(`lastUnusedText_${state.currentLanguage}`) || '';
+    const newUnusedText = currentUnusedText 
+      ? `${currentUnusedText}\n\n${text}`
+      : text;
+    
+    localStorage.setItem(`lastUnusedText_${state.currentLanguage}`, newUnusedText);
+  },
 }));
