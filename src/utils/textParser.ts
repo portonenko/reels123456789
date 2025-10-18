@@ -42,7 +42,22 @@ export function parseTextToSlides(
   const slides: Slide[] = [];
   let index = 0;
   
-  let i = 0;
+  // First line is ALWAYS the main headline
+  if (lines.length > 0) {
+    slides.push({
+      id: crypto.randomUUID(),
+      projectId,
+      index: index++,
+      type: "title-only",
+      title: cleanMarkdown(lines[0].trim()),
+      body: undefined,
+      durationSec: 3,
+      style: defaultStyle,
+    });
+  }
+  
+  // Process remaining lines
+  let i = 1;
   while (i < lines.length) {
     const line = lines[i].trim();
     
@@ -73,7 +88,7 @@ export function parseTextToSlides(
         style: defaultStyle,
       });
     } else {
-      // Non-heading line at the start or standalone - treat as title-only
+      // Non-heading line - treat as title-only
       slides.push({
         id: crypto.randomUUID(),
         projectId,
