@@ -25,6 +25,7 @@ import { parseTextToSlides } from "@/utils/textParser";
 import { toast } from "sonner";
 import { Slide } from "@/types";
 import { supabase } from "@/integrations/supabase/client";
+import { t } from "@/utils/i18n";
 
 const Editor = () => {
   const navigate = useNavigate();
@@ -219,6 +220,23 @@ const Editor = () => {
     setShowExportDialog(true);
   };
 
+  const createFinalSlide = (text: string) => {
+    const newSlide: Slide = {
+      id: `slide-${Date.now()}`,
+      projectId: "project-1",
+      index: slides.length,
+      type: "title-only",
+      title: text,
+      durationSec: 3,
+      style: getDefaultStyle(),
+      language: currentLanguage,
+    };
+    
+    setSlides([...slides, newSlide]);
+    setSelectedSlideId(newSlide.id);
+    toast.success(language === 'ru' ? 'Финальный слайд создан' : 'Final slide created');
+  };
+
   return (
     <div className="h-screen flex flex-col bg-background">
       {/* Top bar */}
@@ -330,23 +348,57 @@ const Editor = () => {
               </Button>
             </div>
           ) : (
-            <div className="space-y-2">
-              {slides.map((slide, index) => (
-                <SlideCard
-                  key={slide.id}
-                  slide={slide}
-                  index={index}
-                  isSelected={slide.id === selectedSlideId}
-                  onSelect={() => setSelectedSlideId(slide.id)}
-                  onDuplicate={() => duplicateSlide(slide.id)}
-                  onDelete={() => deleteSlide(slide.id)}
-                  isDraggable={index > 0}
-                  onDragStart={index > 0 ? handleDragStart(index) : undefined}
-                  onDragOver={index > 0 ? handleDragOver(index) : undefined}
-                  onDrop={index > 0 ? handleDrop : undefined}
-                />
-              ))}
-            </div>
+            <>
+              <div className="space-y-2">
+                {slides.map((slide, index) => (
+                  <SlideCard
+                    key={slide.id}
+                    slide={slide}
+                    index={index}
+                    isSelected={slide.id === selectedSlideId}
+                    onSelect={() => setSelectedSlideId(slide.id)}
+                    onDuplicate={() => duplicateSlide(slide.id)}
+                    onDelete={() => deleteSlide(slide.id)}
+                    isDraggable={index > 0}
+                    onDragStart={index > 0 ? handleDragStart(index) : undefined}
+                    onDragOver={index > 0 ? handleDragOver(index) : undefined}
+                    onDrop={index > 0 ? handleDrop : undefined}
+                  />
+                ))}
+              </div>
+              
+              <div className="mt-6 pt-4 border-t border-border">
+                <p className="text-xs text-muted-foreground mb-2">
+                  {t('createFinalSlide', language)}
+                </p>
+                <div className="space-y-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => createFinalSlide(t('moreInDescription', language))}
+                    className="w-full text-xs justify-start"
+                  >
+                    {t('moreInDescription', language)}
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => createFinalSlide(t('birthdaysInDescription', language))}
+                    className="w-full text-xs justify-start"
+                  >
+                    {t('birthdaysInDescription', language)}
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => createFinalSlide(t('zodiacInDescription', language))}
+                    className="w-full text-xs justify-start"
+                  >
+                    {t('zodiacInDescription', language)}
+                  </Button>
+                </div>
+              </div>
+            </>
           )}
         </div>
 

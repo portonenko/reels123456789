@@ -11,6 +11,10 @@ export const translations = {
     // Slides panel
     slides: "Slides",
     noSlidesYet: "No slides yet. Click 'Parse Text' to get started.",
+    createFinalSlide: "Create Final Slide:",
+    moreInDescription: "More in description👇🏻",
+    birthdaysInDescription: "Other birthdays in description👇🏻",
+    zodiacInDescription: "Zodiac signs in description👇🏻",
     
     // Style controls
     styleControls: "Style Controls",
@@ -93,6 +97,10 @@ export const translations = {
     // Slides panel
     slides: "Слайды",
     noSlidesYet: "Слайдов пока нет. Нажмите 'Создать слайды' чтобы начать.",
+    createFinalSlide: "Создать финальный слайд:",
+    moreInDescription: "Więcej w opisie👇🏻",
+    birthdaysInDescription: "Pozostałe daty urodzenia w opisie👇🏻",
+    zodiacInDescription: "Znaki zodiaku w opisie👇🏻",
     
     // Style controls
     styleControls: "Настройки стиля",
