@@ -12,9 +12,9 @@ export const translations = {
     slides: "Slides",
     noSlidesYet: "No slides yet. Click 'Parse Text' to get started.",
     createFinalSlide: "Create Final Slide:",
-    moreInDescription: "More in description👇🏻",
-    birthdaysInDescription: "Other birthdays in description👇🏻",
-    zodiacInDescription: "Zodiac signs in description👇🏻",
+    moreInDescription: "Więcej w opisie👇🏻",
+    birthdaysInDescription: "Pozostałe daty urodzenia w opisie👇🏻",
+    zodiacInDescription: "Znaki zodiaku w opisie👇🏻",
     
     // Style controls
     styleControls: "Style Controls",
