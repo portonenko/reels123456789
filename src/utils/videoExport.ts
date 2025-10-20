@@ -6,12 +6,21 @@ const renderSlideToCanvas = (
   backgroundVideo?: HTMLVideoElement,
   transitionProgress?: number
 ): void => {
-  const ctx = canvas.getContext("2d");
+  const ctx = canvas.getContext("2d", { 
+    alpha: false,
+    desynchronized: false,
+    willReadFrequently: false
+  });
   if (!ctx) return;
 
   // Set canvas size to 1080x1920 (9:16 vertical)
   canvas.width = 1080;
   canvas.height = 1920;
+
+  // Enable high-quality rendering
+  ctx.imageSmoothingEnabled = true;
+  ctx.imageSmoothingQuality = 'high';
+  ctx.textRendering = 'geometricPrecision' as any;
 
   // Calculate transition effects
   const progress = transitionProgress ?? 1;
@@ -433,8 +442,8 @@ export const exportVideo = async (
   
   const mediaRecorder = new MediaRecorder(combinedStream, {
     mimeType,
-    videoBitsPerSecond: 5000000, // 5 Mbps - better phone compatibility
-    audioBitsPerSecond: 128000, // 128 kbps for audio
+    videoBitsPerSecond: 8000000, // 8 Mbps - higher quality for better text clarity
+    audioBitsPerSecond: 192000, // 192 kbps for audio
   });
 
   mediaRecorder.ondataavailable = (e) => {
