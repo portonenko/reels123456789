@@ -98,11 +98,13 @@ export const CanvasPreview = ({ slide, globalOverlay, showTextBoxControls = fals
         }
         videoRef.current.play();
       }
-      if (audioRef.current) {
+      if (audioRef.current && backgroundMusicUrl) {
         if (currentSlideIndex === 0) {
           audioRef.current.currentTime = 0;
         }
-        audioRef.current.play();
+        audioRef.current.play().catch((error) => {
+          console.error("Audio playback failed:", error);
+        });
       }
     }
   };
@@ -188,7 +190,12 @@ export const CanvasPreview = ({ slide, globalOverlay, showTextBoxControls = fals
     <div className="w-full h-full flex flex-col items-center justify-center bg-canvas rounded-lg p-8">
       {/* Background music audio element */}
       {backgroundMusicUrl && (
-        <audio ref={audioRef} src={backgroundMusicUrl} loop />
+        <audio 
+          ref={audioRef} 
+          src={backgroundMusicUrl} 
+          loop 
+          preload="auto"
+        />
       )}
       
       {/* Playback controls */}
