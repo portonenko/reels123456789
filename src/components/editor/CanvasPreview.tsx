@@ -14,12 +14,13 @@ interface CanvasPreviewProps {
 }
 
 export const CanvasPreview = ({ slide, globalOverlay, showTextBoxControls = false, lang = 'en' }: CanvasPreviewProps) => {
-  const { assets, slides, updateSlide } = useEditorStore();
+  const { assets, slides, updateSlide, backgroundMusicUrl } = useEditorStore();
   const [isPlaying, setIsPlaying] = useState(false);
   const [currentSlideIndex, setCurrentSlideIndex] = useState(0);
   const [slideTime, setSlideTime] = useState(0);
   const timerRef = useRef<NodeJS.Timeout | null>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
+  const audioRef = useRef<HTMLAudioElement>(null);
   const animationRef = useRef<number | null>(null);
 
   const currentSlide = isPlaying ? slides[currentSlideIndex] : slide;
@@ -59,6 +60,9 @@ export const CanvasPreview = ({ slide, globalOverlay, showTextBoxControls = fals
             if (videoRef.current) {
               videoRef.current.pause();
             }
+            if (audioRef.current) {
+              audioRef.current.pause();
+            }
           }
         }
       };
@@ -82,6 +86,9 @@ export const CanvasPreview = ({ slide, globalOverlay, showTextBoxControls = fals
       if (videoRef.current) {
         videoRef.current.pause();
       }
+      if (audioRef.current) {
+        audioRef.current.pause();
+      }
     } else {
       setIsPlaying(true);
       setSlideTime(0);
@@ -90,6 +97,12 @@ export const CanvasPreview = ({ slide, globalOverlay, showTextBoxControls = fals
           videoRef.current.currentTime = 0;
         }
         videoRef.current.play();
+      }
+      if (audioRef.current) {
+        if (currentSlideIndex === 0) {
+          audioRef.current.currentTime = 0;
+        }
+        audioRef.current.play();
       }
     }
   };
@@ -104,6 +117,10 @@ export const CanvasPreview = ({ slide, globalOverlay, showTextBoxControls = fals
     if (videoRef.current) {
       videoRef.current.currentTime = 0;
       videoRef.current.pause();
+    }
+    if (audioRef.current) {
+      audioRef.current.currentTime = 0;
+      audioRef.current.pause();
     }
   };
   
@@ -169,6 +186,11 @@ export const CanvasPreview = ({ slide, globalOverlay, showTextBoxControls = fals
 
   return (
     <div className="w-full h-full flex flex-col items-center justify-center bg-canvas rounded-lg p-8">
+      {/* Background music audio element */}
+      {backgroundMusicUrl && (
+        <audio ref={audioRef} src={backgroundMusicUrl} loop />
+      )}
+      
       {/* Playback controls */}
       <div className="mb-4 flex gap-2">
         <Button
