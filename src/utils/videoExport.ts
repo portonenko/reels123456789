@@ -223,58 +223,6 @@ const renderSlideToCanvas = (
     ctx.restore();
   }
 
-  // Draw shadow first if enabled - draw entire text block as shadow
-  if (slide.style.text.textShadow) {
-    const shadowParts = slide.style.text.textShadow.match(/(-?\d+(?:\.\d+)?px)\s+(-?\d+(?:\.\d+)?px)\s+(-?\d+(?:\.\d+)?px)\s+(rgba?\([^)]+\)|#[0-9a-fA-F]+)/);
-    if (shadowParts) {
-      const offsetX = parseFloat(shadowParts[1]);
-      const offsetY = parseFloat(shadowParts[2]);
-      const blurRadius = parseFloat(shadowParts[3]);
-      const shadowColor = shadowParts[4];
-      
-      // Draw shadow for entire text block with large blur
-      ctx.save();
-      ctx.globalAlpha = 0.8;
-      ctx.filter = `blur(${blurRadius * 2}px)`;
-      
-      // Calculate starting position for shadow
-      let shadowY;
-      if (slide.style.plate.enabled) {
-        const plateTop = textY - (titleBlockHeight + (cleanBody ? (30 + bodyBlockHeight) : 0)) / 2 - slide.style.plate.padding;
-        shadowY = plateTop + slide.style.plate.padding + titleLineHeight / 2;
-      } else {
-        shadowY = textY - (titleBlockHeight / 2);
-        if (cleanBody) {
-          const totalHeight = titleBlockHeight + 30 + bodyBlockHeight;
-          shadowY = textY - (totalHeight / 2);
-        }
-      }
-      
-      // Draw title shadow
-      ctx.font = `${slide.style.text.fontWeight} ${slide.style.text.fontSize}px ${slide.style.text.fontFamily}`;
-      ctx.fillStyle = shadowColor;
-      
-      titleLines.forEach((line) => {
-        ctx.fillText(line, textX + offsetX * 3, shadowY + offsetY * 3);
-        shadowY += titleLineHeight;
-      });
-      
-      // Draw body shadow if exists
-      if (cleanBody) {
-        shadowY += 30;
-        ctx.font = `${slide.style.text.bodyFontWeight || slide.style.text.fontWeight - 200} ${slide.style.text.bodyFontSize || slide.style.text.fontSize * 0.5}px ${slide.style.text.bodyFontFamily || slide.style.text.fontFamily}`;
-        const bodyLineHeight = (slide.style.text.bodyFontSize || slide.style.text.fontSize * 0.5) * slide.style.text.lineHeight * 1.2;
-        
-        bodyLines.forEach((line) => {
-          ctx.fillText(line, textX + offsetX * 3, shadowY + offsetY * 3);
-          shadowY += bodyLineHeight;
-        });
-      }
-      
-      ctx.restore();
-    }
-  }
-
   // Draw title with text wrapping
   ctx.font = `${slide.style.text.fontWeight} ${slide.style.text.fontSize}px ${slide.style.text.fontFamily}`;
   ctx.fillStyle = slide.style.text.color;
