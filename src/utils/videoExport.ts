@@ -235,25 +235,11 @@ const renderSlideToCanvas = (
       const blurRadius = parseFloat(shadowParts[3]);
       const shadowColor = shadowParts[4];
       
-      // Draw multiple layers of shadow with much larger offsets and blur for an expansive effect
-      // Multiply by 3-4x to make shadow extend far from letters like in CSS
-      for (let i = 4; i >= 1; i--) {
-        ctx.shadowOffsetX = offsetX * i * 2;
-        ctx.shadowOffsetY = offsetY * i * 2;
-        ctx.shadowBlur = blurRadius * i * 4;
-        ctx.shadowColor = shadowColor;
-        
-        // Draw each shadow layer
-        titleLines.forEach((line, idx) => {
-          const lineY = currentY + idx * titleLineHeight;
-          ctx.fillText(line, textX, lineY);
-        });
-      }
-      
-      // Reset shadow for final text render
-      ctx.shadowOffsetX = 0;
-      ctx.shadowOffsetY = 0;
-      ctx.shadowBlur = 0;
+      // Set shadow properties for canvas - use large values to match CSS rendering
+      ctx.shadowOffsetX = offsetX * 2;
+      ctx.shadowOffsetY = offsetY * 2;
+      ctx.shadowBlur = blurRadius * 3;
+      ctx.shadowColor = shadowColor;
     }
   }
 
@@ -274,29 +260,16 @@ const renderSlideToCanvas = (
     }
   }
 
-  // Draw title lines (only if no shadow was drawn above)
-  if (!slide.style.text.textShadow) {
-    titleLines.forEach((line) => {
-      if (!slide.style.plate.enabled && slide.style.text.stroke) {
-        ctx.strokeStyle = slide.style.text.stroke;
-        ctx.lineWidth = slide.style.text.strokeWidth || 2;
-        ctx.strokeText(line, textX, currentY);
-      }
-      ctx.fillText(line, textX, currentY);
-      currentY += titleLineHeight;
-    });
-  } else {
-    // If shadow was drawn, just draw the final text on top
-    titleLines.forEach((line) => {
-      if (!slide.style.plate.enabled && slide.style.text.stroke) {
-        ctx.strokeStyle = slide.style.text.stroke;
-        ctx.lineWidth = slide.style.text.strokeWidth || 2;
-        ctx.strokeText(line, textX, currentY);
-      }
-      ctx.fillText(line, textX, currentY);
-      currentY += titleLineHeight;
-    });
-  }
+  // Draw title lines with shadow applied
+  titleLines.forEach((line) => {
+    if (!slide.style.plate.enabled && slide.style.text.stroke) {
+      ctx.strokeStyle = slide.style.text.stroke;
+      ctx.lineWidth = slide.style.text.strokeWidth || 2;
+      ctx.strokeText(line, textX, currentY);
+    }
+    ctx.fillText(line, textX, currentY);
+    currentY += titleLineHeight;
+  });
 
   // Draw body if exists - use pre-calculated wrapped body lines
   if (cleanBody) {
@@ -308,35 +281,7 @@ const renderSlideToCanvas = (
     
     ctx.font = `${slide.style.text.bodyFontWeight || slide.style.text.fontWeight - 200} ${slide.style.text.bodyFontSize || slide.style.text.fontSize * 0.5}px ${slide.style.text.bodyFontFamily || slide.style.text.fontFamily}`;
 
-    // Apply shadow to body text if enabled
-    if (slide.style.text.textShadow) {
-      const shadowParts = slide.style.text.textShadow.match(/(-?\d+(?:\.\d+)?px)\s+(-?\d+(?:\.\d+)?px)\s+(-?\d+(?:\.\d+)?px)\s+(rgba?\([^)]+\)|#[0-9a-fA-F]+)/);
-      if (shadowParts) {
-        const offsetX = parseFloat(shadowParts[1]);
-        const offsetY = parseFloat(shadowParts[2]);
-        const blurRadius = parseFloat(shadowParts[3]);
-        const shadowColor = shadowParts[4];
-        
-        // Draw multiple shadow layers for body text with larger multipliers
-        const bodyLineHeight = (slide.style.text.bodyFontSize || slide.style.text.fontSize * 0.5) * slide.style.text.lineHeight * 1.2;
-        for (let i = 4; i >= 1; i--) {
-          ctx.shadowOffsetX = offsetX * i * 2;
-          ctx.shadowOffsetY = offsetY * i * 2;
-          ctx.shadowBlur = blurRadius * i * 4;
-          ctx.shadowColor = shadowColor;
-          
-          bodyLines.forEach((line, idx) => {
-            const lineY = currentY + idx * bodyLineHeight;
-            ctx.fillText(line, textX, lineY);
-          });
-        }
-        
-        // Reset shadow
-        ctx.shadowOffsetX = 0;
-        ctx.shadowOffsetY = 0;
-        ctx.shadowBlur = 0;
-      }
-    }
+    // Shadow is already set from title, will apply to body text too
 
     const bodyLineHeight = (slide.style.text.bodyFontSize || slide.style.text.fontSize * 0.5) * slide.style.text.lineHeight * 1.2;
     bodyLines.forEach((line) => {
