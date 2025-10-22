@@ -235,12 +235,12 @@ const renderSlideToCanvas = (
       const blurRadius = parseFloat(shadowParts[3]);
       const shadowColor = shadowParts[4];
       
-      // Draw multiple layers of shadow for a more expansive effect like CSS text-shadow
-      // This creates a softer, more spread out shadow instead of a tight outline
-      for (let i = 3; i >= 1; i--) {
-        ctx.shadowOffsetX = offsetX * i * 0.5;
-        ctx.shadowOffsetY = offsetY * i * 0.5;
-        ctx.shadowBlur = blurRadius * i * 1.5;
+      // Draw multiple layers of shadow with much larger offsets and blur for an expansive effect
+      // Multiply by 3-4x to make shadow extend far from letters like in CSS
+      for (let i = 4; i >= 1; i--) {
+        ctx.shadowOffsetX = offsetX * i * 2;
+        ctx.shadowOffsetY = offsetY * i * 2;
+        ctx.shadowBlur = blurRadius * i * 4;
         ctx.shadowColor = shadowColor;
         
         // Draw each shadow layer
@@ -317,12 +317,12 @@ const renderSlideToCanvas = (
         const blurRadius = parseFloat(shadowParts[3]);
         const shadowColor = shadowParts[4];
         
-        // Draw multiple shadow layers for body text
+        // Draw multiple shadow layers for body text with larger multipliers
         const bodyLineHeight = (slide.style.text.bodyFontSize || slide.style.text.fontSize * 0.5) * slide.style.text.lineHeight * 1.2;
-        for (let i = 3; i >= 1; i--) {
-          ctx.shadowOffsetX = offsetX * i * 0.5;
-          ctx.shadowOffsetY = offsetY * i * 0.5;
-          ctx.shadowBlur = blurRadius * i * 1.5;
+        for (let i = 4; i >= 1; i--) {
+          ctx.shadowOffsetX = offsetX * i * 2;
+          ctx.shadowOffsetY = offsetY * i * 2;
+          ctx.shadowBlur = blurRadius * i * 4;
           ctx.shadowColor = shadowColor;
           
           bodyLines.forEach((line, idx) => {
