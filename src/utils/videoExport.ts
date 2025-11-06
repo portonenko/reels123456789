@@ -259,36 +259,28 @@ const renderSlideToCanvas = (
     }
   }
 
-  // Draw title lines with EXACT MATCH to preview drop-shadow
+  // Draw title lines with SIMPLE CONFIGURABLE SHADOW
   titleLines.forEach((line) => {
     ctx.save();
     
-    // Используем shadowIntensity из настроек слайда (по умолчанию 3)
-    const intensity = (slide.style.text.shadowIntensity || 3) / 3;
+    // Простые параметры из ползунков
+    const intensity = (slide.style.text.shadowIntensity || 3) / 10; // 0-1
+    const radius = slide.style.text.shadowRadius || 20; // пиксели
     
-    // ТОЧНО ТАКИЕ ЖЕ параметры как в превью
-    const shadowConfigs = [
-      { radius: 20 * intensity, alpha: 0.9 * intensity }, // СИНХРОНИЗИРОВАНО с preview
-      { radius: 15 * intensity, alpha: 0.8 * intensity },
-      { radius: 10 * intensity, alpha: 0.7 * intensity }
-    ];
+    // Одна простая тень
+    const steps = 16;
+    const layers = 10;
     
-    // Рисуем слои drop-shadow
-    shadowConfigs.forEach(({ radius, alpha }) => {
-      const steps = 16; // Больше направлений для гладкости
-      const layers = 8;  // Больше слоёв
-      
-      for (let angle = 0; angle < Math.PI * 2; angle += (Math.PI * 2) / steps) {
-        for (let dist = 0; dist <= radius; dist += radius / layers) {
-          const offsetX = Math.cos(angle) * dist;
-          const offsetY = Math.sin(angle) * dist;
-          const layerAlpha = alpha * (1 - dist / radius) * 0.12; // Калибровано под preview
-          
-          ctx.fillStyle = `rgba(0, 0, 0, ${layerAlpha})`;
-          ctx.fillText(line, textX + offsetX, currentY + offsetY);
-        }
+    for (let angle = 0; angle < Math.PI * 2; angle += (Math.PI * 2) / steps) {
+      for (let dist = 0; dist <= radius; dist += radius / layers) {
+        const offsetX = Math.cos(angle) * dist;
+        const offsetY = Math.sin(angle) * dist;
+        const alpha = intensity * (1 - dist / radius) * 0.5; // Простая формула
+        
+        ctx.fillStyle = `rgba(0, 0, 0, ${alpha})`;
+        ctx.fillText(line, textX + offsetX, currentY + offsetY);
       }
-    });
+    }
     
     ctx.restore();
     
@@ -312,31 +304,23 @@ const renderSlideToCanvas = (
     bodyLines.forEach((line) => {
       ctx.save();
       
-      // Используем shadowIntensity из настроек слайда
-      const intensity = (slide.style.text.shadowIntensity || 3) / 3;
+      // Простые параметры из ползунков (чуть больше для body)
+      const intensity = (slide.style.text.shadowIntensity || 3) / 10;
+      const radius = (slide.style.text.shadowRadius || 20) * 1.15; // немного больше
       
-      // ТОЧНО ТАКИЕ ЖЕ параметры как в превью для body
-      const shadowConfigs = [
-        { radius: 23 * intensity, alpha: 0.9 * intensity }, // СИНХРОНИЗИРОВАНО
-        { radius: 18 * intensity, alpha: 0.8 * intensity },
-        { radius: 12 * intensity, alpha: 0.7 * intensity }
-      ];
+      const steps = 16;
+      const layers = 10;
       
-      shadowConfigs.forEach(({ radius, alpha }) => {
-        const steps = 16;
-        const layers = 8;
-        
-        for (let angle = 0; angle < Math.PI * 2; angle += (Math.PI * 2) / steps) {
-          for (let dist = 0; dist <= radius; dist += radius / layers) {
-            const offsetX = Math.cos(angle) * dist;
-            const offsetY = Math.sin(angle) * dist;
-            const layerAlpha = alpha * (1 - dist / radius) * 0.12;
-            
-            ctx.fillStyle = `rgba(0, 0, 0, ${layerAlpha})`;
-            ctx.fillText(line, textX + offsetX, currentY + offsetY);
-          }
+      for (let angle = 0; angle < Math.PI * 2; angle += (Math.PI * 2) / steps) {
+        for (let dist = 0; dist <= radius; dist += radius / layers) {
+          const offsetX = Math.cos(angle) * dist;
+          const offsetY = Math.sin(angle) * dist;
+          const alpha = intensity * (1 - dist / radius) * 0.5;
+          
+          ctx.fillStyle = `rgba(0, 0, 0, ${alpha})`;
+          ctx.fillText(line, textX + offsetX, currentY + offsetY);
         }
-      });
+      }
       
       ctx.restore();
       
