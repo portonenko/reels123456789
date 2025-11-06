@@ -435,184 +435,13 @@ export const StylePanel = ({
                 Amount of blur on plate edges
               </div>
             </div>
-
-            <Separator className="my-4" />
-
-            <div className="flex items-center justify-between">
-              <Label>Enable Line Backgrounds</Label>
-              <Switch
-                checked={slide.style.plate.lineBackground?.enabled || false}
-                onCheckedChange={(checked) =>
-                  onUpdateSlide({
-                    style: {
-                      ...slide.style,
-                      plate: { 
-                        ...slide.style.plate, 
-                        lineBackground: {
-                          enabled: checked,
-                          color: slide.style.plate.lineBackground?.color || "#000000",
-                          opacity: slide.style.plate.lineBackground?.opacity || 0.7,
-                          paddingX: slide.style.plate.lineBackground?.paddingX || 20,
-                          paddingY: slide.style.plate.lineBackground?.paddingY || 8,
-                        }
-                      },
-                    },
-                  })
-                }
-              />
-            </div>
-            
-            {slide.style.plate.lineBackground?.enabled && (
-              <>
-                <ColorPicker
-                  label="Line Background Color"
-                  value={slide.style.plate.lineBackground.color}
-                  onChange={(color) =>
-                    onUpdateSlide({
-                      style: {
-                        ...slide.style,
-                        plate: { 
-                          ...slide.style.plate, 
-                          lineBackground: {
-                            ...slide.style.plate.lineBackground!,
-                            color,
-                          }
-                        },
-                      },
-                    })
-                  }
-                />
-
-                <div>
-                  <Label>Line Opacity: {slide.style.plate.lineBackground.opacity}</Label>
-                  <Slider
-                    value={[slide.style.plate.lineBackground.opacity]}
-                    onValueChange={([value]) =>
-                      onUpdateSlide({
-                        style: {
-                          ...slide.style,
-                          plate: { 
-                            ...slide.style.plate, 
-                            lineBackground: {
-                              ...slide.style.plate.lineBackground!,
-                              opacity: value,
-                            }
-                          },
-                        },
-                      })
-                    }
-                    min={0}
-                    max={1}
-                    step={0.05}
-                  />
-                </div>
-
-                <div>
-                  <Label>Horizontal Padding: {slide.style.plate.lineBackground.paddingX}px</Label>
-                  <Slider
-                    value={[slide.style.plate.lineBackground.paddingX]}
-                    onValueChange={([value]) =>
-                      onUpdateSlide({
-                        style: {
-                          ...slide.style,
-                          plate: { 
-                            ...slide.style.plate, 
-                            lineBackground: {
-                              ...slide.style.plate.lineBackground!,
-                              paddingX: value,
-                            }
-                          },
-                        },
-                      })
-                    }
-                    min={0}
-                    max={80}
-                    step={4}
-                  />
-                </div>
-
-                <div>
-                  <Label>Vertical Padding: {slide.style.plate.lineBackground.paddingY}px</Label>
-                  <Slider
-                    value={[slide.style.plate.lineBackground.paddingY]}
-                    onValueChange={([value]) =>
-                      onUpdateSlide({
-                        style: {
-                          ...slide.style,
-                          plate: { 
-                            ...slide.style.plate, 
-                            lineBackground: {
-                              ...slide.style.plate.lineBackground!,
-                              paddingY: value,
-                            }
-                          },
-                        },
-                      })
-                    }
-                    min={0}
-                    max={40}
-                    step={2}
-                  />
-                </div>
-              </>
-            )}
               </>
             ) : (
               <>
                 <div>
-                  <Label>Text Outline Color</Label>
-                  <Input
-                    type="color"
-                    value={slide.style.text.stroke || "#000000"}
-                    onChange={(e) =>
-                      onUpdateSlide({
-                        style: {
-                          ...slide.style,
-                          text: { ...slide.style.text, stroke: e.target.value },
-                        },
-                      })
-                    }
-                  />
-                </div>
-
-                <div>
-                  <Label>Outline Width: {slide.style.text.strokeWidth || 2}px</Label>
+                  <Label>Shadow Intensity: {slide.style.text.shadowIntensity || 10}</Label>
                   <Slider
-                    value={[slide.style.text.strokeWidth || 2]}
-                    onValueChange={([value]) =>
-                      onUpdateSlide({
-                        style: {
-                          ...slide.style,
-                          text: { ...slide.style.text, strokeWidth: value },
-                        },
-                      })
-                    }
-                    min={0}
-                    max={8}
-                    step={1}
-                  />
-                </div>
-
-                <div>
-                  <Label>Enhanced Text Shadow</Label>
-                  <Input
-                    value={slide.style.text.textShadow}
-                    onChange={(e) =>
-                      onUpdateSlide({
-                        style: {
-                          ...slide.style,
-                          text: { ...slide.style.text, textShadow: e.target.value },
-                        },
-                      })
-                    }
-                    placeholder="0 4px 12px rgba(0,0,0,0.8)"
-                  />
-                </div>
-
-                <div>
-                  <Label>Shadow Intensity: {slide.style.text.shadowIntensity || 3}</Label>
-                  <Slider
-                    value={[slide.style.text.shadowIntensity || 3]}
+                    value={[slide.style.text.shadowIntensity || 10]}
                     onValueChange={([value]) =>
                       onUpdateSlide({
                         style: {
@@ -621,32 +450,34 @@ export const StylePanel = ({
                         },
                       })
                     }
-                    min={1}
-                    max={10}
+                    min={0}
+                    max={20}
                     step={1}
                   />
-                  <p className="text-xs text-muted-foreground mt-1">
-                    Controls how strong the shadow/glow effect is in exported video
-                  </p>
+                  <div className="text-xs text-muted-foreground mt-1">
+                    Насыщенность тени (темнота)
+                  </div>
                 </div>
 
                 <div>
-                  <Label>Glow Color</Label>
-                  <Input
-                    type="color"
-                    value={slide.style.text.glow?.startsWith("rgba") ? "#FFFFFF" : slide.style.text.glow || "#FFFFFF"}
-                    onChange={(e) =>
+                  <Label>Shadow Radius: {slide.style.text.shadowRadius || 20}px</Label>
+                  <Slider
+                    value={[slide.style.text.shadowRadius || 20]}
+                    onValueChange={([value]) =>
                       onUpdateSlide({
                         style: {
                           ...slide.style,
-                          text: { ...slide.style.text, glow: e.target.value },
+                          text: { ...slide.style.text, shadowRadius: value },
                         },
                       })
                     }
+                    min={0}
+                    max={100}
+                    step={5}
                   />
-                  <p className="text-xs text-muted-foreground mt-1">
-                    Soft glow effect around text
-                  </p>
+                  <div className="text-xs text-muted-foreground mt-1">
+                    Расстояние свечения от текста
+                  </div>
                 </div>
               </>
             )}
@@ -659,7 +490,6 @@ export const StylePanel = ({
               Apply All Styles to All Slides
             </Button>
           </TabsContent>
-
 
           <TabsContent value="global" className="space-y-4 mt-0">
             <MusicUploadSimple lang={lang} />

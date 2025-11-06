@@ -35,14 +35,6 @@ export interface PlateStyle {
   backgroundColor: string;
   enabled: boolean; // Toggle between plate and direct text effects
   blurSize?: number; // Edge blur amount in pixels (0-100)
-  // Line-based text backgrounds (independent from plate)
-  lineBackground?: {
-    enabled: boolean;
-    color: string;
-    opacity: number;
-    paddingX: number; // Horizontal padding per line
-    paddingY: number; // Vertical padding per line
-  };
 }
 
 export interface SlideStyle {

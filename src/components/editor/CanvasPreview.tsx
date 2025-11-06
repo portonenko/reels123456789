@@ -5,7 +5,6 @@ import { useEditorStore } from "@/store/useEditorStore";
 import { Button } from "@/components/ui/button";
 import { Play, Pause, RotateCcw } from "lucide-react";
 import { DraggableTextBox } from "./DraggableTextBox";
-import { LineBackgroundText } from "./LineBackgroundText";
 
 interface CanvasPreviewProps {
   slide: Slide | null;
@@ -336,54 +335,6 @@ export const CanvasPreview = ({ slide, globalOverlay, showTextBoxControls = fals
                   </p>
                 )}
               </div>
-            ) : currentSlide.style.plate.lineBackground?.enabled ? (
-              // Line background mode
-              <div className="w-full">
-                <LineBackgroundText
-                  text={currentSlide.title.replace(/^\[.*?\]\s*/, '')}
-                  className={cn("font-bold")}
-                  style={{
-                    fontFamily: currentSlide.style.text.fontFamily,
-                    fontSize: `${currentSlide.style.text.fontSize / 3}px`,
-                    fontWeight: currentSlide.style.text.fontWeight,
-                    lineHeight: currentSlide.style.text.lineHeight,
-                    letterSpacing: `${currentSlide.style.text.letterSpacing}em`,
-                    color: currentSlide.style.text.color,
-                    textShadow: currentSlide.style.text.textShadow,
-                    wordWrap: "break-word",
-                  }}
-                  lineBackground={{
-                    color: currentSlide.style.plate.lineBackground.color,
-                    opacity: currentSlide.style.plate.lineBackground.opacity,
-                    paddingX: currentSlide.style.plate.lineBackground.paddingX / 3,
-                    paddingY: currentSlide.style.plate.lineBackground.paddingY / 3,
-                  }}
-                  alignment={currentSlide.style.text.alignment}
-                />
-                {currentSlide.body && (
-                  <div className="mt-3">
-                    <LineBackgroundText
-                      text={currentSlide.body.replace(/^\[.*?\]\s*/, '')}
-                      style={{
-                        fontFamily: currentSlide.style.text.bodyFontFamily || currentSlide.style.text.fontFamily,
-                        fontSize: `${(currentSlide.style.text.bodyFontSize || currentSlide.style.text.fontSize * 0.5) / 3}px`,
-                        fontWeight: currentSlide.style.text.bodyFontWeight || currentSlide.style.text.fontWeight - 200,
-                        lineHeight: currentSlide.style.text.lineHeight * 1.2,
-                        color: currentSlide.style.text.bodyColor || currentSlide.style.text.color,
-                        textShadow: currentSlide.style.text.textShadow,
-                        wordWrap: "break-word",
-                      }}
-                      lineBackground={{
-                        color: currentSlide.style.plate.lineBackground.color,
-                        opacity: currentSlide.style.plate.lineBackground.opacity,
-                        paddingX: currentSlide.style.plate.lineBackground.paddingX / 3,
-                        paddingY: currentSlide.style.plate.lineBackground.paddingY / 3,
-                      }}
-                      alignment={currentSlide.style.text.alignment}
-                    />
-                  </div>
-                )}
-              </div>
             ) : (
               <div className="w-full">
                 <h1
@@ -500,56 +451,6 @@ export const CanvasPreview = ({ slide, globalOverlay, showTextBoxControls = fals
                   >
                     {currentSlide.body.replace(/^\[.*?\]\s*/, '')}
                   </p>
-                )}
-              </div>
-            ) : currentSlide.style.plate.lineBackground?.enabled ? (
-              // Line background mode
-              <div>
-                <LineBackgroundText
-                  text={currentSlide.title.replace(/^\[.*?\]\s*/, '')}
-                  className={cn("font-bold")}
-                  style={{
-                    fontFamily: currentSlide.style.text.fontFamily,
-                    fontSize: `${currentSlide.style.text.fontSize / 3}px`,
-                    fontWeight: currentSlide.style.text.fontWeight,
-                    lineHeight: currentSlide.style.text.lineHeight,
-                    letterSpacing: `${currentSlide.style.text.letterSpacing}em`,
-                    color: currentSlide.style.text.color,
-                    textShadow: currentSlide.style.text.textShadow,
-                    wordWrap: "break-word",
-                    maxWidth: "80%",
-                  }}
-                  lineBackground={{
-                    color: currentSlide.style.plate.lineBackground.color,
-                    opacity: currentSlide.style.plate.lineBackground.opacity,
-                    paddingX: currentSlide.style.plate.lineBackground.paddingX / 3,
-                    paddingY: currentSlide.style.plate.lineBackground.paddingY / 3,
-                  }}
-                  alignment={currentSlide.style.text.alignment}
-                />
-                {currentSlide.body && (
-                  <div className="mt-3">
-                    <LineBackgroundText
-                      text={currentSlide.body.replace(/^\[.*?\]\s*/, '')}
-                      style={{
-                        fontFamily: currentSlide.style.text.bodyFontFamily || currentSlide.style.text.fontFamily,
-                        fontSize: `${(currentSlide.style.text.bodyFontSize || currentSlide.style.text.fontSize * 0.5) / 3}px`,
-                        fontWeight: currentSlide.style.text.bodyFontWeight || currentSlide.style.text.fontWeight - 200,
-                        lineHeight: currentSlide.style.text.lineHeight * 1.2,
-                        color: currentSlide.style.text.bodyColor || currentSlide.style.text.color,
-                        textShadow: currentSlide.style.text.textShadow,
-                        wordWrap: "break-word",
-                        maxWidth: "80%",
-                      }}
-                      lineBackground={{
-                        color: currentSlide.style.plate.lineBackground.color,
-                        opacity: currentSlide.style.plate.lineBackground.opacity,
-                        paddingX: currentSlide.style.plate.lineBackground.paddingX / 3,
-                        paddingY: currentSlide.style.plate.lineBackground.paddingY / 3,
-                      }}
-                      alignment={currentSlide.style.text.alignment}
-                    />
-                  </div>
                 )}
               </div>
             ) : (
