@@ -259,31 +259,37 @@ const renderSlideToCanvas = (
     }
   }
 
-  // Draw title lines with SOFT SHADOW AROUND
+  // Draw title lines with DROP-SHADOW like in preview
   titleLines.forEach((line) => {
     ctx.save();
     
-    // Мягкая тень - меньше слоёв, больше размытие
-    const shadowRadius = 20; // Радиус тени
-    const shadowSteps = 8; // Меньше направлений = меньше "волос"
-    const shadowLayers = 6; // Меньше слоёв
+    // Эмулируем drop-shadow(0px 0px 20px rgba(0,0,0,0.9)) + 15px 0.8 + 10px 0.7
+    const shadowConfigs = [
+      { radius: 20, alpha: 0.9 },
+      { radius: 15, alpha: 0.8 },
+      { radius: 10, alpha: 0.7 }
+    ];
     
-    // Рисуем тень во всех направлениях
-    for (let angle = 0; angle < Math.PI * 2; angle += (Math.PI * 2) / shadowSteps) {
-      for (let layer = shadowLayers; layer > 0; layer--) {
-        const distance = (shadowRadius / shadowLayers) * layer;
-        const offsetX = Math.cos(angle) * distance;
-        const offsetY = Math.sin(angle) * distance;
-        const alpha = 0.25 / shadowLayers; // Очень мягкая тень
-        
-        ctx.fillStyle = `rgba(0, 0, 0, ${alpha})`;
-        ctx.fillText(line, textX + offsetX, currentY + offsetY);
+    // Рисуем 3 слоя drop-shadow
+    shadowConfigs.forEach(({ radius, alpha }) => {
+      const steps = 16; // Количество направлений
+      const layers = 8; // Количество слоёв на радиус
+      
+      for (let angle = 0; angle < Math.PI * 2; angle += (Math.PI * 2) / steps) {
+        for (let dist = 0; dist <= radius; dist += radius / layers) {
+          const offsetX = Math.cos(angle) * dist;
+          const offsetY = Math.sin(angle) * dist;
+          const layerAlpha = alpha * (1 - dist / radius) * 0.3; // Затухание к краям
+          
+          ctx.fillStyle = `rgba(0, 0, 0, ${layerAlpha})`;
+          ctx.fillText(line, textX + offsetX, currentY + offsetY);
+        }
       }
-    }
+    });
     
     ctx.restore();
     
-    // Основной текст поверх тени
+    // Основной текст поверх
     ctx.globalAlpha = 1;
     ctx.fillStyle = slide.style.text.color;
     ctx.fillText(line, textX, currentY);
@@ -303,21 +309,28 @@ const renderSlideToCanvas = (
     bodyLines.forEach((line) => {
       ctx.save();
       
-      const shadowRadius = 23; // Чуть больше для body
-      const shadowSteps = 8;
-      const shadowLayers = 6;
+      // Эмулируем drop-shadow(0px 0px 23px rgba(0,0,0,0.9)) + 18px 0.8 + 12px 0.7
+      const shadowConfigs = [
+        { radius: 23, alpha: 0.9 },
+        { radius: 18, alpha: 0.8 },
+        { radius: 12, alpha: 0.7 }
+      ];
       
-      for (let angle = 0; angle < Math.PI * 2; angle += (Math.PI * 2) / shadowSteps) {
-        for (let layer = shadowLayers; layer > 0; layer--) {
-          const distance = (shadowRadius / shadowLayers) * layer;
-          const offsetX = Math.cos(angle) * distance;
-          const offsetY = Math.sin(angle) * distance;
-          const alpha = 0.25 / shadowLayers;
-          
-          ctx.fillStyle = `rgba(0, 0, 0, ${alpha})`;
-          ctx.fillText(line, textX + offsetX, currentY + offsetY);
+      shadowConfigs.forEach(({ radius, alpha }) => {
+        const steps = 16;
+        const layers = 8;
+        
+        for (let angle = 0; angle < Math.PI * 2; angle += (Math.PI * 2) / steps) {
+          for (let dist = 0; dist <= radius; dist += radius / layers) {
+            const offsetX = Math.cos(angle) * dist;
+            const offsetY = Math.sin(angle) * dist;
+            const layerAlpha = alpha * (1 - dist / radius) * 0.3;
+            
+            ctx.fillStyle = `rgba(0, 0, 0, ${layerAlpha})`;
+            ctx.fillText(line, textX + offsetX, currentY + offsetY);
+          }
         }
-      }
+      });
       
       ctx.restore();
       
