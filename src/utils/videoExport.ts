@@ -253,32 +253,31 @@ const renderSlideToCanvas = (
     }
   }
 
-  // Draw title lines with EXTREME glow
+  // Draw title lines with SHADOW (not glow!)
   titleLines.forEach((line) => {
     if (shadowConfig) {
       ctx.save();
       
-      // EXTREME glow - максимальные параметры
-      const glowRadius = Math.max(shadowConfig.blur * shadowConfig.intensity * 10, 100); // Минимум 100px
-      const steps = 60; // Ещё больше направлений
-      const layers = 25; // Ещё больше слоёв
+      // Параметры большой тени
+      const shadowDistance = shadowConfig.blur * shadowConfig.intensity * 3; // Расстояние тени
+      const shadowLayers = 50; // Количество слоев для размытия
+      const shadowAngle = Math.PI / 4; // Угол 45° (вниз-вправо)
       
       ctx.fillStyle = shadowConfig.color;
       
-      // Рисуем множество слоёв свечения
-      for (let angle = 0; angle < Math.PI * 2; angle += (Math.PI * 2) / steps) {
-        for (let distance = glowRadius; distance > 0; distance -= glowRadius / layers) {
-          const offsetX = Math.cos(angle) * distance;
-          const offsetY = Math.sin(angle) * distance;
-          ctx.globalAlpha = 0.15 * shadowConfig.intensity; // Максимальная видимость
-          ctx.fillText(line, textX + offsetX, currentY + offsetY);
-        }
+      // Рисуем тень - много слоев в одном направлении
+      for (let i = shadowLayers; i > 0; i--) {
+        const progress = i / shadowLayers; // От 1 до 0
+        const offsetX = Math.cos(shadowAngle) * shadowDistance * progress;
+        const offsetY = Math.sin(shadowAngle) * shadowDistance * progress;
+        ctx.globalAlpha = 0.4 * shadowConfig.intensity * (1 - progress); // Слабее по мере удаления
+        ctx.fillText(line, textX + offsetX, currentY + offsetY);
       }
       
       ctx.restore();
     }
     
-    // Основной текст поверх свечения
+    // Основной текст поверх тени
     ctx.globalAlpha = 1;
     ctx.fillStyle = slide.style.text.color;
     ctx.fillText(line, textX, currentY);
@@ -299,19 +298,18 @@ const renderSlideToCanvas = (
       if (shadowConfig) {
         ctx.save();
         
-        const glowRadius = Math.max(shadowConfig.blur * shadowConfig.intensity * 12, 120); // Ещё больше для body
-        const steps = 60;
-        const layers = 25;
+        const shadowDistance = shadowConfig.blur * shadowConfig.intensity * 4; // Ещё больше для body
+        const shadowLayers = 50;
+        const shadowAngle = Math.PI / 4;
         
         ctx.fillStyle = shadowConfig.color;
         
-        for (let angle = 0; angle < Math.PI * 2; angle += (Math.PI * 2) / steps) {
-          for (let distance = glowRadius; distance > 0; distance -= glowRadius / layers) {
-            const offsetX = Math.cos(angle) * distance;
-            const offsetY = Math.sin(angle) * distance;
-            ctx.globalAlpha = 0.15 * shadowConfig.intensity;
-            ctx.fillText(line, textX + offsetX, currentY + offsetY);
-          }
+        for (let i = shadowLayers; i > 0; i--) {
+          const progress = i / shadowLayers;
+          const offsetX = Math.cos(shadowAngle) * shadowDistance * progress;
+          const offsetY = Math.sin(shadowAngle) * shadowDistance * progress;
+          ctx.globalAlpha = 0.4 * shadowConfig.intensity * (1 - progress);
+          ctx.fillText(line, textX + offsetX, currentY + offsetY);
         }
         
         ctx.restore();
