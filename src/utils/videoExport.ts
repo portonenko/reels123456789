@@ -253,16 +253,16 @@ const renderSlideToCanvas = (
     }
   }
 
-  // Draw title lines with strong visible glow using shadowBlur
+  // Draw title lines with VERY strong glow
   titleLines.forEach((line) => {
     if (shadowConfig) {
-      // Draw text multiple times with increasing shadowBlur for cumulative glow
-      const baseBlur = shadowConfig.blur;
-      const layers = 15 + shadowConfig.intensity * 3; // Many layers for strong effect
+      // Draw text MANY times with large shadowBlur for cumulative strong glow
+      const iterations = 30 + (shadowConfig.intensity * 5); // 30-80 iterations
+      const maxBlur = shadowConfig.blur * shadowConfig.intensity * 3; // Much larger blur
       
-      for (let i = 0; i < layers; i++) {
+      for (let i = 0; i < iterations; i++) {
         ctx.shadowColor = shadowConfig.color;
-        ctx.shadowBlur = baseBlur * (1 + i * 0.5) * shadowConfig.intensity;
+        ctx.shadowBlur = maxBlur;
         ctx.shadowOffsetX = 0;
         ctx.shadowOffsetY = 0;
         ctx.fillStyle = slide.style.text.color;
@@ -270,7 +270,7 @@ const renderSlideToCanvas = (
       }
     }
     
-    // Reset shadow and draw main text on top
+    // Reset shadow and draw crisp main text
     ctx.shadowColor = 'transparent';
     ctx.shadowBlur = 0;
     ctx.fillStyle = slide.style.text.color;
@@ -290,13 +290,13 @@ const renderSlideToCanvas = (
     const bodyLineHeight = (slide.style.text.bodyFontSize || slide.style.text.fontSize * 0.5) * slide.style.text.lineHeight * 1.2;
     bodyLines.forEach((line) => {
       if (shadowConfig) {
-        // Draw text multiple times with increasing shadowBlur for body glow
-        const baseBlur = shadowConfig.blur;
-        const layers = 15 + shadowConfig.intensity * 3;
+        // Draw text MANY times for body glow
+        const iterations = 30 + (shadowConfig.intensity * 5);
+        const maxBlur = shadowConfig.blur * shadowConfig.intensity * 3.5; // Even stronger for body
         
-        for (let i = 0; i < layers; i++) {
+        for (let i = 0; i < iterations; i++) {
           ctx.shadowColor = shadowConfig.color;
-          ctx.shadowBlur = baseBlur * (1 + i * 0.6) * shadowConfig.intensity; // Slightly stronger for body
+          ctx.shadowBlur = maxBlur;
           ctx.shadowOffsetX = 0;
           ctx.shadowOffsetY = 0;
           ctx.fillStyle = bodyColor;
@@ -304,7 +304,7 @@ const renderSlideToCanvas = (
         }
       }
       
-      // Reset shadow and draw main body text
+      // Reset shadow and draw crisp body text
       ctx.shadowColor = 'transparent';
       ctx.shadowBlur = 0;
       ctx.fillStyle = bodyColor;

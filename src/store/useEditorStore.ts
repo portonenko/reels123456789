@@ -271,7 +271,12 @@ export const useEditorStore = create<EditorStore>((set, get) => ({
     set((state) => {
       const newSlides = state.getCurrentProject().slides.map((slide) => ({
         ...slide,
-        style: { ...sourceSlide.style },
+        style: {
+          text: { ...sourceSlide.style.text },
+          plate: { ...sourceSlide.style.plate },
+          safeMarginTop: sourceSlide.style.safeMarginTop,
+          safeMarginBottom: sourceSlide.style.safeMarginBottom,
+        },
       }));
       const newProject = { ...state.getCurrentProject(), slides: newSlides };
       return {
