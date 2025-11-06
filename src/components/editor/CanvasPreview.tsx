@@ -278,7 +278,7 @@ export const CanvasPreview = ({ slide, globalOverlay, showTextBoxControls = fals
           >
             {currentSlide.style.plate.enabled ? (
               <div
-                className="rounded-lg w-full relative"
+                className="rounded-lg w-full"
                 style={{
                   padding: `${currentSlide.style.plate.padding}px`,
                   borderRadius: `${currentSlide.style.plate.borderRadius}px`,
@@ -298,27 +298,6 @@ export const CanvasPreview = ({ slide, globalOverlay, showTextBoxControls = fals
                       }
                     }
                     return color;
-                  })(),
-                  boxShadow: (() => {
-                    const blurSize = (currentSlide.style.plate.blurSize || 30) / 3; // Scale down for preview
-                    const color = currentSlide.style.plate.backgroundColor;
-                    let r = 0, g = 0, b = 0;
-                    
-                    if (color.startsWith('#')) {
-                      r = parseInt(color.slice(1, 3), 16);
-                      g = parseInt(color.slice(3, 5), 16);
-                      b = parseInt(color.slice(5, 7), 16);
-                    } else if (color.startsWith('rgb')) {
-                      const match = color.match(/(\d+),\s*(\d+),\s*(\d+)/);
-                      if (match) {
-                        r = parseInt(match[1]);
-                        g = parseInt(match[2]);
-                        b = parseInt(match[3]);
-                      }
-                    }
-                    
-                    const opacity = currentSlide.style.plate.opacity * 0.3;
-                    return `0 0 ${blurSize}px ${blurSize/2}px rgba(${r}, ${g}, ${b}, ${opacity})`;
                   })(),
                 }}
               >
@@ -415,7 +394,7 @@ export const CanvasPreview = ({ slide, globalOverlay, showTextBoxControls = fals
           >
             {currentSlide.style.plate.enabled ? (
               <div
-                className="rounded-lg relative"
+                className="rounded-lg"
                 style={{
                   padding: `${currentSlide.style.plate.padding}px`,
                   borderRadius: `${currentSlide.style.plate.borderRadius}px`,
@@ -435,27 +414,6 @@ export const CanvasPreview = ({ slide, globalOverlay, showTextBoxControls = fals
                       }
                     }
                     return color;
-                  })(),
-                  boxShadow: (() => {
-                    const blurSize = (currentSlide.style.plate.blurSize || 30) / 3; // Scale down for preview
-                    const color = currentSlide.style.plate.backgroundColor;
-                    let r = 0, g = 0, b = 0;
-                    
-                    if (color.startsWith('#')) {
-                      r = parseInt(color.slice(1, 3), 16);
-                      g = parseInt(color.slice(3, 5), 16);
-                      b = parseInt(color.slice(5, 7), 16);
-                    } else if (color.startsWith('rgb')) {
-                      const match = color.match(/(\d+),\s*(\d+),\s*(\d+)/);
-                      if (match) {
-                        r = parseInt(match[1]);
-                        g = parseInt(match[2]);
-                        b = parseInt(match[3]);
-                      }
-                    }
-                    
-                    const opacity = currentSlide.style.plate.opacity * 0.3;
-                    return `0 0 ${blurSize}px ${blurSize/2}px rgba(${r}, ${g}, ${b}, ${opacity})`;
                   })(),
                 }}
               >
