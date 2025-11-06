@@ -259,36 +259,30 @@ const renderSlideToCanvas = (
     }
   }
 
-  // Draw title lines with NATIVE shadowBlur
+  // Draw title lines with SIMPLE MANUAL BLUR
   titleLines.forEach((line) => {
-    ctx.save();
-    
     // Параметры из ползунков
     const intensity = (slide.style.text.shadowIntensity || 3) / 10;
     const radius = slide.style.text.shadowRadius || 20;
     
-    // Используем ВСТРОЕННУЮ тень canvas - рисуем несколько раз для усиления
-    const iterations = 3; // Рисуем тень 3 раза для усиления
+    // Рисуем тень - МНОГО тонких копий
+    const copies = 60; // 60 копий текста
+    const alphaPerCopy = (intensity * 1.5) / copies; // Прозрачность каждой
     
-    for (let i = 0; i < iterations; i++) {
-      ctx.shadowColor = `rgba(0, 0, 0, ${intensity / iterations})`;
-      ctx.shadowBlur = radius;
-      ctx.shadowOffsetX = 0;
-      ctx.shadowOffsetY = 0;
+    for (let i = 0; i < copies; i++) {
+      // Равномерное распределение по кругу и радиусу
+      const angle = (i * 2 * Math.PI) / copies;
+      const dist = (i % 6) * (radius / 6); // 6 слоёв по радиусу
+      const offsetX = Math.cos(angle) * dist;
+      const offsetY = Math.sin(angle) * dist;
       
-      ctx.fillStyle = 'rgba(0, 0, 0, 0)'; // Невидимый текст - только тень
-      ctx.fillText(line, textX, currentY);
+      ctx.fillStyle = `rgba(0, 0, 0, ${alphaPerCopy})`;
+      ctx.fillText(line, textX + offsetX, currentY + offsetY);
     }
     
-    ctx.restore();
-    
-    // Основной текст БЕЗ тени
-    ctx.save();
-    ctx.shadowColor = 'transparent';
-    ctx.shadowBlur = 0;
+    // Основной текст поверх
     ctx.fillStyle = slide.style.text.color;
     ctx.fillText(line, textX, currentY);
-    ctx.restore();
     
     currentY += titleLineHeight;
   });
@@ -303,34 +297,27 @@ const renderSlideToCanvas = (
 
     const bodyLineHeight = (slide.style.text.bodyFontSize || slide.style.text.fontSize * 0.5) * slide.style.text.lineHeight * 1.2;
     bodyLines.forEach((line) => {
-      ctx.save();
-      
       // Параметры из ползунков
       const intensity = (slide.style.text.shadowIntensity || 3) / 10;
       const radius = (slide.style.text.shadowRadius || 20) * 1.15;
       
-      // Встроенная тень для body
-      const iterations = 3;
+      // Тень для body
+      const copies = 60;
+      const alphaPerCopy = (intensity * 1.5) / copies;
       
-      for (let i = 0; i < iterations; i++) {
-        ctx.shadowColor = `rgba(0, 0, 0, ${intensity / iterations})`;
-        ctx.shadowBlur = radius;
-        ctx.shadowOffsetX = 0;
-        ctx.shadowOffsetY = 0;
+      for (let i = 0; i < copies; i++) {
+        const angle = (i * 2 * Math.PI) / copies;
+        const dist = (i % 6) * (radius / 6);
+        const offsetX = Math.cos(angle) * dist;
+        const offsetY = Math.sin(angle) * dist;
         
-        ctx.fillStyle = 'rgba(0, 0, 0, 0)';
-        ctx.fillText(line, textX, currentY);
+        ctx.fillStyle = `rgba(0, 0, 0, ${alphaPerCopy})`;
+        ctx.fillText(line, textX + offsetX, currentY + offsetY);
       }
       
-      ctx.restore();
-      
       // Основной текст body
-      ctx.save();
-      ctx.shadowColor = 'transparent';
-      ctx.shadowBlur = 0;
       ctx.fillStyle = bodyColor;
       ctx.fillText(line, textX, currentY);
-      ctx.restore();
       
       currentY += bodyLineHeight;
     });
