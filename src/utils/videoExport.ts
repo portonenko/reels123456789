@@ -253,28 +253,25 @@ const renderSlideToCanvas = (
     }
   }
 
-  // Draw title lines with enhanced shadow
+  // Draw title lines with real glow effect
   titleLines.forEach((line) => {
     if (shadowConfig) {
-      // Draw shadow multiple times for stronger glow based on intensity
-      const iterations = Math.ceil(shadowConfig.intensity / 2);
-      for (let i = 0; i < iterations; i++) {
-        ctx.shadowColor = shadowConfig.color;
-        ctx.shadowBlur = shadowConfig.blur * shadowConfig.intensity;
-        ctx.shadowOffsetX = 0;
-        ctx.shadowOffsetY = 0;
+      // Create real glow by drawing multiple blurred layers with decreasing opacity
+      const layers = shadowConfig.intensity * 2; // More layers = stronger glow
+      for (let i = layers; i > 0; i--) {
+        ctx.save();
+        ctx.filter = `blur(${i * shadowConfig.blur}px)`;
+        ctx.globalAlpha = (shadowConfig.intensity / 10) * (i / layers) * 0.5; // Fade out as we go further
+        ctx.fillStyle = shadowConfig.color;
         ctx.fillText(line, textX, currentY);
+        ctx.restore();
       }
-      // Reset shadow for stroke
-      ctx.shadowColor = 'transparent';
-      ctx.shadowBlur = 0;
     }
     
-    if (!slide.style.plate.enabled && slide.style.text.stroke) {
-      ctx.strokeStyle = slide.style.text.stroke;
-      ctx.lineWidth = slide.style.text.strokeWidth || 2;
-      ctx.strokeText(line, textX, currentY);
-    }
+    // Draw main text on top (no stroke unless explicitly wanted)
+    ctx.globalAlpha = 1;
+    ctx.filter = 'none';
+    ctx.fillStyle = slide.style.text.color;
     ctx.fillText(line, textX, currentY);
     currentY += titleLineHeight;
   });
@@ -284,42 +281,36 @@ const renderSlideToCanvas = (
     currentY += 30;
     
     const bodyColor = slide.style.text.bodyColor || slide.style.text.color;
-    ctx.fillStyle = bodyColor;
     
     ctx.font = `${slide.style.text.bodyFontWeight || slide.style.text.fontWeight - 200} ${slide.style.text.bodyFontSize || slide.style.text.fontSize * 0.5}px ${slide.style.text.bodyFontFamily || slide.style.text.fontFamily}`;
 
     const bodyLineHeight = (slide.style.text.bodyFontSize || slide.style.text.fontSize * 0.5) * slide.style.text.lineHeight * 1.2;
     bodyLines.forEach((line) => {
       if (shadowConfig) {
-        // Draw shadow multiple times for stronger glow on body text based on intensity
-        const iterations = Math.ceil(shadowConfig.intensity / 2);
-        for (let i = 0; i < iterations; i++) {
-          ctx.shadowColor = shadowConfig.color;
-          ctx.shadowBlur = shadowConfig.blur * shadowConfig.intensity * 1.2; // Slightly stronger for body
-          ctx.shadowOffsetX = 0;
-          ctx.shadowOffsetY = 0;
+        // Create real glow for body text too
+        const layers = shadowConfig.intensity * 2;
+        for (let i = layers; i > 0; i--) {
+          ctx.save();
+          ctx.filter = `blur(${i * shadowConfig.blur * 1.5}px)`; // Slightly more blur for body
+          ctx.globalAlpha = (shadowConfig.intensity / 10) * (i / layers) * 0.5;
+          ctx.fillStyle = shadowConfig.color;
           ctx.fillText(line, textX, currentY);
+          ctx.restore();
         }
-        // Reset shadow for stroke
-        ctx.shadowColor = 'transparent';
-        ctx.shadowBlur = 0;
       }
       
-      if (!slide.style.plate.enabled && slide.style.text.stroke) {
-        ctx.strokeStyle = slide.style.text.stroke;
-        ctx.lineWidth = (slide.style.text.strokeWidth || 2) * 0.75;
-        ctx.strokeText(line, textX, currentY);
-      }
+      // Draw main body text on top
+      ctx.globalAlpha = 1;
+      ctx.filter = 'none';
+      ctx.fillStyle = bodyColor;
       ctx.fillText(line, textX, currentY);
       currentY += bodyLineHeight;
     });
   }
 
-  // Reset shadow after drawing text
-  ctx.shadowColor = 'transparent';
-  ctx.shadowBlur = 0;
-  ctx.shadowOffsetX = 0;
-  ctx.shadowOffsetY = 0;
+  // Reset context
+  ctx.globalAlpha = 1;
+  ctx.filter = 'none';
 
   // Restore context after transitions
   ctx.restore();
