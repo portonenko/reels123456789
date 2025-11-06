@@ -273,21 +273,14 @@ const renderSlideToCanvas = (
     }
   }
 
-  // КОМБИНИРОВАННОЕ РЕШЕНИЕ: обводка + мощная тень
-  ctx.shadowColor = 'rgba(0, 0, 0, 0.9)';
-  ctx.shadowBlur = 25;
-  ctx.shadowOffsetX = 5;
-  ctx.shadowOffsetY = 5;
+  // Только мощная тень без обводки
+  ctx.shadowColor = 'rgba(0, 0, 0, 0.95)';
+  ctx.shadowBlur = 30;
+  ctx.shadowOffsetX = 6;
+  ctx.shadowOffsetY = 6;
 
   // Draw title lines
   titleLines.forEach((line) => {
-    // 1. Жирная чёрная обводка
-    ctx.strokeStyle = 'rgba(0, 0, 0, 0.95)';
-    ctx.lineWidth = 10;
-    ctx.lineJoin = 'round';
-    ctx.strokeText(line, textX, currentY);
-    
-    // 2. Основной текст поверх (с тенью)
     ctx.fillStyle = slide.style.text.color;
     ctx.fillText(line, textX, currentY);
     currentY += titleLineHeight;
@@ -303,15 +296,8 @@ const renderSlideToCanvas = (
 
     const bodyLineHeight = (slide.style.text.bodyFontSize || slide.style.text.fontSize * 0.5) * slide.style.text.lineHeight * 1.2;
     
-    // Обводка + тень для body
+    // Тень для body (та же что и у заголовка)
     bodyLines.forEach((line) => {
-      // 1. Обводка для body
-      ctx.strokeStyle = 'rgba(0, 0, 0, 0.95)';
-      ctx.lineWidth = 7;
-      ctx.lineJoin = 'round';
-      ctx.strokeText(line, textX, currentY);
-      
-      // 2. Основной текст body (с тенью)
       ctx.fillStyle = bodyColor;
       ctx.fillText(line, textX, currentY);
       currentY += bodyLineHeight;
