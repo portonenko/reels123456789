@@ -348,9 +348,9 @@ export const CanvasPreview = ({ slide, globalOverlay, showTextBoxControls = fals
                     color: currentSlide.style.text.color,
                     textShadow: currentSlide.style.text.textShadow,
                     textAlign: currentSlide.style.text.alignment,
-                    WebkitTextStroke: `${(currentSlide.style.text.strokeWidth || 2) / 3}px ${currentSlide.style.text.stroke || "#000000"}`,
-                    paintOrder: "stroke fill",
-                    filter: `drop-shadow(0 0 ${(currentSlide.style.text.fontSize || 48) * 0.2 / 3}px ${currentSlide.style.text.glow || "rgba(255,255,255,0.8)"})`,
+                    filter: currentSlide.style.text.textShadow ? 
+                      `drop-shadow(0 0 ${(currentSlide.style.text.shadowIntensity || 3) * 4}px ${currentSlide.style.text.textShadow.match(/rgba?\([^)]+\)|#[0-9a-fA-F]+/)?.[0] || "rgba(0,0,0,0.8)"})` : 
+                      'none',
                     wordWrap: "break-word",
                   }}
                 >
@@ -367,8 +367,9 @@ export const CanvasPreview = ({ slide, globalOverlay, showTextBoxControls = fals
                       color: currentSlide.style.text.bodyColor || currentSlide.style.text.color,
                       textShadow: currentSlide.style.text.textShadow,
                       textAlign: currentSlide.style.text.alignment,
-                      WebkitTextStroke: `${(currentSlide.style.text.strokeWidth || 2) * 0.75 / 3}px ${currentSlide.style.text.stroke || "#000000"}`,
-                      paintOrder: "stroke fill",
+                      filter: currentSlide.style.text.textShadow ? 
+                        `drop-shadow(0 0 ${(currentSlide.style.text.shadowIntensity || 3) * 4}px ${currentSlide.style.text.textShadow.match(/rgba?\([^)]+\)|#[0-9a-fA-F]+/)?.[0] || "rgba(0,0,0,0.8)"})` : 
+                        'none',
                       wordWrap: "break-word",
                     }}
                   >
@@ -461,9 +462,9 @@ export const CanvasPreview = ({ slide, globalOverlay, showTextBoxControls = fals
                     color: currentSlide.style.text.color,
                     textShadow: currentSlide.style.text.textShadow,
                     textAlign: currentSlide.style.text.alignment,
-                    WebkitTextStroke: `${(currentSlide.style.text.strokeWidth || 2) / 3}px ${currentSlide.style.text.stroke || "#000000"}`,
-                    paintOrder: "stroke fill",
-                    filter: `drop-shadow(0 0 ${(currentSlide.style.text.fontSize || 48) * 0.2 / 3}px ${currentSlide.style.text.glow || "rgba(255,255,255,0.8)"})`,
+                    filter: currentSlide.style.text.textShadow ? 
+                      `drop-shadow(0 0 ${(currentSlide.style.text.shadowIntensity || 3) * 4}px ${currentSlide.style.text.textShadow.match(/rgba?\([^)]+\)|#[0-9a-fA-F]+/)?.[0] || "rgba(0,0,0,0.8)"})` : 
+                      'none',
                     wordWrap: "break-word",
                     maxWidth: "80%",
                   }}
@@ -481,8 +482,9 @@ export const CanvasPreview = ({ slide, globalOverlay, showTextBoxControls = fals
                       color: currentSlide.style.text.bodyColor || currentSlide.style.text.color,
                       textShadow: currentSlide.style.text.textShadow,
                       textAlign: currentSlide.style.text.alignment,
-                      WebkitTextStroke: `${(currentSlide.style.text.strokeWidth || 2) * 0.75 / 3}px ${currentSlide.style.text.stroke || "#000000"}`,
-                      paintOrder: "stroke fill",
+                      filter: currentSlide.style.text.textShadow ? 
+                        `drop-shadow(0 0 ${(currentSlide.style.text.shadowIntensity || 3) * 4}px ${currentSlide.style.text.textShadow.match(/rgba?\([^)]+\)|#[0-9a-fA-F]+/)?.[0] || "rgba(0,0,0,0.8)"})` : 
+                        'none',
                       wordWrap: "break-word",
                       maxWidth: "80%",
                     }}
