@@ -253,39 +253,34 @@ const renderSlideToCanvas = (
     }
   }
 
-  // Draw title lines with BRIGHT glow using composite operations
+  // Draw title lines with manual glow (no shadowBlur/filter)
   titleLines.forEach((line) => {
     if (shadowConfig) {
       ctx.save();
-      // Use 'lighter' composite mode for additive glow
-      ctx.globalCompositeOperation = 'lighter';
       
-      // Draw many layers with shadowBlur for bright cumulative glow
-      const iterations = 100; // Fixed high number
-      const baseBlur = shadowConfig.blur * shadowConfig.intensity * 4;
+      // Manual glow: draw text many times with small offsets and low alpha
+      const glowRadius = shadowConfig.blur * shadowConfig.intensity * 2;
+      const steps = 20; // Number of glow layers
       
-      for (let i = 0; i < iterations; i++) {
-        ctx.globalAlpha = 0.05; // Low alpha per layer, accumulates to bright
-        ctx.shadowColor = shadowConfig.color;
-        ctx.shadowBlur = baseBlur;
-        ctx.shadowOffsetX = 0;
-        ctx.shadowOffsetY = 0;
-        ctx.fillStyle = shadowConfig.color; // Use shadow color for glow
-        ctx.fillText(line, textX, currentY);
+      ctx.fillStyle = shadowConfig.color;
+      
+      // Draw glow layers in a circle pattern for even glow
+      for (let angle = 0; angle < Math.PI * 2; angle += (Math.PI * 2) / steps) {
+        for (let distance = glowRadius; distance > 0; distance -= glowRadius / 10) {
+          const offsetX = Math.cos(angle) * distance;
+          const offsetY = Math.sin(angle) * distance;
+          ctx.globalAlpha = 0.03 * shadowConfig.intensity; // Low alpha, accumulates
+          ctx.fillText(line, textX + offsetX, currentY + offsetY);
+        }
       }
       
       ctx.restore();
     }
     
-    // Draw main text on top with normal composite mode
-    ctx.save();
-    ctx.globalCompositeOperation = 'source-over';
+    // Draw main text on top
     ctx.globalAlpha = 1;
-    ctx.shadowColor = 'transparent';
-    ctx.shadowBlur = 0;
     ctx.fillStyle = slide.style.text.color;
     ctx.fillText(line, textX, currentY);
-    ctx.restore();
     
     currentY += titleLineHeight;
   });
@@ -302,43 +297,35 @@ const renderSlideToCanvas = (
     bodyLines.forEach((line) => {
       if (shadowConfig) {
         ctx.save();
-        ctx.globalCompositeOperation = 'lighter';
         
-        const iterations = 100;
-        const baseBlur = shadowConfig.blur * shadowConfig.intensity * 5;
+        const glowRadius = shadowConfig.blur * shadowConfig.intensity * 2.5;
+        const steps = 20;
         
-        for (let i = 0; i < iterations; i++) {
-          ctx.globalAlpha = 0.05;
-          ctx.shadowColor = shadowConfig.color;
-          ctx.shadowBlur = baseBlur;
-          ctx.shadowOffsetX = 0;
-          ctx.shadowOffsetY = 0;
-          ctx.fillStyle = shadowConfig.color;
-          ctx.fillText(line, textX, currentY);
+        ctx.fillStyle = shadowConfig.color;
+        
+        for (let angle = 0; angle < Math.PI * 2; angle += (Math.PI * 2) / steps) {
+          for (let distance = glowRadius; distance > 0; distance -= glowRadius / 10) {
+            const offsetX = Math.cos(angle) * distance;
+            const offsetY = Math.sin(angle) * distance;
+            ctx.globalAlpha = 0.03 * shadowConfig.intensity;
+            ctx.fillText(line, textX + offsetX, currentY + offsetY);
+          }
         }
         
         ctx.restore();
       }
       
       // Draw main body text
-      ctx.save();
-      ctx.globalCompositeOperation = 'source-over';
       ctx.globalAlpha = 1;
-      ctx.shadowColor = 'transparent';
-      ctx.shadowBlur = 0;
       ctx.fillStyle = bodyColor;
       ctx.fillText(line, textX, currentY);
-      ctx.restore();
       
       currentY += bodyLineHeight;
     });
   }
 
-  // Reset all
-  ctx.globalCompositeOperation = 'source-over';
+  // Reset
   ctx.globalAlpha = 1;
-  ctx.shadowColor = 'transparent';
-  ctx.shadowBlur = 0;
 
   // Restore context after transitions
   ctx.restore();
