@@ -253,33 +253,28 @@ const renderSlideToCanvas = (
     }
   }
 
-  // Draw title lines with strong visible glow
+  // Draw title lines with strong visible glow using shadowBlur
   titleLines.forEach((line) => {
     if (shadowConfig) {
-      // Draw multiple blurred copies for visible glow
-      const intensity = shadowConfig.intensity;
-      const blur = shadowConfig.blur * 4; // Increase base blur
+      // Draw text multiple times with increasing shadowBlur for cumulative glow
+      const baseBlur = shadowConfig.blur;
+      const layers = 15 + shadowConfig.intensity * 3; // Many layers for strong effect
       
-      // Draw 8-12 layers based on intensity for strong glow
-      const totalLayers = 8 + Math.ceil(intensity);
-      
-      for (let i = totalLayers; i > 0; i--) {
-        ctx.save();
-        ctx.filter = `blur(${blur * (i / 4)}px)`;
-        ctx.globalAlpha = 0.3 * (intensity / 5); // Stronger opacity
-        ctx.fillStyle = shadowConfig.color;
+      for (let i = 0; i < layers; i++) {
+        ctx.shadowColor = shadowConfig.color;
+        ctx.shadowBlur = baseBlur * (1 + i * 0.5) * shadowConfig.intensity;
+        ctx.shadowOffsetX = 0;
+        ctx.shadowOffsetY = 0;
+        ctx.fillStyle = slide.style.text.color;
         ctx.fillText(line, textX, currentY);
-        ctx.restore();
       }
     }
     
-    // Draw main text on top with no filter
-    ctx.save();
-    ctx.filter = 'none';
-    ctx.globalAlpha = 1;
+    // Reset shadow and draw main text on top
+    ctx.shadowColor = 'transparent';
+    ctx.shadowBlur = 0;
     ctx.fillStyle = slide.style.text.color;
     ctx.fillText(line, textX, currentY);
-    ctx.restore();
     
     currentY += titleLineHeight;
   });
@@ -295,37 +290,33 @@ const renderSlideToCanvas = (
     const bodyLineHeight = (slide.style.text.bodyFontSize || slide.style.text.fontSize * 0.5) * slide.style.text.lineHeight * 1.2;
     bodyLines.forEach((line) => {
       if (shadowConfig) {
-        // Draw multiple blurred copies for visible glow on body
-        const intensity = shadowConfig.intensity;
-        const blur = shadowConfig.blur * 5; // Even stronger for body
+        // Draw text multiple times with increasing shadowBlur for body glow
+        const baseBlur = shadowConfig.blur;
+        const layers = 15 + shadowConfig.intensity * 3;
         
-        const totalLayers = 8 + Math.ceil(intensity);
-        
-        for (let i = totalLayers; i > 0; i--) {
-          ctx.save();
-          ctx.filter = `blur(${blur * (i / 4)}px)`;
-          ctx.globalAlpha = 0.3 * (intensity / 5);
-          ctx.fillStyle = shadowConfig.color;
+        for (let i = 0; i < layers; i++) {
+          ctx.shadowColor = shadowConfig.color;
+          ctx.shadowBlur = baseBlur * (1 + i * 0.6) * shadowConfig.intensity; // Slightly stronger for body
+          ctx.shadowOffsetX = 0;
+          ctx.shadowOffsetY = 0;
+          ctx.fillStyle = bodyColor;
           ctx.fillText(line, textX, currentY);
-          ctx.restore();
         }
       }
       
-      // Draw main body text on top
-      ctx.save();
-      ctx.filter = 'none';
-      ctx.globalAlpha = 1;
+      // Reset shadow and draw main body text
+      ctx.shadowColor = 'transparent';
+      ctx.shadowBlur = 0;
       ctx.fillStyle = bodyColor;
       ctx.fillText(line, textX, currentY);
-      ctx.restore();
       
       currentY += bodyLineHeight;
     });
   }
 
-  // Reset context
-  ctx.filter = 'none';
-  ctx.globalAlpha = 1;
+  // Reset shadow
+  ctx.shadowColor = 'transparent';
+  ctx.shadowBlur = 0;
 
   // Restore context after transitions
   ctx.restore();
