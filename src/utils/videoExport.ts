@@ -273,11 +273,11 @@ const renderSlideToCanvas = (
     }
   }
 
-  // Только мощная тень без обводки
-  ctx.shadowColor = 'rgba(0, 0, 0, 0.95)';
-  ctx.shadowBlur = 30;
-  ctx.shadowOffsetX = 6;
-  ctx.shadowOffsetY = 6;
+  // Более интенсивная тень
+  ctx.shadowColor = 'rgba(0, 0, 0, 1)';
+  ctx.shadowBlur = 40;
+  ctx.shadowOffsetX = 8;
+  ctx.shadowOffsetY = 8;
 
   // Draw title lines
   titleLines.forEach((line) => {
