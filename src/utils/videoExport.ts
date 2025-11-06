@@ -253,24 +253,22 @@ const renderSlideToCanvas = (
     }
   }
 
-  // Draw title lines with SHADOW (not glow!)
+  // Draw title lines with MASSIVE SHADOW
   titleLines.forEach((line) => {
     if (shadowConfig) {
       ctx.save();
       
-      // Параметры большой тени
-      const shadowDistance = shadowConfig.blur * shadowConfig.intensity * 3; // Расстояние тени
-      const shadowLayers = 50; // Количество слоев для размытия
-      const shadowAngle = Math.PI / 4; // Угол 45° (вниз-вправо)
+      // ОГРОМНАЯ тень - фиксированные параметры
+      const shadowDistance = 80; // Огромное смещение
+      const shadowBlurLayers = 100; // Много слоёв для размытия
       
       ctx.fillStyle = shadowConfig.color;
       
-      // Рисуем тень - много слоев в одном направлении
-      for (let i = shadowLayers; i > 0; i--) {
-        const progress = i / shadowLayers; // От 1 до 0
-        const offsetX = Math.cos(shadowAngle) * shadowDistance * progress;
-        const offsetY = Math.sin(shadowAngle) * shadowDistance * progress;
-        ctx.globalAlpha = 0.4 * shadowConfig.intensity * (1 - progress); // Слабее по мере удаления
+      // Рисуем очень плотную тень
+      for (let i = shadowBlurLayers; i >= 0; i--) {
+        const offsetX = (shadowDistance / shadowBlurLayers) * i;
+        const offsetY = (shadowDistance / shadowBlurLayers) * i;
+        ctx.globalAlpha = 0.9; // Очень плотная тень
         ctx.fillText(line, textX + offsetX, currentY + offsetY);
       }
       
@@ -298,17 +296,15 @@ const renderSlideToCanvas = (
       if (shadowConfig) {
         ctx.save();
         
-        const shadowDistance = shadowConfig.blur * shadowConfig.intensity * 4; // Ещё больше для body
-        const shadowLayers = 50;
-        const shadowAngle = Math.PI / 4;
+        const shadowDistance = 100; // Ещё больше для body
+        const shadowBlurLayers = 100;
         
         ctx.fillStyle = shadowConfig.color;
         
-        for (let i = shadowLayers; i > 0; i--) {
-          const progress = i / shadowLayers;
-          const offsetX = Math.cos(shadowAngle) * shadowDistance * progress;
-          const offsetY = Math.sin(shadowAngle) * shadowDistance * progress;
-          ctx.globalAlpha = 0.4 * shadowConfig.intensity * (1 - progress);
+        for (let i = shadowBlurLayers; i >= 0; i--) {
+          const offsetX = (shadowDistance / shadowBlurLayers) * i;
+          const offsetY = (shadowDistance / shadowBlurLayers) * i;
+          ctx.globalAlpha = 0.9;
           ctx.fillText(line, textX + offsetX, currentY + offsetY);
         }
         
