@@ -259,23 +259,26 @@ const renderSlideToCanvas = (
     }
   }
 
-  // Draw title lines with MASSIVE SHADOW - ВСЕГДА!
+  // Draw title lines with SOFT SHADOW AROUND - ВСЕГДА!
   titleLines.forEach((line) => {
     ctx.save();
     
-    // ОГРОМНАЯ чёрная тень
-    const shadowDistance = 120;
-    const shadowLayers = 80;
+    // Тень вокруг текста (как на примере)
+    const shadowRadius = 60; // Радиус размытия
+    const shadowSteps = 36; // Направлений вокруг
+    const shadowLayers = 20; // Слоёв размытия
     
-    // Рисуем тень от дальнего к ближнему
-    for (let i = shadowLayers; i > 0; i--) {
-      const progress = i / shadowLayers; // 1.0 до 0.0
-      const offsetX = shadowDistance * progress;
-      const offsetY = shadowDistance * progress;
-      const alpha = 0.8 * (1 - progress * 0.5); // Дальше = темнее
-      
-      ctx.fillStyle = `rgba(0, 0, 0, ${alpha})`;
-      ctx.fillText(line, textX + offsetX, currentY + offsetY);
+    // Рисуем тень во всех направлениях
+    for (let angle = 0; angle < Math.PI * 2; angle += (Math.PI * 2) / shadowSteps) {
+      for (let layer = shadowLayers; layer > 0; layer--) {
+        const distance = (shadowRadius / shadowLayers) * layer;
+        const offsetX = Math.cos(angle) * distance;
+        const offsetY = Math.sin(angle) * distance;
+        const alpha = 0.15 * (layer / shadowLayers); // Слабее к краям
+        
+        ctx.fillStyle = `rgba(0, 0, 0, ${alpha})`;
+        ctx.fillText(line, textX + offsetX, currentY + offsetY);
+      }
     }
     
     ctx.restore();
@@ -300,17 +303,20 @@ const renderSlideToCanvas = (
     bodyLines.forEach((line) => {
       ctx.save();
       
-      const shadowDistance = 150;
-      const shadowLayers = 80;
+      const shadowRadius = 70; // Больше для body
+      const shadowSteps = 36;
+      const shadowLayers = 20;
       
-      for (let i = shadowLayers; i > 0; i--) {
-        const progress = i / shadowLayers;
-        const offsetX = shadowDistance * progress;
-        const offsetY = shadowDistance * progress;
-        const alpha = 0.8 * (1 - progress * 0.5);
-        
-        ctx.fillStyle = `rgba(0, 0, 0, ${alpha})`;
-        ctx.fillText(line, textX + offsetX, currentY + offsetY);
+      for (let angle = 0; angle < Math.PI * 2; angle += (Math.PI * 2) / shadowSteps) {
+        for (let layer = shadowLayers; layer > 0; layer--) {
+          const distance = (shadowRadius / shadowLayers) * layer;
+          const offsetX = Math.cos(angle) * distance;
+          const offsetY = Math.sin(angle) * distance;
+          const alpha = 0.15 * (layer / shadowLayers);
+          
+          ctx.fillStyle = `rgba(0, 0, 0, ${alpha})`;
+          ctx.fillText(line, textX + offsetX, currentY + offsetY);
+        }
       }
       
       ctx.restore();
