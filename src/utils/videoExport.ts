@@ -263,17 +263,18 @@ const renderSlideToCanvas = (
   titleLines.forEach((line) => {
     ctx.save();
     
-    // ОГРОМНАЯ тень - фиксированные параметры
-    const shadowDistance = 80; // Огромное смещение
-    const shadowBlurLayers = 100; // Много слоёв для размытия
+    // ОГРОМНАЯ чёрная тень
+    const shadowDistance = 120;
+    const shadowLayers = 80;
     
-    ctx.fillStyle = shadowConfig.color;
-    
-    // Рисуем очень плотную тень
-    for (let i = shadowBlurLayers; i >= 0; i--) {
-      const offsetX = (shadowDistance / shadowBlurLayers) * i;
-      const offsetY = (shadowDistance / shadowBlurLayers) * i;
-      ctx.globalAlpha = 0.9; // Очень плотная тень
+    // Рисуем тень от дальнего к ближнему
+    for (let i = shadowLayers; i > 0; i--) {
+      const progress = i / shadowLayers; // 1.0 до 0.0
+      const offsetX = shadowDistance * progress;
+      const offsetY = shadowDistance * progress;
+      const alpha = 0.8 * (1 - progress * 0.5); // Дальше = темнее
+      
+      ctx.fillStyle = `rgba(0, 0, 0, ${alpha})`;
       ctx.fillText(line, textX + offsetX, currentY + offsetY);
     }
     
@@ -299,15 +300,16 @@ const renderSlideToCanvas = (
     bodyLines.forEach((line) => {
       ctx.save();
       
-      const shadowDistance = 100; // Ещё больше для body
-      const shadowBlurLayers = 100;
+      const shadowDistance = 150;
+      const shadowLayers = 80;
       
-      ctx.fillStyle = shadowConfig.color;
-      
-      for (let i = shadowBlurLayers; i >= 0; i--) {
-        const offsetX = (shadowDistance / shadowBlurLayers) * i;
-        const offsetY = (shadowDistance / shadowBlurLayers) * i;
-        ctx.globalAlpha = 0.9;
+      for (let i = shadowLayers; i > 0; i--) {
+        const progress = i / shadowLayers;
+        const offsetX = shadowDistance * progress;
+        const offsetY = shadowDistance * progress;
+        const alpha = 0.8 * (1 - progress * 0.5);
+        
+        ctx.fillStyle = `rgba(0, 0, 0, ${alpha})`;
         ctx.fillText(line, textX + offsetX, currentY + offsetY);
       }
       
