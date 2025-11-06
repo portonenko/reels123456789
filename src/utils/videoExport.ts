@@ -253,12 +253,12 @@ const renderSlideToCanvas = (
     }
   }
 
-  // Draw title lines with VERY strong glow
+  // Draw title lines with EXTREMELY strong glow
   titleLines.forEach((line) => {
     if (shadowConfig) {
-      // Draw text MANY times with large shadowBlur for cumulative strong glow
-      const iterations = 30 + (shadowConfig.intensity * 5); // 30-80 iterations
-      const maxBlur = shadowConfig.blur * shadowConfig.intensity * 3; // Much larger blur
+      // Draw text VERY MANY times with HUGE shadowBlur for visible glow
+      const iterations = 50 + (shadowConfig.intensity * 10); // 50-150 iterations
+      const maxBlur = shadowConfig.blur * shadowConfig.intensity * 6; // Massive blur
       
       for (let i = 0; i < iterations; i++) {
         ctx.shadowColor = shadowConfig.color;
@@ -290,9 +290,9 @@ const renderSlideToCanvas = (
     const bodyLineHeight = (slide.style.text.bodyFontSize || slide.style.text.fontSize * 0.5) * slide.style.text.lineHeight * 1.2;
     bodyLines.forEach((line) => {
       if (shadowConfig) {
-        // Draw text MANY times for body glow
-        const iterations = 30 + (shadowConfig.intensity * 5);
-        const maxBlur = shadowConfig.blur * shadowConfig.intensity * 3.5; // Even stronger for body
+        // Draw text VERY MANY times for strong body glow
+        const iterations = 50 + (shadowConfig.intensity * 10);
+        const maxBlur = shadowConfig.blur * shadowConfig.intensity * 7; // Even more massive for body
         
         for (let i = 0; i < iterations; i++) {
           ctx.shadowColor = shadowConfig.color;

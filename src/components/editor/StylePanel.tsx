@@ -50,33 +50,13 @@ export const StylePanel = ({
   const handleApplyStyleToAll = () => {
     if (!slide) return;
     applyStyleToAll(slide.id);
-    toast.success(`Applied style to all ${slides.length} slides`);
+    toast.success(`Applied ALL styles to all ${slides.length} slides`);
   };
 
   const handleApplyDurationToAll = () => {
     if (!slide) return;
     applyDurationToAll(slide.durationSec);
     toast.success(`Applied ${slide.durationSec}s duration to all ${slides.length} slides`);
-  };
-
-  const handleApplyPlateToAll = () => {
-    if (!slide) return;
-    slides.forEach((s) => {
-      updateSlide(s.id, {
-        style: {
-          ...s.style,
-          plate: { ...slide.style.plate },
-          text: {
-            ...s.style.text,
-            stroke: slide.style.text.stroke,
-            strokeWidth: slide.style.text.strokeWidth,
-            glow: slide.style.text.glow,
-            textShadow: slide.style.text.textShadow,
-          },
-        },
-      });
-    });
-    toast.success(`Applied plate style to all ${slides.length} slides`);
   };
   
   if (!slide) {
@@ -284,7 +264,7 @@ export const StylePanel = ({
               className="w-full" 
               onClick={handleApplyStyleToAll}
             >
-              Apply Text Style to All Slides
+              Apply All Styles to All Slides
             </Button>
           </TabsContent>
 
@@ -321,7 +301,7 @@ export const StylePanel = ({
                 className="w-full" 
                 onClick={handleApplyStyleToAll}
               >
-                Apply Position to All Slides
+                Apply All Styles to All Slides
               </Button>
             )}
           </TabsContent>
@@ -511,9 +491,9 @@ export const StylePanel = ({
             <Button 
               variant="outline" 
               className="w-full mt-4" 
-              onClick={handleApplyPlateToAll}
+              onClick={handleApplyStyleToAll}
             >
-              Apply Plate Style to All Slides
+              Apply All Styles to All Slides
             </Button>
           </TabsContent>
 
