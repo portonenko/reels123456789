@@ -259,30 +259,30 @@ const renderSlideToCanvas = (
     }
   }
 
-  // Draw title lines with CONFIGURABLE DROP-SHADOW
+  // Draw title lines with EXACT MATCH to preview drop-shadow
   titleLines.forEach((line) => {
     ctx.save();
     
     // Используем shadowIntensity из настроек слайда (по умолчанию 3)
-    const intensity = (slide.style.text.shadowIntensity || 3) / 3; // Нормализуем к базовому значению 3
+    const intensity = (slide.style.text.shadowIntensity || 3) / 3;
     
-    // Параметры тени масштабируются по интенсивности
+    // ТОЧНО ТАКИЕ ЖЕ параметры как в превью
     const shadowConfigs = [
-      { radius: 20 * intensity, alpha: 0.6 * intensity },
-      { radius: 15 * intensity, alpha: 0.5 * intensity },
-      { radius: 10 * intensity, alpha: 0.4 * intensity }
+      { radius: 20 * intensity, alpha: 0.9 * intensity }, // СИНХРОНИЗИРОВАНО с preview
+      { radius: 15 * intensity, alpha: 0.8 * intensity },
+      { radius: 10 * intensity, alpha: 0.7 * intensity }
     ];
     
     // Рисуем слои drop-shadow
     shadowConfigs.forEach(({ radius, alpha }) => {
-      const steps = 12;
-      const layers = 6;
+      const steps = 16; // Больше направлений для гладкости
+      const layers = 8;  // Больше слоёв
       
       for (let angle = 0; angle < Math.PI * 2; angle += (Math.PI * 2) / steps) {
         for (let dist = 0; dist <= radius; dist += radius / layers) {
           const offsetX = Math.cos(angle) * dist;
           const offsetY = Math.sin(angle) * dist;
-          const layerAlpha = alpha * (1 - dist / radius) * 0.25;
+          const layerAlpha = alpha * (1 - dist / radius) * 0.12; // Калибровано под preview
           
           ctx.fillStyle = `rgba(0, 0, 0, ${layerAlpha})`;
           ctx.fillText(line, textX + offsetX, currentY + offsetY);
@@ -315,22 +315,22 @@ const renderSlideToCanvas = (
       // Используем shadowIntensity из настроек слайда
       const intensity = (slide.style.text.shadowIntensity || 3) / 3;
       
-      // Параметры тени для body масштабируются по интенсивности
+      // ТОЧНО ТАКИЕ ЖЕ параметры как в превью для body
       const shadowConfigs = [
-        { radius: 23 * intensity, alpha: 0.6 * intensity },
-        { radius: 18 * intensity, alpha: 0.5 * intensity },
-        { radius: 12 * intensity, alpha: 0.4 * intensity }
+        { radius: 23 * intensity, alpha: 0.9 * intensity }, // СИНХРОНИЗИРОВАНО
+        { radius: 18 * intensity, alpha: 0.8 * intensity },
+        { radius: 12 * intensity, alpha: 0.7 * intensity }
       ];
       
       shadowConfigs.forEach(({ radius, alpha }) => {
-        const steps = 12;
-        const layers = 6;
+        const steps = 16;
+        const layers = 8;
         
         for (let angle = 0; angle < Math.PI * 2; angle += (Math.PI * 2) / steps) {
           for (let dist = 0; dist <= radius; dist += radius / layers) {
             const offsetX = Math.cos(angle) * dist;
             const offsetY = Math.sin(angle) * dist;
-            const layerAlpha = alpha * (1 - dist / radius) * 0.25;
+            const layerAlpha = alpha * (1 - dist / radius) * 0.12;
             
             ctx.fillStyle = `rgba(0, 0, 0, ${layerAlpha})`;
             ctx.fillText(line, textX + offsetX, currentY + offsetY);
