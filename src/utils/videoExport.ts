@@ -259,27 +259,27 @@ const renderSlideToCanvas = (
     }
   }
 
-  // Draw title lines with DROP-SHADOW like in preview
+  // Draw title lines with SOFT DROP-SHADOW like in preview
   titleLines.forEach((line) => {
     ctx.save();
     
-    // Эмулируем drop-shadow(0px 0px 20px rgba(0,0,0,0.9)) + 15px 0.8 + 10px 0.7
+    // Более мягкие параметры тени
     const shadowConfigs = [
-      { radius: 20, alpha: 0.9 },
-      { radius: 15, alpha: 0.8 },
-      { radius: 10, alpha: 0.7 }
+      { radius: 20, alpha: 0.3 },  // Уменьшил с 0.9 до 0.3
+      { radius: 15, alpha: 0.25 }, // Уменьшил с 0.8 до 0.25
+      { radius: 10, alpha: 0.2 }   // Уменьшил с 0.7 до 0.2
     ];
     
-    // Рисуем 3 слоя drop-shadow
+    // Рисуем мягкие слои drop-shadow
     shadowConfigs.forEach(({ radius, alpha }) => {
-      const steps = 16; // Количество направлений
-      const layers = 8; // Количество слоёв на радиус
+      const steps = 12; // Меньше направлений
+      const layers = 5;  // Меньше слоёв
       
       for (let angle = 0; angle < Math.PI * 2; angle += (Math.PI * 2) / steps) {
         for (let dist = 0; dist <= radius; dist += radius / layers) {
           const offsetX = Math.cos(angle) * dist;
           const offsetY = Math.sin(angle) * dist;
-          const layerAlpha = alpha * (1 - dist / radius) * 0.3; // Затухание к краям
+          const layerAlpha = alpha * (1 - dist / radius) * 0.15; // Ещё слабее
           
           ctx.fillStyle = `rgba(0, 0, 0, ${layerAlpha})`;
           ctx.fillText(line, textX + offsetX, currentY + offsetY);
@@ -309,22 +309,22 @@ const renderSlideToCanvas = (
     bodyLines.forEach((line) => {
       ctx.save();
       
-      // Эмулируем drop-shadow(0px 0px 23px rgba(0,0,0,0.9)) + 18px 0.8 + 12px 0.7
+      // Более мягкие параметры тени для body
       const shadowConfigs = [
-        { radius: 23, alpha: 0.9 },
-        { radius: 18, alpha: 0.8 },
-        { radius: 12, alpha: 0.7 }
+        { radius: 23, alpha: 0.3 },
+        { radius: 18, alpha: 0.25 },
+        { radius: 12, alpha: 0.2 }
       ];
       
       shadowConfigs.forEach(({ radius, alpha }) => {
-        const steps = 16;
-        const layers = 8;
+        const steps = 12;
+        const layers = 5;
         
         for (let angle = 0; angle < Math.PI * 2; angle += (Math.PI * 2) / steps) {
           for (let dist = 0; dist <= radius; dist += radius / layers) {
             const offsetX = Math.cos(angle) * dist;
             const offsetY = Math.sin(angle) * dist;
-            const layerAlpha = alpha * (1 - dist / radius) * 0.3;
+            const layerAlpha = alpha * (1 - dist / radius) * 0.15;
             
             ctx.fillStyle = `rgba(0, 0, 0, ${layerAlpha})`;
             ctx.fillText(line, textX + offsetX, currentY + offsetY);
