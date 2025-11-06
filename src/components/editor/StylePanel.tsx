@@ -415,26 +415,147 @@ export const StylePanel = ({
                   />
                 </div>
 
+            <div>
+              <Label>Edge Blur: {slide.style.plate.blurSize || 30}px</Label>
+              <Slider
+                value={[slide.style.plate.blurSize || 30]}
+                onValueChange={([value]) =>
+                  onUpdateSlide({
+                    style: {
+                      ...slide.style,
+                      plate: { ...slide.style.plate, blurSize: value },
+                    },
+                  })
+                }
+                min={0}
+                max={100}
+                step={5}
+              />
+              <div className="text-xs text-muted-foreground mt-1">
+                Amount of blur on plate edges
+              </div>
+            </div>
+
+            <Separator className="my-4" />
+
+            <div className="flex items-center justify-between">
+              <Label>Enable Line Backgrounds</Label>
+              <Switch
+                checked={slide.style.plate.lineBackground?.enabled || false}
+                onCheckedChange={(checked) =>
+                  onUpdateSlide({
+                    style: {
+                      ...slide.style,
+                      plate: { 
+                        ...slide.style.plate, 
+                        lineBackground: {
+                          enabled: checked,
+                          color: slide.style.plate.lineBackground?.color || "#000000",
+                          opacity: slide.style.plate.lineBackground?.opacity || 0.7,
+                          paddingX: slide.style.plate.lineBackground?.paddingX || 20,
+                          paddingY: slide.style.plate.lineBackground?.paddingY || 8,
+                        }
+                      },
+                    },
+                  })
+                }
+              />
+            </div>
+            
+            {slide.style.plate.lineBackground?.enabled && (
+              <>
+                <ColorPicker
+                  label="Line Background Color"
+                  value={slide.style.plate.lineBackground.color}
+                  onChange={(color) =>
+                    onUpdateSlide({
+                      style: {
+                        ...slide.style,
+                        plate: { 
+                          ...slide.style.plate, 
+                          lineBackground: {
+                            ...slide.style.plate.lineBackground!,
+                            color,
+                          }
+                        },
+                      },
+                    })
+                  }
+                />
+
                 <div>
-                  <Label>Edge Blur: {slide.style.plate.blurSize || 30}px</Label>
+                  <Label>Line Opacity: {slide.style.plate.lineBackground.opacity}</Label>
                   <Slider
-                    value={[slide.style.plate.blurSize || 30]}
+                    value={[slide.style.plate.lineBackground.opacity]}
                     onValueChange={([value]) =>
                       onUpdateSlide({
                         style: {
                           ...slide.style,
-                          plate: { ...slide.style.plate, blurSize: value },
+                          plate: { 
+                            ...slide.style.plate, 
+                            lineBackground: {
+                              ...slide.style.plate.lineBackground!,
+                              opacity: value,
+                            }
+                          },
                         },
                       })
                     }
                     min={0}
-                    max={100}
-                    step={5}
+                    max={1}
+                    step={0.05}
                   />
-                  <div className="text-xs text-muted-foreground mt-1">
-                    Amount of blur on plate edges
-                  </div>
                 </div>
+
+                <div>
+                  <Label>Horizontal Padding: {slide.style.plate.lineBackground.paddingX}px</Label>
+                  <Slider
+                    value={[slide.style.plate.lineBackground.paddingX]}
+                    onValueChange={([value]) =>
+                      onUpdateSlide({
+                        style: {
+                          ...slide.style,
+                          plate: { 
+                            ...slide.style.plate, 
+                            lineBackground: {
+                              ...slide.style.plate.lineBackground!,
+                              paddingX: value,
+                            }
+                          },
+                        },
+                      })
+                    }
+                    min={0}
+                    max={80}
+                    step={4}
+                  />
+                </div>
+
+                <div>
+                  <Label>Vertical Padding: {slide.style.plate.lineBackground.paddingY}px</Label>
+                  <Slider
+                    value={[slide.style.plate.lineBackground.paddingY]}
+                    onValueChange={([value]) =>
+                      onUpdateSlide({
+                        style: {
+                          ...slide.style,
+                          plate: { 
+                            ...slide.style.plate, 
+                            lineBackground: {
+                              ...slide.style.plate.lineBackground!,
+                              paddingY: value,
+                            }
+                          },
+                        },
+                      })
+                    }
+                    min={0}
+                    max={40}
+                    step={2}
+                  />
+                </div>
+              </>
+            )}
               </>
             ) : (
               <>

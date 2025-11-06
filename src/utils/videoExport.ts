@@ -255,6 +255,92 @@ const renderSlideToCanvas = (
     }
     
     ctx.restore();
+  } else if (slide.style.plate.lineBackground?.enabled) {
+    // Draw line backgrounds for each line of text
+    const lineBg = slide.style.plate.lineBackground;
+    const bgColor = lineBg.color;
+    const bgOpacity = lineBg.opacity;
+    const paddingX = lineBg.paddingX;
+    const paddingY = lineBg.paddingY;
+    
+    // Convert color to rgba
+    let r = 0, g = 0, b = 0;
+    if (bgColor.startsWith('#')) {
+      r = parseInt(bgColor.slice(1, 3), 16);
+      g = parseInt(bgColor.slice(3, 5), 16);
+      b = parseInt(bgColor.slice(5, 7), 16);
+    } else if (bgColor.startsWith('rgb')) {
+      const match = bgColor.match(/(\d+),\s*(\d+),\s*(\d+)/);
+      if (match) {
+        r = parseInt(match[1]);
+        g = parseInt(match[2]);
+        b = parseInt(match[3]);
+      }
+    }
+    
+    ctx.save();
+    
+    // Calculate starting position for title
+    let lineY = textY - (titleBlockHeight / 2);
+    if (cleanBody) {
+      const totalHeight = titleBlockHeight + 30 + bodyBlockHeight;
+      lineY = textY - (totalHeight / 2);
+    }
+    
+    // Draw background rectangles for title lines
+    ctx.font = `${slide.style.text.fontWeight} ${slide.style.text.fontSize}px ${slide.style.text.fontFamily}`;
+    titleLines.forEach((line) => {
+      const metrics = ctx.measureText(line);
+      let rectX = textX - metrics.width / 2 - paddingX;
+      
+      // Adjust X based on alignment
+      if (slide.style.text.alignment === 'left') {
+        rectX = textX - paddingX;
+      } else if (slide.style.text.alignment === 'right') {
+        rectX = textX - metrics.width - paddingX;
+      }
+      
+      ctx.fillStyle = `rgba(${r}, ${g}, ${b}, ${bgOpacity})`;
+      ctx.fillRect(
+        rectX,
+        lineY - titleLineHeight / 2 - paddingY,
+        metrics.width + paddingX * 2,
+        titleLineHeight + paddingY * 2
+      );
+      
+      lineY += titleLineHeight;
+    });
+    
+    // Draw background rectangles for body lines if they exist
+    if (cleanBody) {
+      lineY += 30;
+      ctx.font = `${slide.style.text.bodyFontWeight || slide.style.text.fontWeight - 200} ${slide.style.text.bodyFontSize || slide.style.text.fontSize * 0.5}px ${slide.style.text.bodyFontFamily || slide.style.text.fontFamily}`;
+      const bodyLineHeight = (slide.style.text.bodyFontSize || slide.style.text.fontSize * 0.5) * slide.style.text.lineHeight * 1.2;
+      
+      bodyLines.forEach((line) => {
+        const metrics = ctx.measureText(line);
+        let rectX = textX - metrics.width / 2 - paddingX;
+        
+        // Adjust X based on alignment
+        if (slide.style.text.alignment === 'left') {
+          rectX = textX - paddingX;
+        } else if (slide.style.text.alignment === 'right') {
+          rectX = textX - metrics.width - paddingX;
+        }
+        
+        ctx.fillStyle = `rgba(${r}, ${g}, ${b}, ${bgOpacity})`;
+        ctx.fillRect(
+          rectX,
+          lineY - bodyLineHeight / 2 - paddingY,
+          metrics.width + paddingX * 2,
+          bodyLineHeight + paddingY * 2
+        );
+        
+        lineY += bodyLineHeight;
+      });
+    }
+    
+    ctx.restore();
   }
 
   // Draw title with text wrapping
