@@ -259,14 +259,14 @@ const renderSlideToCanvas = (
     }
   }
 
-  // Draw title lines with SOFT SHADOW AROUND - ВСЕГДА!
+  // Draw title lines with SOFT SHADOW AROUND
   titleLines.forEach((line) => {
     ctx.save();
     
-    // Тень вокруг текста (как на примере)
-    const shadowRadius = 60; // Радиус размытия
-    const shadowSteps = 36; // Направлений вокруг
-    const shadowLayers = 20; // Слоёв размытия
+    // Мягкая тень - меньше слоёв, больше размытие
+    const shadowRadius = 20; // Радиус тени
+    const shadowSteps = 8; // Меньше направлений = меньше "волос"
+    const shadowLayers = 6; // Меньше слоёв
     
     // Рисуем тень во всех направлениях
     for (let angle = 0; angle < Math.PI * 2; angle += (Math.PI * 2) / shadowSteps) {
@@ -274,7 +274,7 @@ const renderSlideToCanvas = (
         const distance = (shadowRadius / shadowLayers) * layer;
         const offsetX = Math.cos(angle) * distance;
         const offsetY = Math.sin(angle) * distance;
-        const alpha = 0.15 * (layer / shadowLayers); // Слабее к краям
+        const alpha = 0.25 / shadowLayers; // Очень мягкая тень
         
         ctx.fillStyle = `rgba(0, 0, 0, ${alpha})`;
         ctx.fillText(line, textX + offsetX, currentY + offsetY);
@@ -303,16 +303,16 @@ const renderSlideToCanvas = (
     bodyLines.forEach((line) => {
       ctx.save();
       
-      const shadowRadius = 70; // Больше для body
-      const shadowSteps = 36;
-      const shadowLayers = 20;
+      const shadowRadius = 23; // Чуть больше для body
+      const shadowSteps = 8;
+      const shadowLayers = 6;
       
       for (let angle = 0; angle < Math.PI * 2; angle += (Math.PI * 2) / shadowSteps) {
         for (let layer = shadowLayers; layer > 0; layer--) {
           const distance = (shadowRadius / shadowLayers) * layer;
           const offsetX = Math.cos(angle) * distance;
           const offsetY = Math.sin(angle) * distance;
-          const alpha = 0.15 * (layer / shadowLayers);
+          const alpha = 0.25 / shadowLayers;
           
           ctx.fillStyle = `rgba(0, 0, 0, ${alpha})`;
           ctx.fillText(line, textX + offsetX, currentY + offsetY);
