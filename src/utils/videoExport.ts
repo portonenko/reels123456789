@@ -259,7 +259,7 @@ const renderSlideToCanvas = (
     }
   }
 
-  // Draw title lines with ULTRA SMOOTH GAUSSIAN BLUR
+  // Draw title lines with BALANCED GAUSSIAN BLUR
   titleLines.forEach((line) => {
     ctx.save();
     
@@ -267,20 +267,20 @@ const renderSlideToCanvas = (
     const intensity = (slide.style.text.shadowIntensity || 3) / 10;
     const radius = slide.style.text.shadowRadius || 20;
     
-    // МАКСИМУМ слоёв для гладкого размытия
-    const steps = 16; // Больше направлений
-    const layers = 50; // ОЧЕНЬ много слоёв
+    // Баланс: достаточно слоёв для гладкости, достаточно прозрачности для видимости
+    const steps = 16;
+    const layers = 40;
     
     for (let layer = layers; layer > 0; layer--) {
-      const progress = layer / layers; // 1.0 до 0.0
+      const progress = layer / layers;
       const layerRadius = radius * progress;
       
       for (let angle = 0; angle < Math.PI * 2; angle += (Math.PI * 2) / steps) {
         const offsetX = Math.cos(angle) * layerRadius;
         const offsetY = Math.sin(angle) * layerRadius;
-        // Гауссово распределение - сильнее в центре, слабее к краям
+        // Гауссово распределение с увеличенной прозрачностью
         const gaussian = Math.exp(-((progress * progress) / 0.5));
-        const alpha = (intensity / layers) * gaussian * 0.15;
+        const alpha = (intensity / layers) * gaussian * 0.6; // Увеличил с 0.15 до 0.6
         
         ctx.fillStyle = `rgba(0, 0, 0, ${alpha})`;
         ctx.fillText(line, textX + offsetX, currentY + offsetY);
@@ -313,9 +313,9 @@ const renderSlideToCanvas = (
       const intensity = (slide.style.text.shadowIntensity || 3) / 10;
       const radius = (slide.style.text.shadowRadius || 20) * 1.15;
       
-      // МАКСИМУМ слоёв
+      // Баланс для body
       const steps = 16;
-      const layers = 50;
+      const layers = 40;
       
       for (let layer = layers; layer > 0; layer--) {
         const progress = layer / layers;
@@ -325,7 +325,7 @@ const renderSlideToCanvas = (
           const offsetX = Math.cos(angle) * layerRadius;
           const offsetY = Math.sin(angle) * layerRadius;
           const gaussian = Math.exp(-((progress * progress) / 0.5));
-          const alpha = (intensity / layers) * gaussian * 0.15;
+          const alpha = (intensity / layers) * gaussian * 0.6;
           
           ctx.fillStyle = `rgba(0, 0, 0, ${alpha})`;
           ctx.fillText(line, textX + offsetX, currentY + offsetY);
