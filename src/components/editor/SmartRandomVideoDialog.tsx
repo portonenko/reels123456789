@@ -146,23 +146,20 @@ export const SmartRandomVideoDialog = ({
       // Calculate total duration needed
       const totalDuration = selectedSlides.reduce((sum, slide) => sum + slide.durationSec, 0);
       
-      // Find assets that match the total duration (within 2 seconds tolerance)
-      const matchingAssets = assets.filter(asset => {
+      // Find assets that are equal or longer than total duration
+      const suitableAssets = assets.filter(asset => {
         const assetDuration = Number(asset.duration);
-        return Math.abs(assetDuration - totalDuration) <= 2;
+        return assetDuration >= totalDuration;
       });
 
-      // If no close matches, find the closest one
+      // Select from suitable assets, or pick the longest available
       let selectedAsset;
-      if (matchingAssets.length > 0) {
-        selectedAsset = matchingAssets[Math.floor(Math.random() * matchingAssets.length)];
+      if (suitableAssets.length > 0) {
+        selectedAsset = suitableAssets[Math.floor(Math.random() * suitableAssets.length)];
       } else {
-        selectedAsset = assets.reduce((closest, asset) => {
-          const assetDuration = Number(asset.duration);
-          const closestDuration = Number(closest.duration);
-          return Math.abs(assetDuration - totalDuration) < Math.abs(closestDuration - totalDuration)
-            ? asset
-            : closest;
+        // If no asset is long enough, pick the longest one
+        selectedAsset = assets.reduce((longest, asset) => {
+          return Number(asset.duration) > Number(longest.duration) ? asset : longest;
         });
       }
 
