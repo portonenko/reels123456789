@@ -255,24 +255,6 @@ const renderSlideToCanvas = (
     ctx.restore();
   }
 
-  // Setup shadow configuration - ВСЕГДА включена тень!
-  let shadowConfig: { color: string; blur: number; intensity: number } = {
-    color: 'rgba(0, 0, 0, 0.9)', // Чёрная тень по умолчанию
-    blur: 20,
-    intensity: 5
-  };
-  
-  // Попытка распарсить из настроек
-  if (slide.style.text.textShadow) {
-    const shadowParts = slide.style.text.textShadow.match(/(-?\d+(?:\.\d+)?px)\s+(-?\d+(?:\.\d+)?px)\s+(-?\d+(?:\.\d+)?px)\s+(rgba?\([^)]+\)|#[0-9a-fA-F]+)/);
-    if (shadowParts) {
-      const blurRadius = parseFloat(shadowParts[3]);
-      const shadowColor = shadowParts[4];
-      const intensity = slide.style.text.shadowIntensity || 5;
-      shadowConfig = { color: shadowColor, blur: blurRadius, intensity };
-    }
-  }
-
   // Draw title with text wrapping
   ctx.font = `${slide.style.text.fontWeight} ${slide.style.text.fontSize}px ${slide.style.text.fontFamily}`;
   ctx.fillStyle = slide.style.text.color;
@@ -291,38 +273,16 @@ const renderSlideToCanvas = (
     }
   }
 
-  // Draw title lines - ОБВОДКА + ТЕНЬ
+  // Настройка тени Canvas (ПРОСТОЕ РЕШЕНИЕ)
+  ctx.shadowColor = 'rgba(0, 0, 0, 0.8)';
+  ctx.shadowBlur = 15;
+  ctx.shadowOffsetX = 3;
+  ctx.shadowOffsetY = 3;
+
+  // Draw title lines
   titleLines.forEach((line) => {
-    const intensity = slide.style.text.shadowIntensity || 5;
-    const radius = slide.style.text.shadowRadius || 20;
-    
-    // 1. Рисуем размытую тень (слабее чем было)
-    const layers = 25;
-    const baseAlpha = 0.15;
-    
-    for (let i = 0; i < layers; i++) {
-      const angle = (Math.PI * 2 * i) / layers;
-      const distance = (radius / layers) * i;
-      const offsetX = Math.cos(angle) * distance;
-      const offsetY = Math.sin(angle) * distance;
-      
-      const alpha = baseAlpha * (intensity / 5);
-      
-      ctx.fillStyle = `rgba(0, 0, 0, ${alpha})`;
-      ctx.fillText(line, textX + offsetX, currentY + offsetY);
-    }
-    
-    // 2. Рисуем ЧЁРНУЮ ОБВОДКУ (самое важное для читаемости)
-    ctx.strokeStyle = 'rgba(0, 0, 0, 0.9)';
-    ctx.lineWidth = 8; // Жирная обводка
-    ctx.lineJoin = 'round';
-    ctx.miterLimit = 2;
-    ctx.strokeText(line, textX, currentY);
-    
-    // 3. Основной белый текст поверх
     ctx.fillStyle = slide.style.text.color;
     ctx.fillText(line, textX, currentY);
-    
     currentY += titleLineHeight;
   });
 
@@ -335,40 +295,20 @@ const renderSlideToCanvas = (
     ctx.font = `${slide.style.text.bodyFontWeight || slide.style.text.fontWeight - 200} ${slide.style.text.bodyFontSize || slide.style.text.fontSize * 0.5}px ${slide.style.text.bodyFontFamily || slide.style.text.fontFamily}`;
 
     const bodyLineHeight = (slide.style.text.bodyFontSize || slide.style.text.fontSize * 0.5) * slide.style.text.lineHeight * 1.2;
+    
+    // Тень для body (та же что и у заголовка)
     bodyLines.forEach((line) => {
-      const intensity = slide.style.text.shadowIntensity || 5;
-      const radius = (slide.style.text.shadowRadius || 20) * 1.15;
-      
-      // Размытая тень для body (слабее)
-      const layers = 25;
-      const baseAlpha = 0.15;
-      
-      for (let i = 0; i < layers; i++) {
-        const angle = (Math.PI * 2 * i) / layers;
-        const distance = (radius / layers) * i;
-        const offsetX = Math.cos(angle) * distance;
-        const offsetY = Math.sin(angle) * distance;
-        
-        const alpha = baseAlpha * (intensity / 5);
-        
-        ctx.fillStyle = `rgba(0, 0, 0, ${alpha})`;
-        ctx.fillText(line, textX + offsetX, currentY + offsetY);
-      }
-      
-      // ЧЁРНАЯ ОБВОДКА для body
-      ctx.strokeStyle = 'rgba(0, 0, 0, 0.9)';
-      ctx.lineWidth = 6; // Чуть тоньше чем у заголовка
-      ctx.lineJoin = 'round';
-      ctx.miterLimit = 2;
-      ctx.strokeText(line, textX, currentY);
-      
-      // Основной текст body
       ctx.fillStyle = bodyColor;
       ctx.fillText(line, textX, currentY);
-      
       currentY += bodyLineHeight;
     });
   }
+  
+  // Сбросить тень после текста
+  ctx.shadowColor = 'transparent';
+  ctx.shadowBlur = 0;
+  ctx.shadowOffsetX = 0;
+  ctx.shadowOffsetY = 0;
 
   // Reset
   ctx.globalAlpha = 1;
