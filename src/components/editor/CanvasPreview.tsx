@@ -321,6 +321,12 @@ export const CanvasPreview = ({ slide, globalOverlay, showTextBoxControls = fals
                     textShadow: currentSlide.style.text.textShadow,
                     textAlign: currentSlide.style.text.alignment,
                     wordWrap: "break-word",
+                    // ТЕНЬ ПОВЕРХ ПОДЛОЖКИ
+                    filter: (() => {
+                      const intensity = (currentSlide.style.text.shadowIntensity || 10) / 10;
+                      const radius = (currentSlide.style.text.shadowRadius || 20);
+                      return `drop-shadow(0px ${radius}px ${radius * 2}px rgba(0, 0, 0, ${Math.min(intensity, 1)}))`;
+                    })(),
                   }}
                 >
                   {currentSlide.title.replace(/^\[.*?\]\s*/, '')}
@@ -337,6 +343,12 @@ export const CanvasPreview = ({ slide, globalOverlay, showTextBoxControls = fals
                       textShadow: currentSlide.style.text.textShadow,
                       textAlign: currentSlide.style.text.alignment,
                       wordWrap: "break-word",
+                      // ТЕНЬ ПОВЕРХ ПОДЛОЖКИ
+                      filter: (() => {
+                        const intensity = (currentSlide.style.text.shadowIntensity || 10) / 10;
+                        const radius = (currentSlide.style.text.shadowRadius || 20);
+                        return `drop-shadow(0px ${radius}px ${radius * 2}px rgba(0, 0, 0, ${Math.min(intensity, 1)}))`;
+                      })(),
                     }}
                   >
                     {currentSlide.body.replace(/^\[.*?\]\s*/, '')}
@@ -439,6 +451,12 @@ export const CanvasPreview = ({ slide, globalOverlay, showTextBoxControls = fals
                     textAlign: currentSlide.style.text.alignment,
                     wordWrap: "break-word",
                     maxWidth: "80%",
+                    // ТЕНЬ ПОВЕРХ ПОДЛОЖКИ
+                    filter: (() => {
+                      const intensity = (currentSlide.style.text.shadowIntensity || 10) / 10;
+                      const radius = (currentSlide.style.text.shadowRadius || 20);
+                      return `drop-shadow(0px ${radius}px ${radius * 2}px rgba(0, 0, 0, ${Math.min(intensity, 1)}))`;
+                    })(),
                   }}
                 >
                   {currentSlide.title.replace(/^\[.*?\]\s*/, '')}
@@ -456,6 +474,12 @@ export const CanvasPreview = ({ slide, globalOverlay, showTextBoxControls = fals
                       textAlign: currentSlide.style.text.alignment,
                       wordWrap: "break-word",
                       maxWidth: "80%",
+                      // ТЕНЬ ПОВЕРХ ПОДЛОЖКИ
+                      filter: (() => {
+                        const intensity = (currentSlide.style.text.shadowIntensity || 10) / 10;
+                        const radius = (currentSlide.style.text.shadowRadius || 20);
+                        return `drop-shadow(0px ${radius}px ${radius * 2}px rgba(0, 0, 0, ${Math.min(intensity, 1)}))`;
+                      })(),
                     }}
                   >
                     {currentSlide.body.replace(/^\[.*?\]\s*/, '')}
