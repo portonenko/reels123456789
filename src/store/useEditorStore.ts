@@ -10,6 +10,7 @@ const DEFAULT_STYLE: SlideStyle = {
     letterSpacing: -0.02,
     color: "#FFFFFF",
     textShadow: "0 2px 8px rgba(0,0,0,0.5)",
+    shadowIntensity: 10,
     alignment: "center",
     stroke: "#000000",
     strokeWidth: 2,
