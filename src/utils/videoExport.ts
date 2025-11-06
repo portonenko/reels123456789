@@ -259,15 +259,18 @@ const renderSlideToCanvas = (
     }
   }
 
-  // Draw title lines with BALANCED DROP-SHADOW like in preview
+  // Draw title lines with CONFIGURABLE DROP-SHADOW
   titleLines.forEach((line) => {
     ctx.save();
     
-    // Средние параметры тени - баланс между слишком тёмной и невидимой
+    // Используем shadowIntensity из настроек слайда (по умолчанию 3)
+    const intensity = (slide.style.text.shadowIntensity || 3) / 3; // Нормализуем к базовому значению 3
+    
+    // Параметры тени масштабируются по интенсивности
     const shadowConfigs = [
-      { radius: 20, alpha: 0.6 },  // Средние значения
-      { radius: 15, alpha: 0.5 },
-      { radius: 10, alpha: 0.4 }
+      { radius: 20 * intensity, alpha: 0.6 * intensity },
+      { radius: 15 * intensity, alpha: 0.5 * intensity },
+      { radius: 10 * intensity, alpha: 0.4 * intensity }
     ];
     
     // Рисуем слои drop-shadow
@@ -279,7 +282,7 @@ const renderSlideToCanvas = (
         for (let dist = 0; dist <= radius; dist += radius / layers) {
           const offsetX = Math.cos(angle) * dist;
           const offsetY = Math.sin(angle) * dist;
-          const layerAlpha = alpha * (1 - dist / radius) * 0.25; // Средняя интенсивность
+          const layerAlpha = alpha * (1 - dist / radius) * 0.25;
           
           ctx.fillStyle = `rgba(0, 0, 0, ${layerAlpha})`;
           ctx.fillText(line, textX + offsetX, currentY + offsetY);
@@ -309,11 +312,14 @@ const renderSlideToCanvas = (
     bodyLines.forEach((line) => {
       ctx.save();
       
-      // Средние параметры тени для body
+      // Используем shadowIntensity из настроек слайда
+      const intensity = (slide.style.text.shadowIntensity || 3) / 3;
+      
+      // Параметры тени для body масштабируются по интенсивности
       const shadowConfigs = [
-        { radius: 23, alpha: 0.6 },
-        { radius: 18, alpha: 0.5 },
-        { radius: 12, alpha: 0.4 }
+        { radius: 23 * intensity, alpha: 0.6 * intensity },
+        { radius: 18 * intensity, alpha: 0.5 * intensity },
+        { radius: 12 * intensity, alpha: 0.4 * intensity }
       ];
       
       shadowConfigs.forEach(({ radius, alpha }) => {
