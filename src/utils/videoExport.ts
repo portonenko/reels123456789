@@ -223,14 +223,20 @@ const renderSlideToCanvas = (
     ctx.restore();
   }
 
-  // Setup shadow configuration
-  let shadowConfig: { color: string; blur: number; intensity: number } | null = null;
-  if (slide.style.text.textShadow && !slide.style.plate.enabled) {
+  // Setup shadow configuration - ВСЕГДА включена тень!
+  let shadowConfig: { color: string; blur: number; intensity: number } = {
+    color: 'rgba(0, 0, 0, 0.9)', // Чёрная тень по умолчанию
+    blur: 20,
+    intensity: 5
+  };
+  
+  // Попытка распарсить из настроек
+  if (slide.style.text.textShadow) {
     const shadowParts = slide.style.text.textShadow.match(/(-?\d+(?:\.\d+)?px)\s+(-?\d+(?:\.\d+)?px)\s+(-?\d+(?:\.\d+)?px)\s+(rgba?\([^)]+\)|#[0-9a-fA-F]+)/);
     if (shadowParts) {
       const blurRadius = parseFloat(shadowParts[3]);
       const shadowColor = shadowParts[4];
-      const intensity = slide.style.text.shadowIntensity || 3;
+      const intensity = slide.style.text.shadowIntensity || 5;
       shadowConfig = { color: shadowColor, blur: blurRadius, intensity };
     }
   }
@@ -253,27 +259,25 @@ const renderSlideToCanvas = (
     }
   }
 
-  // Draw title lines with MASSIVE SHADOW
+  // Draw title lines with MASSIVE SHADOW - ВСЕГДА!
   titleLines.forEach((line) => {
-    if (shadowConfig) {
-      ctx.save();
-      
-      // ОГРОМНАЯ тень - фиксированные параметры
-      const shadowDistance = 80; // Огромное смещение
-      const shadowBlurLayers = 100; // Много слоёв для размытия
-      
-      ctx.fillStyle = shadowConfig.color;
-      
-      // Рисуем очень плотную тень
-      for (let i = shadowBlurLayers; i >= 0; i--) {
-        const offsetX = (shadowDistance / shadowBlurLayers) * i;
-        const offsetY = (shadowDistance / shadowBlurLayers) * i;
-        ctx.globalAlpha = 0.9; // Очень плотная тень
-        ctx.fillText(line, textX + offsetX, currentY + offsetY);
-      }
-      
-      ctx.restore();
+    ctx.save();
+    
+    // ОГРОМНАЯ тень - фиксированные параметры
+    const shadowDistance = 80; // Огромное смещение
+    const shadowBlurLayers = 100; // Много слоёв для размытия
+    
+    ctx.fillStyle = shadowConfig.color;
+    
+    // Рисуем очень плотную тень
+    for (let i = shadowBlurLayers; i >= 0; i--) {
+      const offsetX = (shadowDistance / shadowBlurLayers) * i;
+      const offsetY = (shadowDistance / shadowBlurLayers) * i;
+      ctx.globalAlpha = 0.9; // Очень плотная тень
+      ctx.fillText(line, textX + offsetX, currentY + offsetY);
     }
+    
+    ctx.restore();
     
     // Основной текст поверх тени
     ctx.globalAlpha = 1;
@@ -293,23 +297,21 @@ const renderSlideToCanvas = (
 
     const bodyLineHeight = (slide.style.text.bodyFontSize || slide.style.text.fontSize * 0.5) * slide.style.text.lineHeight * 1.2;
     bodyLines.forEach((line) => {
-      if (shadowConfig) {
-        ctx.save();
-        
-        const shadowDistance = 100; // Ещё больше для body
-        const shadowBlurLayers = 100;
-        
-        ctx.fillStyle = shadowConfig.color;
-        
-        for (let i = shadowBlurLayers; i >= 0; i--) {
-          const offsetX = (shadowDistance / shadowBlurLayers) * i;
-          const offsetY = (shadowDistance / shadowBlurLayers) * i;
-          ctx.globalAlpha = 0.9;
-          ctx.fillText(line, textX + offsetX, currentY + offsetY);
-        }
-        
-        ctx.restore();
+      ctx.save();
+      
+      const shadowDistance = 100; // Ещё больше для body
+      const shadowBlurLayers = 100;
+      
+      ctx.fillStyle = shadowConfig.color;
+      
+      for (let i = shadowBlurLayers; i >= 0; i--) {
+        const offsetX = (shadowDistance / shadowBlurLayers) * i;
+        const offsetY = (shadowDistance / shadowBlurLayers) * i;
+        ctx.globalAlpha = 0.9;
+        ctx.fillText(line, textX + offsetX, currentY + offsetY);
       }
+      
+      ctx.restore();
       
       // Основной текст body
       ctx.globalAlpha = 1;
