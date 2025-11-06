@@ -259,17 +259,17 @@ const renderSlideToCanvas = (
     }
   }
 
-  // Draw title lines - СИЛЬНАЯ ПЛОТНАЯ ТЕНЬ
+  // Draw title lines - МАКСИМАЛЬНО СИЛЬНАЯ ТЕНЬ
   titleLines.forEach((line) => {
     // Параметры из ползунков (intensity: 0-10, radius: 0-50)
     const intensity = slide.style.text.shadowIntensity || 5;
     const radius = slide.style.text.shadowRadius || 20;
     
-    // МОЩНАЯ тень - 3 прохода с разной плотностью
+    // ОЧЕНЬ МОЩНАЯ тень - 3 прохода с высокой плотностью
     const passes = [
-      { layers: 20, alpha: 0.25, radiusMult: 0.3 },  // Плотное ядро
-      { layers: 30, alpha: 0.15, radiusMult: 0.7 },  // Средний слой
-      { layers: 30, alpha: 0.08, radiusMult: 1.0 }   // Внешний размытый край
+      { layers: 25, alpha: 0.45, radiusMult: 0.2 },  // Очень плотное ядро
+      { layers: 35, alpha: 0.30, radiusMult: 0.6 },  // Средний плотный слой
+      { layers: 40, alpha: 0.15, radiusMult: 1.0 }   // Внешний размытый край
     ];
     
     passes.forEach(pass => {
@@ -307,11 +307,11 @@ const renderSlideToCanvas = (
       const intensity = slide.style.text.shadowIntensity || 5;
       const radius = (slide.style.text.shadowRadius || 20) * 1.15;
       
-      // МОЩНАЯ тень для body - 3 прохода
+      // ОЧЕНЬ МОЩНАЯ тень для body - 3 прохода
       const passes = [
-        { layers: 20, alpha: 0.25, radiusMult: 0.3 },
-        { layers: 30, alpha: 0.15, radiusMult: 0.7 },
-        { layers: 30, alpha: 0.08, radiusMult: 1.0 }
+        { layers: 25, alpha: 0.45, radiusMult: 0.2 },
+        { layers: 35, alpha: 0.30, radiusMult: 0.6 },
+        { layers: 40, alpha: 0.15, radiusMult: 1.0 }
       ];
       
       passes.forEach(pass => {
