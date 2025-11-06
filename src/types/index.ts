@@ -34,6 +34,7 @@ export interface PlateStyle {
   opacity: number;
   backgroundColor: string;
   enabled: boolean; // Toggle between plate and direct text effects
+  blurSize?: number; // Edge blur amount in pixels (0-100)
 }
 
 export interface SlideStyle {

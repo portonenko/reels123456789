@@ -436,6 +436,27 @@ export const StylePanel = ({
                     }
                   />
                 </div>
+
+                <div>
+                  <Label>Edge Blur: {slide.style.plate.blurSize || 30}px</Label>
+                  <Slider
+                    value={[slide.style.plate.blurSize || 30]}
+                    onValueChange={([value]) =>
+                      onUpdateSlide({
+                        style: {
+                          ...slide.style,
+                          plate: { ...slide.style.plate, blurSize: value },
+                        },
+                      })
+                    }
+                    min={0}
+                    max={100}
+                    step={5}
+                  />
+                  <div className="text-xs text-muted-foreground mt-1">
+                    Amount of blur on plate edges
+                  </div>
+                </div>
               </>
             ) : (
               <>

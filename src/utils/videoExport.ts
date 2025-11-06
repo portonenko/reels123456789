@@ -197,7 +197,7 @@ const renderSlideToCanvas = (
     
     const plateX = textX - plateWidth / 2;
     const plateY = textY - totalContentHeight / 2 - slide.style.plate.padding;
-    const blurSize = 30; // Размер размытия по краям
+    const blurSize = slide.style.plate.blurSize || 30; // Use slider value or default to 30
     
     // Основная подложка
     ctx.globalAlpha = 1;
