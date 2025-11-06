@@ -20,6 +20,14 @@ export const CanvasPreview = ({ slide, globalOverlay, showTextBoxControls = fals
   const [slideTime, setSlideTime] = useState(0);
   const timerRef = useRef<NodeJS.Timeout | null>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
+
+  // Debug log
+  useEffect(() => {
+    if (slide) {
+      console.log('Current slide plate enabled:', slide.style.plate.enabled);
+      console.log('Shadow settings:', slide.style.text.shadowIntensity, slide.style.text.shadowRadius);
+    }
+  }, [slide]);
   const audioRef = useRef<HTMLAudioElement>(null);
   const animationRef = useRef<number | null>(null);
 
@@ -347,11 +355,12 @@ export const CanvasPreview = ({ slide, globalOverlay, showTextBoxControls = fals
                     letterSpacing: `${currentSlide.style.text.letterSpacing}em`,
                     color: currentSlide.style.text.color,
                     textAlign: currentSlide.style.text.alignment,
-                    // Сильная тень
+                    // МАКСИМАЛЬНАЯ тень для теста
                     filter: (() => {
                       const intensity = (currentSlide.style.text.shadowIntensity || 10) / 10;
                       const radius = (currentSlide.style.text.shadowRadius || 20);
-                      return `drop-shadow(0px ${radius * 0.5}px ${radius}px rgba(0, 0, 0, ${intensity}))`;
+                      console.log('Shadow values:', { intensity, radius, shadowIntensity: currentSlide.style.text.shadowIntensity, shadowRadius: currentSlide.style.text.shadowRadius });
+                      return `drop-shadow(0px ${radius}px ${radius * 2}px rgba(0, 0, 0, ${Math.min(intensity, 1)}))`;
                     })(),
                     wordWrap: "break-word",
                   }}
@@ -465,11 +474,11 @@ export const CanvasPreview = ({ slide, globalOverlay, showTextBoxControls = fals
                     letterSpacing: `${currentSlide.style.text.letterSpacing}em`,
                     color: currentSlide.style.text.color,
                     textAlign: currentSlide.style.text.alignment,
-                    // Сильная тень
+                    // МАКСИМАЛЬНАЯ тень для теста
                     filter: (() => {
                       const intensity = (currentSlide.style.text.shadowIntensity || 10) / 10;
                       const radius = (currentSlide.style.text.shadowRadius || 20);
-                      return `drop-shadow(0px ${radius * 0.5}px ${radius}px rgba(0, 0, 0, ${intensity}))`;
+                      return `drop-shadow(0px ${radius}px ${radius * 2}px rgba(0, 0, 0, ${Math.min(intensity, 1)}))`;
                     })(),
                     wordWrap: "break-word",
                     maxWidth: "80%",
