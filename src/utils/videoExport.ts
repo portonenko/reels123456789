@@ -168,7 +168,7 @@ const renderSlideToCanvas = (
     bodyBlockHeight = bodyLines.length * bodyLineHeight;
   }
 
-  // Draw background plate using wrapped text dimensions
+  // Draw background plate with BLURRED EDGES
   if (slide.style.plate.enabled) {
     const plateWidth = Math.max(maxTitleWidth, maxBodyWidth) + slide.style.plate.padding * 2;
     const totalContentHeight = titleBlockHeight + (cleanBody ? (30 + bodyBlockHeight) : 0);
@@ -193,15 +193,15 @@ const renderSlideToCanvas = (
       }
     }
     
-    const plateColor = `rgba(${r}, ${g}, ${b}, ${plateOpacity})`;
-    
     ctx.save();
-    ctx.globalAlpha = 1;
-    ctx.fillStyle = plateColor;
     
     const plateX = textX - plateWidth / 2;
     const plateY = textY - totalContentHeight / 2 - slide.style.plate.padding;
+    const blurSize = 30; // Размер размытия по краям
     
+    // Основная подложка
+    ctx.globalAlpha = 1;
+    ctx.fillStyle = `rgba(${r}, ${g}, ${b}, ${plateOpacity})`;
     ctx.beginPath();
     if (slide.style.plate.borderRadius > 0) {
       const radius = slide.style.plate.borderRadius;
@@ -219,6 +219,38 @@ const renderSlideToCanvas = (
       ctx.rect(plateX, plateY, plateWidth, plateHeight);
     }
     ctx.fill();
+    
+    // Размытые края - несколько слоёв с fade
+    const layers = 15;
+    for (let i = 0; i < layers; i++) {
+      const offset = (i / layers) * blurSize;
+      const alpha = plateOpacity * (1 - i / layers) * 0.3;
+      
+      ctx.fillStyle = `rgba(${r}, ${g}, ${b}, ${alpha})`;
+      ctx.beginPath();
+      
+      if (slide.style.plate.borderRadius > 0) {
+        const radius = slide.style.plate.borderRadius + offset;
+        const x = plateX - offset;
+        const y = plateY - offset;
+        const w = plateWidth + offset * 2;
+        const h = plateHeight + offset * 2;
+        
+        ctx.moveTo(x + radius, y);
+        ctx.lineTo(x + w - radius, y);
+        ctx.quadraticCurveTo(x + w, y, x + w, y + radius);
+        ctx.lineTo(x + w, y + h - radius);
+        ctx.quadraticCurveTo(x + w, y + h, x + w - radius, y + h);
+        ctx.lineTo(x + radius, y + h);
+        ctx.quadraticCurveTo(x, y + h, x, y + h - radius);
+        ctx.lineTo(x, y + radius);
+        ctx.quadraticCurveTo(x, y, x + radius, y);
+        ctx.closePath();
+      } else {
+        ctx.rect(plateX - offset, plateY - offset, plateWidth + offset * 2, plateHeight + offset * 2);
+      }
+      ctx.fill();
+    }
     
     ctx.restore();
   }
