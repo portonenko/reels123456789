@@ -259,29 +259,32 @@ const renderSlideToCanvas = (
     }
   }
 
-  // Draw title lines - КЛАССИЧЕСКАЯ РАЗМЫТАЯ ТЕНЬ
+  // Draw title lines - СИЛЬНАЯ ПЛОТНАЯ ТЕНЬ
   titleLines.forEach((line) => {
     // Параметры из ползунков (intensity: 0-10, radius: 0-50)
     const intensity = slide.style.text.shadowIntensity || 5;
     const radius = slide.style.text.shadowRadius || 20;
     
-    // Рисуем размытую тень через много слоёв с разным offset
-    const layers = 40; // количество слоёв размытия
-    const baseAlpha = 0.08; // базовая прозрачность каждого слоя
+    // МОЩНАЯ тень - 3 прохода с разной плотностью
+    const passes = [
+      { layers: 20, alpha: 0.25, radiusMult: 0.3 },  // Плотное ядро
+      { layers: 30, alpha: 0.15, radiusMult: 0.7 },  // Средний слой
+      { layers: 30, alpha: 0.08, radiusMult: 1.0 }   // Внешний размытый край
+    ];
     
-    for (let i = 0; i < layers; i++) {
-      // Случайное смещение внутри радиуса для эффекта размытия
-      const angle = (Math.PI * 2 * i) / layers;
-      const distance = (radius / layers) * i; // постепенно увеличиваем расстояние
-      const offsetX = Math.cos(angle) * distance;
-      const offsetY = Math.sin(angle) * distance;
-      
-      // Альфа уменьшается с расстоянием для более мягкого края
-      const alpha = baseAlpha * (intensity / 5) * (1 - i / layers);
-      
-      ctx.fillStyle = `rgba(0, 0, 0, ${alpha})`;
-      ctx.fillText(line, textX + offsetX, currentY + offsetY);
-    }
+    passes.forEach(pass => {
+      for (let i = 0; i < pass.layers; i++) {
+        const angle = (Math.PI * 2 * i) / pass.layers;
+        const distance = (radius * pass.radiusMult / pass.layers) * i;
+        const offsetX = Math.cos(angle) * distance;
+        const offsetY = Math.sin(angle) * distance;
+        
+        const alpha = pass.alpha * (intensity / 5);
+        
+        ctx.fillStyle = `rgba(0, 0, 0, ${alpha})`;
+        ctx.fillText(line, textX + offsetX, currentY + offsetY);
+      }
+    });
     
     // Основной текст поверх тени
     ctx.fillStyle = slide.style.text.color;
@@ -304,21 +307,26 @@ const renderSlideToCanvas = (
       const intensity = slide.style.text.shadowIntensity || 5;
       const radius = (slide.style.text.shadowRadius || 20) * 1.15;
       
-      // Размытая тень для body
-      const layers = 40;
-      const baseAlpha = 0.08;
+      // МОЩНАЯ тень для body - 3 прохода
+      const passes = [
+        { layers: 20, alpha: 0.25, radiusMult: 0.3 },
+        { layers: 30, alpha: 0.15, radiusMult: 0.7 },
+        { layers: 30, alpha: 0.08, radiusMult: 1.0 }
+      ];
       
-      for (let i = 0; i < layers; i++) {
-        const angle = (Math.PI * 2 * i) / layers;
-        const distance = (radius / layers) * i;
-        const offsetX = Math.cos(angle) * distance;
-        const offsetY = Math.sin(angle) * distance;
-        
-        const alpha = baseAlpha * (intensity / 5) * (1 - i / layers);
-        
-        ctx.fillStyle = `rgba(0, 0, 0, ${alpha})`;
-        ctx.fillText(line, textX + offsetX, currentY + offsetY);
-      }
+      passes.forEach(pass => {
+        for (let i = 0; i < pass.layers; i++) {
+          const angle = (Math.PI * 2 * i) / pass.layers;
+          const distance = (radius * pass.radiusMult / pass.layers) * i;
+          const offsetX = Math.cos(angle) * distance;
+          const offsetY = Math.sin(angle) * distance;
+          
+          const alpha = pass.alpha * (intensity / 5);
+          
+          ctx.fillStyle = `rgba(0, 0, 0, ${alpha})`;
+          ctx.fillText(line, textX + offsetX, currentY + offsetY);
+        }
+      });
       
       // Основной текст body
       ctx.fillStyle = bodyColor;
