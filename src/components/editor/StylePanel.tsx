@@ -259,48 +259,6 @@ export const StylePanel = ({
               </Select>
             </div>
 
-            <div>
-              <Label>Shadow Intensity (Darkness)</Label>
-              <Slider
-                value={[slide.style.text.shadowIntensity || 3]}
-                onValueChange={([value]) =>
-                  onUpdateSlide({
-                    style: {
-                      ...slide.style,
-                      text: { ...slide.style.text, shadowIntensity: value },
-                    },
-                  })
-                }
-                min={0}
-                max={10}
-                step={0.5}
-              />
-              <div className="text-xs text-muted-foreground mt-1">
-                Current: {slide.style.text.shadowIntensity || 3}
-              </div>
-            </div>
-
-            <div>
-              <Label>Shadow Radius (Spread)</Label>
-              <Slider
-                value={[slide.style.text.shadowRadius || 20]}
-                onValueChange={([value]) =>
-                  onUpdateSlide({
-                    style: {
-                      ...slide.style,
-                      text: { ...slide.style.text, shadowRadius: value },
-                    },
-                  })
-                }
-                min={0}
-                max={100}
-                step={5}
-              />
-              <div className="text-xs text-muted-foreground mt-1">
-                Current: {slide.style.text.shadowRadius || 20}px
-              </div>
-            </div>
-
 
             <Button 
               variant="outline" 
