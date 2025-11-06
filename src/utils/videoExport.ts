@@ -259,7 +259,7 @@ const renderSlideToCanvas = (
     }
   }
 
-  // Draw title lines with SOLID BLUR SHADOW (no letter shapes)
+  // Draw title lines with NATIVE shadowBlur
   titleLines.forEach((line) => {
     ctx.save();
     
@@ -267,30 +267,28 @@ const renderSlideToCanvas = (
     const intensity = (slide.style.text.shadowIntensity || 3) / 10;
     const radius = slide.style.text.shadowRadius || 20;
     
-    // Рисуем МНОГО копий с ОЧЕНЬ низкой прозрачностью
-    const totalCopies = 100; // 100 копий
-    const steps = 12; // Направлений
+    // Используем ВСТРОЕННУЮ тень canvas - рисуем несколько раз для усиления
+    const iterations = 3; // Рисуем тень 3 раза для усиления
     
-    for (let i = 0; i < totalCopies; i++) {
-      // Случайное смещение в пределах радиуса
-      const angle = (Math.PI * 2 * i) / steps + (Math.random() * 0.3);
-      const distance = Math.random() * radius;
-      const offsetX = Math.cos(angle) * distance;
-      const offsetY = Math.sin(angle) * distance;
+    for (let i = 0; i < iterations; i++) {
+      ctx.shadowColor = `rgba(0, 0, 0, ${intensity / iterations})`;
+      ctx.shadowBlur = radius;
+      ctx.shadowOffsetX = 0;
+      ctx.shadowOffsetY = 0;
       
-      // ОЧЕНЬ низкая прозрачность каждой копии
-      const alpha = intensity / totalCopies;
-      
-      ctx.fillStyle = `rgba(0, 0, 0, ${alpha})`;
-      ctx.fillText(line, textX + offsetX, currentY + offsetY);
+      ctx.fillStyle = 'rgba(0, 0, 0, 0)'; // Невидимый текст - только тень
+      ctx.fillText(line, textX, currentY);
     }
     
     ctx.restore();
     
-    // Основной текст поверх
-    ctx.globalAlpha = 1;
+    // Основной текст БЕЗ тени
+    ctx.save();
+    ctx.shadowColor = 'transparent';
+    ctx.shadowBlur = 0;
     ctx.fillStyle = slide.style.text.color;
     ctx.fillText(line, textX, currentY);
+    ctx.restore();
     
     currentY += titleLineHeight;
   });
@@ -311,28 +309,28 @@ const renderSlideToCanvas = (
       const intensity = (slide.style.text.shadowIntensity || 3) / 10;
       const radius = (slide.style.text.shadowRadius || 20) * 1.15;
       
-      // Рисуем МНОГО копий
-      const totalCopies = 100;
-      const steps = 12;
+      // Встроенная тень для body
+      const iterations = 3;
       
-      for (let i = 0; i < totalCopies; i++) {
-        const angle = (Math.PI * 2 * i) / steps + (Math.random() * 0.3);
-        const distance = Math.random() * radius;
-        const offsetX = Math.cos(angle) * distance;
-        const offsetY = Math.sin(angle) * distance;
+      for (let i = 0; i < iterations; i++) {
+        ctx.shadowColor = `rgba(0, 0, 0, ${intensity / iterations})`;
+        ctx.shadowBlur = radius;
+        ctx.shadowOffsetX = 0;
+        ctx.shadowOffsetY = 0;
         
-        const alpha = intensity / totalCopies;
-        
-        ctx.fillStyle = `rgba(0, 0, 0, ${alpha})`;
-        ctx.fillText(line, textX + offsetX, currentY + offsetY);
+        ctx.fillStyle = 'rgba(0, 0, 0, 0)';
+        ctx.fillText(line, textX, currentY);
       }
       
       ctx.restore();
       
       // Основной текст body
-      ctx.globalAlpha = 1;
+      ctx.save();
+      ctx.shadowColor = 'transparent';
+      ctx.shadowBlur = 0;
       ctx.fillStyle = bodyColor;
       ctx.fillText(line, textX, currentY);
+      ctx.restore();
       
       currentY += bodyLineHeight;
     });
