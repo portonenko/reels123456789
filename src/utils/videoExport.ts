@@ -223,6 +223,23 @@ const renderSlideToCanvas = (
     ctx.restore();
   }
 
+  // Setup shadow if enabled
+  if (slide.style.text.textShadow && !slide.style.plate.enabled) {
+    const shadowParts = slide.style.text.textShadow.match(/(-?\d+(?:\.\d+)?px)\s+(-?\d+(?:\.\d+)?px)\s+(-?\d+(?:\.\d+)?px)\s+(rgba?\([^)]+\)|#[0-9a-fA-F]+)/);
+    if (shadowParts) {
+      const offsetX = parseFloat(shadowParts[1]);
+      const offsetY = parseFloat(shadowParts[2]);
+      const blurRadius = parseFloat(shadowParts[3]);
+      const shadowColor = shadowParts[4];
+      
+      // Use Canvas shadow API for proper glow effect
+      ctx.shadowColor = shadowColor;
+      ctx.shadowBlur = blurRadius * 4; // Increase blur for wider glow
+      ctx.shadowOffsetX = 0; // No horizontal offset for even glow
+      ctx.shadowOffsetY = 0; // No vertical offset for even glow
+    }
+  }
+
   // Draw title with text wrapping
   ctx.font = `${slide.style.text.fontWeight} ${slide.style.text.fontSize}px ${slide.style.text.fontFamily}`;
   ctx.fillStyle = slide.style.text.color;
@@ -272,6 +289,12 @@ const renderSlideToCanvas = (
       currentY += bodyLineHeight;
     });
   }
+
+  // Reset shadow after drawing text
+  ctx.shadowColor = 'transparent';
+  ctx.shadowBlur = 0;
+  ctx.shadowOffsetX = 0;
+  ctx.shadowOffsetY = 0;
 
   // Restore context after transitions
   ctx.restore();
