@@ -223,20 +223,14 @@ const renderSlideToCanvas = (
     ctx.restore();
   }
 
-  // Setup shadow if enabled
+  // Setup shadow configuration
+  let shadowConfig: { color: string; blur: number } | null = null;
   if (slide.style.text.textShadow && !slide.style.plate.enabled) {
     const shadowParts = slide.style.text.textShadow.match(/(-?\d+(?:\.\d+)?px)\s+(-?\d+(?:\.\d+)?px)\s+(-?\d+(?:\.\d+)?px)\s+(rgba?\([^)]+\)|#[0-9a-fA-F]+)/);
     if (shadowParts) {
-      const offsetX = parseFloat(shadowParts[1]);
-      const offsetY = parseFloat(shadowParts[2]);
       const blurRadius = parseFloat(shadowParts[3]);
       const shadowColor = shadowParts[4];
-      
-      // Use Canvas shadow API for proper glow effect
-      ctx.shadowColor = shadowColor;
-      ctx.shadowBlur = blurRadius * 4; // Increase blur for wider glow
-      ctx.shadowOffsetX = 0; // No horizontal offset for even glow
-      ctx.shadowOffsetY = 0; // No vertical offset for even glow
+      shadowConfig = { color: shadowColor, blur: blurRadius };
     }
   }
 
@@ -258,8 +252,22 @@ const renderSlideToCanvas = (
     }
   }
 
-  // Draw title lines
+  // Draw title lines with enhanced shadow
   titleLines.forEach((line) => {
+    if (shadowConfig) {
+      // Draw shadow multiple times for stronger glow
+      for (let i = 0; i < 3; i++) {
+        ctx.shadowColor = shadowConfig.color;
+        ctx.shadowBlur = shadowConfig.blur * 8; // Much stronger blur
+        ctx.shadowOffsetX = 0;
+        ctx.shadowOffsetY = 0;
+        ctx.fillText(line, textX, currentY);
+      }
+      // Reset shadow for stroke
+      ctx.shadowColor = 'transparent';
+      ctx.shadowBlur = 0;
+    }
+    
     if (!slide.style.plate.enabled && slide.style.text.stroke) {
       ctx.strokeStyle = slide.style.text.stroke;
       ctx.lineWidth = slide.style.text.strokeWidth || 2;
@@ -280,6 +288,20 @@ const renderSlideToCanvas = (
 
     const bodyLineHeight = (slide.style.text.bodyFontSize || slide.style.text.fontSize * 0.5) * slide.style.text.lineHeight * 1.2;
     bodyLines.forEach((line) => {
+      if (shadowConfig) {
+        // Draw shadow multiple times for stronger glow on body text too
+        for (let i = 0; i < 3; i++) {
+          ctx.shadowColor = shadowConfig.color;
+          ctx.shadowBlur = shadowConfig.blur * 10; // Even stronger for body text
+          ctx.shadowOffsetX = 0;
+          ctx.shadowOffsetY = 0;
+          ctx.fillText(line, textX, currentY);
+        }
+        // Reset shadow for stroke
+        ctx.shadowColor = 'transparent';
+        ctx.shadowBlur = 0;
+      }
+      
       if (!slide.style.plate.enabled && slide.style.text.stroke) {
         ctx.strokeStyle = slide.style.text.stroke;
         ctx.lineWidth = (slide.style.text.strokeWidth || 2) * 0.75;
