@@ -253,28 +253,39 @@ const renderSlideToCanvas = (
     }
   }
 
-  // Draw title lines with EXTREMELY strong glow
+  // Draw title lines with BRIGHT glow using composite operations
   titleLines.forEach((line) => {
     if (shadowConfig) {
-      // Draw text VERY MANY times with HUGE shadowBlur for visible glow
-      const iterations = 50 + (shadowConfig.intensity * 10); // 50-150 iterations
-      const maxBlur = shadowConfig.blur * shadowConfig.intensity * 6; // Massive blur
+      ctx.save();
+      // Use 'lighter' composite mode for additive glow
+      ctx.globalCompositeOperation = 'lighter';
+      
+      // Draw many layers with shadowBlur for bright cumulative glow
+      const iterations = 100; // Fixed high number
+      const baseBlur = shadowConfig.blur * shadowConfig.intensity * 4;
       
       for (let i = 0; i < iterations; i++) {
+        ctx.globalAlpha = 0.05; // Low alpha per layer, accumulates to bright
         ctx.shadowColor = shadowConfig.color;
-        ctx.shadowBlur = maxBlur;
+        ctx.shadowBlur = baseBlur;
         ctx.shadowOffsetX = 0;
         ctx.shadowOffsetY = 0;
-        ctx.fillStyle = slide.style.text.color;
+        ctx.fillStyle = shadowConfig.color; // Use shadow color for glow
         ctx.fillText(line, textX, currentY);
       }
+      
+      ctx.restore();
     }
     
-    // Reset shadow and draw crisp main text
+    // Draw main text on top with normal composite mode
+    ctx.save();
+    ctx.globalCompositeOperation = 'source-over';
+    ctx.globalAlpha = 1;
     ctx.shadowColor = 'transparent';
     ctx.shadowBlur = 0;
     ctx.fillStyle = slide.style.text.color;
     ctx.fillText(line, textX, currentY);
+    ctx.restore();
     
     currentY += titleLineHeight;
   });
@@ -290,31 +301,42 @@ const renderSlideToCanvas = (
     const bodyLineHeight = (slide.style.text.bodyFontSize || slide.style.text.fontSize * 0.5) * slide.style.text.lineHeight * 1.2;
     bodyLines.forEach((line) => {
       if (shadowConfig) {
-        // Draw text VERY MANY times for strong body glow
-        const iterations = 50 + (shadowConfig.intensity * 10);
-        const maxBlur = shadowConfig.blur * shadowConfig.intensity * 7; // Even more massive for body
+        ctx.save();
+        ctx.globalCompositeOperation = 'lighter';
+        
+        const iterations = 100;
+        const baseBlur = shadowConfig.blur * shadowConfig.intensity * 5;
         
         for (let i = 0; i < iterations; i++) {
+          ctx.globalAlpha = 0.05;
           ctx.shadowColor = shadowConfig.color;
-          ctx.shadowBlur = maxBlur;
+          ctx.shadowBlur = baseBlur;
           ctx.shadowOffsetX = 0;
           ctx.shadowOffsetY = 0;
-          ctx.fillStyle = bodyColor;
+          ctx.fillStyle = shadowConfig.color;
           ctx.fillText(line, textX, currentY);
         }
+        
+        ctx.restore();
       }
       
-      // Reset shadow and draw crisp body text
+      // Draw main body text
+      ctx.save();
+      ctx.globalCompositeOperation = 'source-over';
+      ctx.globalAlpha = 1;
       ctx.shadowColor = 'transparent';
       ctx.shadowBlur = 0;
       ctx.fillStyle = bodyColor;
       ctx.fillText(line, textX, currentY);
+      ctx.restore();
       
       currentY += bodyLineHeight;
     });
   }
 
-  // Reset shadow
+  // Reset all
+  ctx.globalCompositeOperation = 'source-over';
+  ctx.globalAlpha = 1;
   ctx.shadowColor = 'transparent';
   ctx.shadowBlur = 0;
 
