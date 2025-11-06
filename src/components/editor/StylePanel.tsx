@@ -259,6 +259,26 @@ export const StylePanel = ({
               </Select>
             </div>
 
+            <Separator className="my-4" />
+            
+            <div>
+              <Label>Shadow Intensity: {slide.style.text.shadowIntensity || 10}</Label>
+              <Slider
+                value={[slide.style.text.shadowIntensity || 10]}
+                onValueChange={([value]) =>
+                  onUpdateSlide({
+                    style: {
+                      ...slide.style,
+                      text: { ...slide.style.text, shadowIntensity: value },
+                    },
+                  })
+                }
+                min={0}
+                max={20}
+                step={1}
+              />
+            </div>
+
 
             <Button 
               variant="outline" 
