@@ -253,24 +253,24 @@ const renderSlideToCanvas = (
     }
   }
 
-  // Draw title lines with STRONG manual glow
+  // Draw title lines with EXTREME glow
   titleLines.forEach((line) => {
     if (shadowConfig) {
       ctx.save();
       
-      // Much stronger manual glow
-      const glowRadius = shadowConfig.blur * shadowConfig.intensity * 4; // Doubled radius
-      const steps = 40; // More directions
-      const layers = 15; // More layers per direction
+      // EXTREME glow - максимальные параметры
+      const glowRadius = Math.max(shadowConfig.blur * shadowConfig.intensity * 10, 100); // Минимум 100px
+      const steps = 60; // Ещё больше направлений
+      const layers = 25; // Ещё больше слоёв
       
       ctx.fillStyle = shadowConfig.color;
       
-      // Draw glow layers in a circle pattern
+      // Рисуем множество слоёв свечения
       for (let angle = 0; angle < Math.PI * 2; angle += (Math.PI * 2) / steps) {
         for (let distance = glowRadius; distance > 0; distance -= glowRadius / layers) {
           const offsetX = Math.cos(angle) * distance;
           const offsetY = Math.sin(angle) * distance;
-          ctx.globalAlpha = 0.08 * shadowConfig.intensity; // Much higher alpha
+          ctx.globalAlpha = 0.15 * shadowConfig.intensity; // Максимальная видимость
           ctx.fillText(line, textX + offsetX, currentY + offsetY);
         }
       }
@@ -278,7 +278,7 @@ const renderSlideToCanvas = (
       ctx.restore();
     }
     
-    // Draw main text on top
+    // Основной текст поверх свечения
     ctx.globalAlpha = 1;
     ctx.fillStyle = slide.style.text.color;
     ctx.fillText(line, textX, currentY);
@@ -299,9 +299,9 @@ const renderSlideToCanvas = (
       if (shadowConfig) {
         ctx.save();
         
-        const glowRadius = shadowConfig.blur * shadowConfig.intensity * 5; // Even bigger for body
-        const steps = 40;
-        const layers = 15;
+        const glowRadius = Math.max(shadowConfig.blur * shadowConfig.intensity * 12, 120); // Ещё больше для body
+        const steps = 60;
+        const layers = 25;
         
         ctx.fillStyle = shadowConfig.color;
         
@@ -309,7 +309,7 @@ const renderSlideToCanvas = (
           for (let distance = glowRadius; distance > 0; distance -= glowRadius / layers) {
             const offsetX = Math.cos(angle) * distance;
             const offsetY = Math.sin(angle) * distance;
-            ctx.globalAlpha = 0.08 * shadowConfig.intensity;
+            ctx.globalAlpha = 0.15 * shadowConfig.intensity;
             ctx.fillText(line, textX + offsetX, currentY + offsetY);
           }
         }
@@ -317,7 +317,7 @@ const renderSlideToCanvas = (
         ctx.restore();
       }
       
-      // Draw main body text
+      // Основной текст body
       ctx.globalAlpha = 1;
       ctx.fillStyle = bodyColor;
       ctx.fillText(line, textX, currentY);
