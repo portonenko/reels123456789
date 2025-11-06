@@ -175,7 +175,8 @@ export const ExportDialog = ({ open, onClose, projects, assets }: ExportDialogPr
         setProgress(progress);
         setCurrentStep(`${language}: ${message}`);
       },
-      project.backgroundMusicUrl || undefined
+      project.backgroundMusicUrl || undefined,
+      project.globalOverlay
     );
 
     console.log(`Export complete for ${language}, downloading...`);

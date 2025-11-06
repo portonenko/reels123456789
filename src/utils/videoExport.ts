@@ -4,7 +4,8 @@ const renderSlideToCanvas = (
   slide: Slide,
   canvas: HTMLCanvasElement,
   backgroundVideo?: HTMLVideoElement,
-  transitionProgress?: number
+  transitionProgress?: number,
+  globalOverlay?: number
 ): void => {
   const ctx = canvas.getContext("2d", { 
     alpha: false,
@@ -82,8 +83,9 @@ const renderSlideToCanvas = (
     ctx.fillRect(0, 0, canvas.width, canvas.height);
   }
 
-  // Apply overlay
-  ctx.fillStyle = "rgba(0, 0, 0, 0.3)";
+  // Apply overlay with globalOverlay value
+  const overlayOpacity = (globalOverlay ?? 30) / 100;
+  ctx.fillStyle = `rgba(0, 0, 0, ${overlayOpacity})`;
   ctx.fillRect(0, 0, canvas.width, canvas.height);
 
   // Calculate safe margins
@@ -344,7 +346,8 @@ export const exportVideo = async (
   slides: Slide[],
   backgroundAsset: Asset | null,
   onProgress: (progress: number, message: string) => void,
-  backgroundMusicUrl?: string
+  backgroundMusicUrl?: string,
+  globalOverlay?: number
 ): Promise<Blob> => {
   onProgress(5, "Initializing video recorder...");
 
@@ -533,7 +536,8 @@ export const exportVideo = async (
         slides[currentSlideIndex], 
         canvas, 
         backgroundVideo, 
-        transitionProgress
+        transitionProgress,
+        globalOverlay
       );
       
       if (elapsed < totalDuration) {
