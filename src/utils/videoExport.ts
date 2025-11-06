@@ -253,23 +253,24 @@ const renderSlideToCanvas = (
     }
   }
 
-  // Draw title lines with manual glow (no shadowBlur/filter)
+  // Draw title lines with STRONG manual glow
   titleLines.forEach((line) => {
     if (shadowConfig) {
       ctx.save();
       
-      // Manual glow: draw text many times with small offsets and low alpha
-      const glowRadius = shadowConfig.blur * shadowConfig.intensity * 2;
-      const steps = 20; // Number of glow layers
+      // Much stronger manual glow
+      const glowRadius = shadowConfig.blur * shadowConfig.intensity * 4; // Doubled radius
+      const steps = 40; // More directions
+      const layers = 15; // More layers per direction
       
       ctx.fillStyle = shadowConfig.color;
       
-      // Draw glow layers in a circle pattern for even glow
+      // Draw glow layers in a circle pattern
       for (let angle = 0; angle < Math.PI * 2; angle += (Math.PI * 2) / steps) {
-        for (let distance = glowRadius; distance > 0; distance -= glowRadius / 10) {
+        for (let distance = glowRadius; distance > 0; distance -= glowRadius / layers) {
           const offsetX = Math.cos(angle) * distance;
           const offsetY = Math.sin(angle) * distance;
-          ctx.globalAlpha = 0.03 * shadowConfig.intensity; // Low alpha, accumulates
+          ctx.globalAlpha = 0.08 * shadowConfig.intensity; // Much higher alpha
           ctx.fillText(line, textX + offsetX, currentY + offsetY);
         }
       }
@@ -298,16 +299,17 @@ const renderSlideToCanvas = (
       if (shadowConfig) {
         ctx.save();
         
-        const glowRadius = shadowConfig.blur * shadowConfig.intensity * 2.5;
-        const steps = 20;
+        const glowRadius = shadowConfig.blur * shadowConfig.intensity * 5; // Even bigger for body
+        const steps = 40;
+        const layers = 15;
         
         ctx.fillStyle = shadowConfig.color;
         
         for (let angle = 0; angle < Math.PI * 2; angle += (Math.PI * 2) / steps) {
-          for (let distance = glowRadius; distance > 0; distance -= glowRadius / 10) {
+          for (let distance = glowRadius; distance > 0; distance -= glowRadius / layers) {
             const offsetX = Math.cos(angle) * distance;
             const offsetY = Math.sin(angle) * distance;
-            ctx.globalAlpha = 0.03 * shadowConfig.intensity;
+            ctx.globalAlpha = 0.08 * shadowConfig.intensity;
             ctx.fillText(line, textX + offsetX, currentY + offsetY);
           }
         }
