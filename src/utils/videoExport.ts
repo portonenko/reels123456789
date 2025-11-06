@@ -259,7 +259,7 @@ const renderSlideToCanvas = (
     }
   }
 
-  // Draw title lines with FAST & SMOOTH BLUR
+  // Draw title lines with SOLID BLUR SHADOW (no letter shapes)
   titleLines.forEach((line) => {
     ctx.save();
     
@@ -267,24 +267,22 @@ const renderSlideToCanvas = (
     const intensity = (slide.style.text.shadowIntensity || 3) / 10;
     const radius = slide.style.text.shadowRadius || 20;
     
-    // МИНИМУМ слоёв для скорости
-    const steps = 8; // Всего 8 направлений
-    const layers = 10; // Всего 10 слоёв
+    // Рисуем МНОГО копий с ОЧЕНЬ низкой прозрачностью
+    const totalCopies = 100; // 100 копий
+    const steps = 12; // Направлений
     
-    // Рисуем от дальних к ближним
-    for (let layer = layers; layer >= 0; layer--) {
-      const progress = layer / layers; // 1.0 to 0.0
-      const layerRadius = radius * progress;
+    for (let i = 0; i < totalCopies; i++) {
+      // Случайное смещение в пределах радиуса
+      const angle = (Math.PI * 2 * i) / steps + (Math.random() * 0.3);
+      const distance = Math.random() * radius;
+      const offsetX = Math.cos(angle) * distance;
+      const offsetY = Math.sin(angle) * distance;
       
-      for (let angle = 0; angle < Math.PI * 2; angle += (Math.PI * 2) / steps) {
-        const offsetX = Math.cos(angle) * layerRadius;
-        const offsetY = Math.sin(angle) * layerRadius;
-        // Простое линейное затухание
-        const alpha = (intensity / (layers * 2)) * (1 - progress * 0.5);
-        
-        ctx.fillStyle = `rgba(0, 0, 0, ${alpha})`;
-        ctx.fillText(line, textX + offsetX, currentY + offsetY);
-      }
+      // ОЧЕНЬ низкая прозрачность каждой копии
+      const alpha = intensity / totalCopies;
+      
+      ctx.fillStyle = `rgba(0, 0, 0, ${alpha})`;
+      ctx.fillText(line, textX + offsetX, currentY + offsetY);
     }
     
     ctx.restore();
@@ -313,22 +311,20 @@ const renderSlideToCanvas = (
       const intensity = (slide.style.text.shadowIntensity || 3) / 10;
       const radius = (slide.style.text.shadowRadius || 20) * 1.15;
       
-      // МИНИМУМ слоёв для скорости
-      const steps = 8;
-      const layers = 10;
+      // Рисуем МНОГО копий
+      const totalCopies = 100;
+      const steps = 12;
       
-      for (let layer = layers; layer >= 0; layer--) {
-        const progress = layer / layers;
-        const layerRadius = radius * progress;
+      for (let i = 0; i < totalCopies; i++) {
+        const angle = (Math.PI * 2 * i) / steps + (Math.random() * 0.3);
+        const distance = Math.random() * radius;
+        const offsetX = Math.cos(angle) * distance;
+        const offsetY = Math.sin(angle) * distance;
         
-        for (let angle = 0; angle < Math.PI * 2; angle += (Math.PI * 2) / steps) {
-          const offsetX = Math.cos(angle) * layerRadius;
-          const offsetY = Math.sin(angle) * layerRadius;
-          const alpha = (intensity / (layers * 2)) * (1 - progress * 0.5);
-          
-          ctx.fillStyle = `rgba(0, 0, 0, ${alpha})`;
-          ctx.fillText(line, textX + offsetX, currentY + offsetY);
-        }
+        const alpha = intensity / totalCopies;
+        
+        ctx.fillStyle = `rgba(0, 0, 0, ${alpha})`;
+        ctx.fillText(line, textX + offsetX, currentY + offsetY);
       }
       
       ctx.restore();
