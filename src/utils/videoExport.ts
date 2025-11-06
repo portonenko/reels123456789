@@ -224,13 +224,14 @@ const renderSlideToCanvas = (
   }
 
   // Setup shadow configuration
-  let shadowConfig: { color: string; blur: number } | null = null;
+  let shadowConfig: { color: string; blur: number; intensity: number } | null = null;
   if (slide.style.text.textShadow && !slide.style.plate.enabled) {
     const shadowParts = slide.style.text.textShadow.match(/(-?\d+(?:\.\d+)?px)\s+(-?\d+(?:\.\d+)?px)\s+(-?\d+(?:\.\d+)?px)\s+(rgba?\([^)]+\)|#[0-9a-fA-F]+)/);
     if (shadowParts) {
       const blurRadius = parseFloat(shadowParts[3]);
       const shadowColor = shadowParts[4];
-      shadowConfig = { color: shadowColor, blur: blurRadius };
+      const intensity = slide.style.text.shadowIntensity || 3;
+      shadowConfig = { color: shadowColor, blur: blurRadius, intensity };
     }
   }
 
@@ -255,10 +256,11 @@ const renderSlideToCanvas = (
   // Draw title lines with enhanced shadow
   titleLines.forEach((line) => {
     if (shadowConfig) {
-      // Draw shadow multiple times for stronger glow
-      for (let i = 0; i < 3; i++) {
+      // Draw shadow multiple times for stronger glow based on intensity
+      const iterations = Math.ceil(shadowConfig.intensity / 2);
+      for (let i = 0; i < iterations; i++) {
         ctx.shadowColor = shadowConfig.color;
-        ctx.shadowBlur = shadowConfig.blur * 8; // Much stronger blur
+        ctx.shadowBlur = shadowConfig.blur * shadowConfig.intensity;
         ctx.shadowOffsetX = 0;
         ctx.shadowOffsetY = 0;
         ctx.fillText(line, textX, currentY);
@@ -289,10 +291,11 @@ const renderSlideToCanvas = (
     const bodyLineHeight = (slide.style.text.bodyFontSize || slide.style.text.fontSize * 0.5) * slide.style.text.lineHeight * 1.2;
     bodyLines.forEach((line) => {
       if (shadowConfig) {
-        // Draw shadow multiple times for stronger glow on body text too
-        for (let i = 0; i < 3; i++) {
+        // Draw shadow multiple times for stronger glow on body text based on intensity
+        const iterations = Math.ceil(shadowConfig.intensity / 2);
+        for (let i = 0; i < iterations; i++) {
           ctx.shadowColor = shadowConfig.color;
-          ctx.shadowBlur = shadowConfig.blur * 10; // Even stronger for body text
+          ctx.shadowBlur = shadowConfig.blur * shadowConfig.intensity * 1.2; // Slightly stronger for body
           ctx.shadowOffsetX = 0;
           ctx.shadowOffsetY = 0;
           ctx.fillText(line, textX, currentY);

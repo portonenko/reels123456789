@@ -467,6 +467,27 @@ export const StylePanel = ({
                 </div>
 
                 <div>
+                  <Label>Shadow Intensity: {slide.style.text.shadowIntensity || 3}</Label>
+                  <Slider
+                    value={[slide.style.text.shadowIntensity || 3]}
+                    onValueChange={([value]) =>
+                      onUpdateSlide({
+                        style: {
+                          ...slide.style,
+                          text: { ...slide.style.text, shadowIntensity: value },
+                        },
+                      })
+                    }
+                    min={1}
+                    max={10}
+                    step={1}
+                  />
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Controls how strong the shadow/glow effect is in exported video
+                  </p>
+                </div>
+
+                <div>
                   <Label>Glow Color</Label>
                   <Input
                     type="color"

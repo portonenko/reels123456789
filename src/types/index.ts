@@ -12,6 +12,7 @@ export interface TextStyle {
   color: string;
   bodyColor?: string; // Separate color for body text
   textShadow: string;
+  shadowIntensity?: number; // Multiplier for shadow/glow effect (1-10)
   alignment: "left" | "center" | "right";
   // Text effects (when plate is disabled)
   stroke?: string; // Text outline
