@@ -291,34 +291,35 @@ const renderSlideToCanvas = (
     }
   }
 
-  // Draw title lines - МАКСИМАЛЬНО СИЛЬНАЯ ТЕНЬ
+  // Draw title lines - ОБВОДКА + ТЕНЬ
   titleLines.forEach((line) => {
-    // Параметры из ползунков (intensity: 0-10, radius: 0-50)
     const intensity = slide.style.text.shadowIntensity || 5;
     const radius = slide.style.text.shadowRadius || 20;
     
-    // ОЧЕНЬ МОЩНАЯ тень - 3 прохода с высокой плотностью
-    const passes = [
-      { layers: 25, alpha: 0.45, radiusMult: 0.2 },  // Очень плотное ядро
-      { layers: 35, alpha: 0.30, radiusMult: 0.6 },  // Средний плотный слой
-      { layers: 40, alpha: 0.15, radiusMult: 1.0 }   // Внешний размытый край
-    ];
+    // 1. Рисуем размытую тень (слабее чем было)
+    const layers = 25;
+    const baseAlpha = 0.15;
     
-    passes.forEach(pass => {
-      for (let i = 0; i < pass.layers; i++) {
-        const angle = (Math.PI * 2 * i) / pass.layers;
-        const distance = (radius * pass.radiusMult / pass.layers) * i;
-        const offsetX = Math.cos(angle) * distance;
-        const offsetY = Math.sin(angle) * distance;
-        
-        const alpha = pass.alpha * (intensity / 5);
-        
-        ctx.fillStyle = `rgba(0, 0, 0, ${alpha})`;
-        ctx.fillText(line, textX + offsetX, currentY + offsetY);
-      }
-    });
+    for (let i = 0; i < layers; i++) {
+      const angle = (Math.PI * 2 * i) / layers;
+      const distance = (radius / layers) * i;
+      const offsetX = Math.cos(angle) * distance;
+      const offsetY = Math.sin(angle) * distance;
+      
+      const alpha = baseAlpha * (intensity / 5);
+      
+      ctx.fillStyle = `rgba(0, 0, 0, ${alpha})`;
+      ctx.fillText(line, textX + offsetX, currentY + offsetY);
+    }
     
-    // Основной текст поверх тени
+    // 2. Рисуем ЧЁРНУЮ ОБВОДКУ (самое важное для читаемости)
+    ctx.strokeStyle = 'rgba(0, 0, 0, 0.9)';
+    ctx.lineWidth = 8; // Жирная обводка
+    ctx.lineJoin = 'round';
+    ctx.miterLimit = 2;
+    ctx.strokeText(line, textX, currentY);
+    
+    // 3. Основной белый текст поверх
     ctx.fillStyle = slide.style.text.color;
     ctx.fillText(line, textX, currentY);
     
@@ -335,30 +336,31 @@ const renderSlideToCanvas = (
 
     const bodyLineHeight = (slide.style.text.bodyFontSize || slide.style.text.fontSize * 0.5) * slide.style.text.lineHeight * 1.2;
     bodyLines.forEach((line) => {
-      // Параметры из ползунков
       const intensity = slide.style.text.shadowIntensity || 5;
       const radius = (slide.style.text.shadowRadius || 20) * 1.15;
       
-      // ОЧЕНЬ МОЩНАЯ тень для body - 3 прохода
-      const passes = [
-        { layers: 25, alpha: 0.45, radiusMult: 0.2 },
-        { layers: 35, alpha: 0.30, radiusMult: 0.6 },
-        { layers: 40, alpha: 0.15, radiusMult: 1.0 }
-      ];
+      // Размытая тень для body (слабее)
+      const layers = 25;
+      const baseAlpha = 0.15;
       
-      passes.forEach(pass => {
-        for (let i = 0; i < pass.layers; i++) {
-          const angle = (Math.PI * 2 * i) / pass.layers;
-          const distance = (radius * pass.radiusMult / pass.layers) * i;
-          const offsetX = Math.cos(angle) * distance;
-          const offsetY = Math.sin(angle) * distance;
-          
-          const alpha = pass.alpha * (intensity / 5);
-          
-          ctx.fillStyle = `rgba(0, 0, 0, ${alpha})`;
-          ctx.fillText(line, textX + offsetX, currentY + offsetY);
-        }
-      });
+      for (let i = 0; i < layers; i++) {
+        const angle = (Math.PI * 2 * i) / layers;
+        const distance = (radius / layers) * i;
+        const offsetX = Math.cos(angle) * distance;
+        const offsetY = Math.sin(angle) * distance;
+        
+        const alpha = baseAlpha * (intensity / 5);
+        
+        ctx.fillStyle = `rgba(0, 0, 0, ${alpha})`;
+        ctx.fillText(line, textX + offsetX, currentY + offsetY);
+      }
+      
+      // ЧЁРНАЯ ОБВОДКА для body
+      ctx.strokeStyle = 'rgba(0, 0, 0, 0.9)';
+      ctx.lineWidth = 6; // Чуть тоньше чем у заголовка
+      ctx.lineJoin = 'round';
+      ctx.miterLimit = 2;
+      ctx.strokeText(line, textX, currentY);
       
       // Основной текст body
       ctx.fillStyle = bodyColor;
