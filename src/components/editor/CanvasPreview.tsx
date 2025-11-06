@@ -347,11 +347,11 @@ export const CanvasPreview = ({ slide, globalOverlay, showTextBoxControls = fals
                     letterSpacing: `${currentSlide.style.text.letterSpacing}em`,
                     color: currentSlide.style.text.color,
                     textAlign: currentSlide.style.text.alignment,
-                    // Усиленная тень
+                    // Сильная тень
                     filter: (() => {
-                      const intensity = (currentSlide.style.text.shadowIntensity || 10) / 20;
-                      const radius = (currentSlide.style.text.shadowRadius || 20) / 3;
-                      return `drop-shadow(0px ${radius * 0.3}px ${radius}px rgba(0, 0, 0, ${intensity}))`;
+                      const intensity = (currentSlide.style.text.shadowIntensity || 10) / 10;
+                      const radius = (currentSlide.style.text.shadowRadius || 20);
+                      return `drop-shadow(0px ${radius * 0.5}px ${radius}px rgba(0, 0, 0, ${intensity}))`;
                     })(),
                     wordWrap: "break-word",
                   }}
@@ -368,11 +368,11 @@ export const CanvasPreview = ({ slide, globalOverlay, showTextBoxControls = fals
                       lineHeight: currentSlide.style.text.lineHeight * 1.2,
                       color: currentSlide.style.text.bodyColor || currentSlide.style.text.color,
                       textAlign: currentSlide.style.text.alignment,
-                      // Усиленная тень для body
+                      // Сильная тень для body
                       filter: (() => {
-                        const intensity = (currentSlide.style.text.shadowIntensity || 10) / 20;
-                        const radius = (currentSlide.style.text.shadowRadius || 20) / 3 * 1.15;
-                        return `drop-shadow(0px ${radius * 0.3}px ${radius}px rgba(0, 0, 0, ${intensity}))`;
+                        const intensity = (currentSlide.style.text.shadowIntensity || 10) / 10;
+                        const radius = (currentSlide.style.text.shadowRadius || 20);
+                        return `drop-shadow(0px ${radius * 0.5}px ${radius}px rgba(0, 0, 0, ${intensity}))`;
                       })(),
                       wordWrap: "break-word",
                     }}
@@ -465,11 +465,11 @@ export const CanvasPreview = ({ slide, globalOverlay, showTextBoxControls = fals
                     letterSpacing: `${currentSlide.style.text.letterSpacing}em`,
                     color: currentSlide.style.text.color,
                     textAlign: currentSlide.style.text.alignment,
-                    // Усиленная тень
+                    // Сильная тень
                     filter: (() => {
-                      const intensity = (currentSlide.style.text.shadowIntensity || 10) / 20;
-                      const radius = (currentSlide.style.text.shadowRadius || 20) / 3;
-                      return `drop-shadow(0px ${radius * 0.3}px ${radius}px rgba(0, 0, 0, ${intensity}))`;
+                      const intensity = (currentSlide.style.text.shadowIntensity || 10) / 10;
+                      const radius = (currentSlide.style.text.shadowRadius || 20);
+                      return `drop-shadow(0px ${radius * 0.5}px ${radius}px rgba(0, 0, 0, ${intensity}))`;
                     })(),
                     wordWrap: "break-word",
                     maxWidth: "80%",
@@ -487,11 +487,11 @@ export const CanvasPreview = ({ slide, globalOverlay, showTextBoxControls = fals
                       lineHeight: currentSlide.style.text.lineHeight * 1.2,
                       color: currentSlide.style.text.bodyColor || currentSlide.style.text.color,
                       textAlign: currentSlide.style.text.alignment,
-                      // Усиленная тень для body  
+                      // Сильная тень для body
                       filter: (() => {
-                        const intensity = (currentSlide.style.text.shadowIntensity || 10) / 20;
-                        const radius = (currentSlide.style.text.shadowRadius || 20) / 3 * 1.15;
-                        return `drop-shadow(0px ${radius * 0.3}px ${radius}px rgba(0, 0, 0, ${intensity}))`;
+                        const intensity = (currentSlide.style.text.shadowIntensity || 10) / 10;
+                        const radius = (currentSlide.style.text.shadowRadius || 20);
+                        return `drop-shadow(0px ${radius * 0.5}px ${radius}px rgba(0, 0, 0, ${intensity}))`;
                       })(),
                       wordWrap: "break-word",
                       maxWidth: "80%",
