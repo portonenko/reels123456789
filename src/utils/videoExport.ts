@@ -253,30 +253,34 @@ const renderSlideToCanvas = (
     }
   }
 
-  // Draw title lines with real glow effect
+  // Draw title lines with strong visible glow
   titleLines.forEach((line) => {
     if (shadowConfig) {
-      // Create multiple glow layers with increasing blur
-      const baseBlur = shadowConfig.blur * 2;
-      const glowLayers = Math.ceil(shadowConfig.intensity);
+      // Draw multiple blurred copies for visible glow
+      const intensity = shadowConfig.intensity;
+      const blur = shadowConfig.blur * 4; // Increase base blur
       
-      for (let i = glowLayers; i > 0; i--) {
+      // Draw 8-12 layers based on intensity for strong glow
+      const totalLayers = 8 + Math.ceil(intensity);
+      
+      for (let i = totalLayers; i > 0; i--) {
         ctx.save();
-        ctx.shadowColor = shadowConfig.color;
-        ctx.shadowBlur = baseBlur * i * 2; // Wide glow
-        ctx.shadowOffsetX = 0;
-        ctx.shadowOffsetY = 0;
-        ctx.fillStyle = slide.style.text.color;
+        ctx.filter = `blur(${blur * (i / 4)}px)`;
+        ctx.globalAlpha = 0.3 * (intensity / 5); // Stronger opacity
+        ctx.fillStyle = shadowConfig.color;
         ctx.fillText(line, textX, currentY);
         ctx.restore();
       }
     }
     
-    // Draw main text on top
-    ctx.shadowColor = 'transparent';
-    ctx.shadowBlur = 0;
+    // Draw main text on top with no filter
+    ctx.save();
+    ctx.filter = 'none';
+    ctx.globalAlpha = 1;
     ctx.fillStyle = slide.style.text.color;
     ctx.fillText(line, textX, currentY);
+    ctx.restore();
+    
     currentY += titleLineHeight;
   });
 
@@ -291,34 +295,37 @@ const renderSlideToCanvas = (
     const bodyLineHeight = (slide.style.text.bodyFontSize || slide.style.text.fontSize * 0.5) * slide.style.text.lineHeight * 1.2;
     bodyLines.forEach((line) => {
       if (shadowConfig) {
-        // Create glow for body text
-        const baseBlur = shadowConfig.blur * 2;
-        const glowLayers = Math.ceil(shadowConfig.intensity);
+        // Draw multiple blurred copies for visible glow on body
+        const intensity = shadowConfig.intensity;
+        const blur = shadowConfig.blur * 5; // Even stronger for body
         
-        for (let i = glowLayers; i > 0; i--) {
+        const totalLayers = 8 + Math.ceil(intensity);
+        
+        for (let i = totalLayers; i > 0; i--) {
           ctx.save();
-          ctx.shadowColor = shadowConfig.color;
-          ctx.shadowBlur = baseBlur * i * 2.5; // Even wider for body
-          ctx.shadowOffsetX = 0;
-          ctx.shadowOffsetY = 0;
-          ctx.fillStyle = bodyColor;
+          ctx.filter = `blur(${blur * (i / 4)}px)`;
+          ctx.globalAlpha = 0.3 * (intensity / 5);
+          ctx.fillStyle = shadowConfig.color;
           ctx.fillText(line, textX, currentY);
           ctx.restore();
         }
       }
       
       // Draw main body text on top
-      ctx.shadowColor = 'transparent';
-      ctx.shadowBlur = 0;
+      ctx.save();
+      ctx.filter = 'none';
+      ctx.globalAlpha = 1;
       ctx.fillStyle = bodyColor;
       ctx.fillText(line, textX, currentY);
+      ctx.restore();
+      
       currentY += bodyLineHeight;
     });
   }
 
   // Reset context
-  ctx.shadowColor = 'transparent';
-  ctx.shadowBlur = 0;
+  ctx.filter = 'none';
+  ctx.globalAlpha = 1;
 
   // Restore context after transitions
   ctx.restore();
