@@ -275,23 +275,66 @@ const renderSlideToCanvas = (
     }
   }
 
-  // Применить сильную тень с настройками
+  // Применить тень для всего текстового блока
   const shadowIntensity = slide.style.text.shadowIntensity || 10;
   const shadowRadius = slide.style.text.shadowRadius || 20;
   
-  ctx.shadowColor = `rgba(0, 0, 0, ${shadowIntensity / 10})`;
-  ctx.shadowBlur = shadowRadius * 3;
-  ctx.shadowOffsetX = shadowRadius * 0.5;
-  ctx.shadowOffsetY = shadowRadius * 0.5;
+  if (shadowIntensity > 0 && shadowRadius > 0) {
+    // Рисуем тень - несколько слоев для эффекта размытия
+    const shadowLayers = 8;
+    for (let i = 0; i < shadowLayers; i++) {
+      const layerOpacity = (shadowIntensity / 10) * (1 - i / shadowLayers) / shadowLayers;
+      const layerOffset = (shadowRadius * 0.5) * (1 + i / shadowLayers);
+      const layerBlur = (shadowRadius * 3) / shadowLayers;
+      
+      ctx.save();
+      ctx.shadowColor = `rgba(0, 0, 0, ${layerOpacity})`;
+      ctx.shadowBlur = layerBlur;
+      ctx.shadowOffsetX = layerOffset;
+      ctx.shadowOffsetY = layerOffset;
+      ctx.globalAlpha = 0.3;
+      
+      // Рисуем title shadow
+      let shadowY = currentY;
+      ctx.font = `${slide.style.text.fontWeight} ${slide.style.text.fontSize}px ${slide.style.text.fontFamily}`;
+      titleLines.forEach((line) => {
+        ctx.fillStyle = slide.style.text.color;
+        ctx.fillText(line, textX, shadowY);
+        shadowY += titleLineHeight;
+      });
+      
+      // Рисуем body shadow если есть
+      if (cleanBody) {
+        shadowY += 30;
+        ctx.font = `${slide.style.text.bodyFontWeight || slide.style.text.fontWeight - 200} ${slide.style.text.bodyFontSize || slide.style.text.fontSize * 0.5}px ${slide.style.text.bodyFontFamily || slide.style.text.fontFamily}`;
+        const bodyLineHeight = (slide.style.text.bodyFontSize || slide.style.text.fontSize * 0.5) * slide.style.text.lineHeight * 1.2;
+        bodyLines.forEach((line) => {
+          const bodyColor = slide.style.text.bodyColor || slide.style.text.color;
+          ctx.fillStyle = bodyColor;
+          ctx.fillText(line, textX, shadowY);
+          shadowY += bodyLineHeight;
+        });
+      }
+      
+      ctx.restore();
+    }
+  }
+  
+  // Сбросить тень перед рисованием основного текста
+  ctx.shadowColor = 'transparent';
+  ctx.shadowBlur = 0;
+  ctx.shadowOffsetX = 0;
+  ctx.shadowOffsetY = 0;
 
-  // Draw title lines
+  // Draw title lines (основной текст)
+  ctx.font = `${slide.style.text.fontWeight} ${slide.style.text.fontSize}px ${slide.style.text.fontFamily}`;
   titleLines.forEach((line) => {
     ctx.fillStyle = slide.style.text.color;
     ctx.fillText(line, textX, currentY);
     currentY += titleLineHeight;
   });
 
-  // Draw body if exists
+  // Draw body if exists (основной текст)
   if (cleanBody) {
     currentY += 30;
     
@@ -301,19 +344,12 @@ const renderSlideToCanvas = (
 
     const bodyLineHeight = (slide.style.text.bodyFontSize || slide.style.text.fontSize * 0.5) * slide.style.text.lineHeight * 1.2;
     
-    // Тень для body (та же что и у заголовка)
     bodyLines.forEach((line) => {
       ctx.fillStyle = bodyColor;
       ctx.fillText(line, textX, currentY);
       currentY += bodyLineHeight;
     });
   }
-  
-  // Сбросить тень после текста
-  ctx.shadowColor = 'transparent';
-  ctx.shadowBlur = 0;
-  ctx.shadowOffsetX = 0;
-  ctx.shadowOffsetY = 0;
 
   // Reset
   ctx.globalAlpha = 1;
