@@ -259,27 +259,27 @@ const renderSlideToCanvas = (
     }
   }
 
-  // Draw title lines with SOFT DROP-SHADOW like in preview
+  // Draw title lines with BALANCED DROP-SHADOW like in preview
   titleLines.forEach((line) => {
     ctx.save();
     
-    // Более мягкие параметры тени
+    // Средние параметры тени - баланс между слишком тёмной и невидимой
     const shadowConfigs = [
-      { radius: 20, alpha: 0.3 },  // Уменьшил с 0.9 до 0.3
-      { radius: 15, alpha: 0.25 }, // Уменьшил с 0.8 до 0.25
-      { radius: 10, alpha: 0.2 }   // Уменьшил с 0.7 до 0.2
+      { radius: 20, alpha: 0.6 },  // Средние значения
+      { radius: 15, alpha: 0.5 },
+      { radius: 10, alpha: 0.4 }
     ];
     
-    // Рисуем мягкие слои drop-shadow
+    // Рисуем слои drop-shadow
     shadowConfigs.forEach(({ radius, alpha }) => {
-      const steps = 12; // Меньше направлений
-      const layers = 5;  // Меньше слоёв
+      const steps = 12;
+      const layers = 6;
       
       for (let angle = 0; angle < Math.PI * 2; angle += (Math.PI * 2) / steps) {
         for (let dist = 0; dist <= radius; dist += radius / layers) {
           const offsetX = Math.cos(angle) * dist;
           const offsetY = Math.sin(angle) * dist;
-          const layerAlpha = alpha * (1 - dist / radius) * 0.15; // Ещё слабее
+          const layerAlpha = alpha * (1 - dist / radius) * 0.25; // Средняя интенсивность
           
           ctx.fillStyle = `rgba(0, 0, 0, ${layerAlpha})`;
           ctx.fillText(line, textX + offsetX, currentY + offsetY);
@@ -309,22 +309,22 @@ const renderSlideToCanvas = (
     bodyLines.forEach((line) => {
       ctx.save();
       
-      // Более мягкие параметры тени для body
+      // Средние параметры тени для body
       const shadowConfigs = [
-        { radius: 23, alpha: 0.3 },
-        { radius: 18, alpha: 0.25 },
-        { radius: 12, alpha: 0.2 }
+        { radius: 23, alpha: 0.6 },
+        { radius: 18, alpha: 0.5 },
+        { radius: 12, alpha: 0.4 }
       ];
       
       shadowConfigs.forEach(({ radius, alpha }) => {
         const steps = 12;
-        const layers = 5;
+        const layers = 6;
         
         for (let angle = 0; angle < Math.PI * 2; angle += (Math.PI * 2) / steps) {
           for (let dist = 0; dist <= radius; dist += radius / layers) {
             const offsetX = Math.cos(angle) * dist;
             const offsetY = Math.sin(angle) * dist;
-            const layerAlpha = alpha * (1 - dist / radius) * 0.15;
+            const layerAlpha = alpha * (1 - dist / radius) * 0.25;
             
             ctx.fillStyle = `rgba(0, 0, 0, ${layerAlpha})`;
             ctx.fillText(line, textX + offsetX, currentY + offsetY);
