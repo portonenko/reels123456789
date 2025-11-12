@@ -170,17 +170,21 @@ export const exportVideo = async (
 
   onProgress(10, "Starting recording...");
 
-  // Use baseline H.264 for maximum phone compatibility
-  let mimeType = 'video/mp4;codecs=avc1.42E01E,mp4a.40.2'; // H.264 Baseline + AAC
+  // Try to use most compatible video format
+  let mimeType = 'video/webm;codecs=vp9,opus'; // VP9 - better compression, smoother playback
   
-  // Try standard H.264 if baseline not supported
   if (!MediaRecorder.isTypeSupported(mimeType)) {
-    mimeType = 'video/mp4;codecs=h264,aac';
+    mimeType = 'video/webm;codecs=vp8,opus'; // VP8 - widely supported fallback
   }
   
-  // Fallback to WebM VP8 (widely supported on Android)
+  // Try H.264 if WebM not supported (mainly for Safari)
   if (!MediaRecorder.isTypeSupported(mimeType)) {
-    mimeType = 'video/webm;codecs=vp8,opus';
+    mimeType = 'video/mp4;codecs=avc1.42E01E,mp4a.40.2'; // H.264 Baseline + AAC
+  }
+  
+  // Final fallback
+  if (!MediaRecorder.isTypeSupported(mimeType)) {
+    mimeType = 'video/webm'; // Let browser choose codecs
   }
 
   console.log('Using video format:', mimeType);
@@ -220,15 +224,20 @@ export const exportVideo = async (
     combinedStream = videoStream;
   }
   
-  const mediaRecorder = new MediaRecorder(combinedStream, {
+  // Use variable bitrate for better quality/size balance
+  const recorderOptions: any = {
     mimeType,
-    videoBitsPerSecond: 5000000, // 5 Mbps - balanced quality/filesize for smooth playback
-    audioBitsPerSecond: 128000, // 128 kbps for audio - sufficient quality
-  });
+    videoBitsPerSecond: 4000000, // 4 Mbps - optimal for 1080p vertical video
+    audioBitsPerSecond: 128000,  // 128 kbps audio
+  };
+  
+  const mediaRecorder = new MediaRecorder(combinedStream, recorderOptions);
+  console.log('MediaRecorder configured:', recorderOptions);
 
   mediaRecorder.ondataavailable = (e) => {
     if (e.data.size > 0) {
       chunks.push(e.data);
+      console.log(`Recording chunk: ${(e.data.size / 1024 / 1024).toFixed(2)} MB, Total chunks: ${chunks.length}`);
     }
   };
 
@@ -239,12 +248,20 @@ export const exportVideo = async (
         audioContext.close();
       }
       const blob = new Blob(chunks, { type: mimeType.split(';')[0] });
+      console.log(`Final video size: ${(blob.size / 1024 / 1024).toFixed(2)} MB`);
+      console.log(`Video format: ${mimeType}`);
+      console.log(`Total chunks: ${chunks.length}`);
       resolve(blob);
     };
-    mediaRecorder.onerror = reject;
+    mediaRecorder.onerror = (e) => {
+      console.error('MediaRecorder error:', e);
+      reject(e);
+    };
   });
 
-  mediaRecorder.start(100); // Collect data every 100ms for better audio sync
+  // Request data in larger chunks for better performance (every 1 second)
+  mediaRecorder.start(1000);
+  console.log('MediaRecorder started with format:', mimeType);
 
   // Start background video and audio if available
   if (backgroundVideo) {
