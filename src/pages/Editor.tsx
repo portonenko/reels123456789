@@ -115,6 +115,10 @@ const Editor = () => {
 
   const handleManualCreate = (manualSlides: Array<{ title: string; body: string }>) => {
     const defaultStyle = getDefaultStyle();
+    
+    // Get available assets to assign to slides
+    const availableAssets = Object.values(assets);
+    
     const newSlides: Slide[] = manualSlides.map((slide, index) => {
       const hasBody = slide.body.trim().length > 0;
       const type: "title-only" | "title-body" = hasBody ? "title-body" : "title-only";
@@ -123,6 +127,11 @@ const Editor = () => {
       const words = hasBody ? slide.body.split(/\s+/).length : 0;
       const readingTime = words > 0 ? (words / 160) * 60 : 2;
       const duration = hasBody ? Math.max(2, Math.min(6, readingTime)) : 2;
+
+      // Assign random asset if available
+      const randomAsset = availableAssets.length > 0 
+        ? availableAssets[Math.floor(Math.random() * availableAssets.length)]
+        : null;
 
       return {
         id: crypto.randomUUID(),
@@ -134,6 +143,7 @@ const Editor = () => {
         durationSec: duration,
         style: defaultStyle,
         language: currentLanguage,
+        assetId: randomAsset?.id,
       };
     });
 
