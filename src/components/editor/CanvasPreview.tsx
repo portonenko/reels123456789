@@ -5,6 +5,7 @@ import { useEditorStore } from "@/store/useEditorStore";
 import { Button } from "@/components/ui/button";
 import { Play, Pause, RotateCcw } from "lucide-react";
 import { DraggableTextBox } from "./DraggableTextBox";
+import { renderSlideText } from "@/utils/canvasTextRenderer";
 
 interface CanvasPreviewProps {
   slide: Slide | null;
@@ -20,6 +21,7 @@ export const CanvasPreview = ({ slide, globalOverlay, showTextBoxControls = fals
   const [slideTime, setSlideTime] = useState(0);
   const timerRef = useRef<NodeJS.Timeout | null>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
+  const canvasRef = useRef<HTMLCanvasElement>(null);
 
   const audioRef = useRef<HTMLAudioElement>(null);
   const animationRef = useRef<number | null>(null);
@@ -77,6 +79,60 @@ export const CanvasPreview = ({ slide, globalOverlay, showTextBoxControls = fals
       };
     }
   }, [isPlaying, currentSlideIndex, slides]);
+
+  // Render canvas text overlay
+  useEffect(() => {
+    if (!canvasRef.current || !currentSlide) return;
+    
+    const canvas = canvasRef.current;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+
+    // Clear canvas
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+    // Calculate transition progress
+    const transitionDuration = 0.5;
+    const transitionProgress = Math.min(slideTime / transitionDuration, 1);
+
+    // Apply transition effects to canvas
+    ctx.save();
+    
+    if (isPlaying && slideTime < transitionDuration && currentSlide.transition) {
+      let opacity = 1;
+      let offsetX = 0;
+      
+      switch (currentSlide.transition) {
+        case "fade":
+          opacity = transitionProgress;
+          break;
+        case "flash":
+          if (transitionProgress < 0.3) {
+            ctx.filter = `brightness(${1 + (3 - transitionProgress / 0.3 * 3)})`;
+            opacity = transitionProgress / 0.3;
+          }
+          break;
+        case "glow":
+          ctx.filter = `brightness(${1 + (1 - transitionProgress)}) contrast(${1 + (0.2 - transitionProgress * 0.2)})`;
+          opacity = transitionProgress;
+          break;
+        case "slide-left":
+          offsetX = canvas.width * (1 - transitionProgress);
+          break;
+        case "slide-right":
+          offsetX = -canvas.width * (1 - transitionProgress);
+          break;
+      }
+      
+      ctx.globalAlpha = opacity;
+      ctx.translate(offsetX, 0);
+    }
+
+    // Render text using unified function
+    renderSlideText(ctx, currentSlide, canvas, { isPreview: true });
+    
+    ctx.restore();
+  }, [currentSlide, slideTime, isPlaying]);
 
   const handlePlayPause = () => {
     if (isPlaying) {
@@ -259,259 +315,14 @@ export const CanvasPreview = ({ slide, globalOverlay, showTextBoxControls = fals
           style={{ opacity: overlayOpacity }}
         />
 
-        {/* Text content with transition */}
-        <div style={transitionStyle} className="absolute inset-0">
-        {currentSlide.style.text.position ? (
-          // Positioned text box mode
-          <div
-            className="absolute"
-            style={{
-              left: `${currentSlide.style.text.position.x}%`,
-              top: `${currentSlide.style.text.position.y}%`,
-              width: `${currentSlide.style.text.position.width}%`,
-              height: `${currentSlide.style.text.position.height}%`,
-              display: 'flex',
-              flexDirection: 'column',
-              alignItems: currentSlide.style.text.alignment === 'left' ? 'flex-start' : 
-                         currentSlide.style.text.alignment === 'right' ? 'flex-end' : 'center',
-              justifyContent: 'center',
-            }}
-          >
-            {currentSlide.style.plate.enabled ? (
-              <div
-                className="rounded-lg w-full"
-                style={{
-                  padding: `${currentSlide.style.plate.padding}px`,
-                  borderRadius: `${currentSlide.style.plate.borderRadius}px`,
-                  backgroundColor: (() => {
-                    const color = currentSlide.style.plate.backgroundColor;
-                    const opacity = currentSlide.style.plate.opacity;
-                    
-                    if (color.startsWith('#')) {
-                      const r = parseInt(color.slice(1, 3), 16);
-                      const g = parseInt(color.slice(3, 5), 16);
-                      const b = parseInt(color.slice(5, 7), 16);
-                      return `rgba(${r}, ${g}, ${b}, ${opacity})`;
-                    } else if (color.startsWith('rgb')) {
-                      const match = color.match(/(\d+),\s*(\d+),\s*(\d+)/);
-                      if (match) {
-                        return `rgba(${match[1]}, ${match[2]}, ${match[3]}, ${opacity})`;
-                      }
-                    }
-                    return color;
-                  })(),
-                  filter: (() => {
-                    const intensity = (currentSlide.style.text.shadowIntensity || 10) / 10;
-                    const radius = (currentSlide.style.text.shadowRadius || 20) / 3;
-                    return `drop-shadow(0 ${radius}px ${radius * 2}px rgba(0, 0, 0, ${intensity}))`;
-                  })(),
-                }}
-              >
-                <h1
-                  className={cn("font-bold")}
-                  style={{
-                    fontFamily: currentSlide.style.text.fontFamily,
-                    fontSize: `${currentSlide.style.text.fontSize / 3}px`,
-                    fontWeight: currentSlide.style.text.fontWeight,
-                    lineHeight: currentSlide.style.text.lineHeight,
-                    letterSpacing: `${currentSlide.style.text.letterSpacing}em`,
-                    color: currentSlide.style.text.color,
-                    textAlign: currentSlide.style.text.alignment,
-                    wordWrap: "break-word",
-                    textTransform: currentSlide.style.text.textTransform as any,
-                  }}
-                >
-                  {currentSlide.title.replace(/^\[.*?\]\s*/, '')}
-                </h1>
-                {currentSlide.body && (
-                  <p
-                    className="mt-3"
-                    style={{
-                      fontFamily: currentSlide.style.text.bodyFontFamily || currentSlide.style.text.fontFamily,
-                      fontSize: `${(currentSlide.style.text.bodyFontSize || currentSlide.style.text.fontSize * 0.5) / 3}px`,
-                      fontWeight: currentSlide.style.text.bodyFontWeight || currentSlide.style.text.fontWeight - 200,
-                      lineHeight: currentSlide.style.text.lineHeight * 1.2,
-                      color: currentSlide.style.text.bodyColor || currentSlide.style.text.color,
-                      textAlign: currentSlide.style.text.alignment,
-                      wordWrap: "break-word",
-                      textTransform: currentSlide.style.text.textTransform as any,
-                    }}
-                  >
-                    {currentSlide.body.replace(/^\[.*?\]\s*/, '')}
-                  </p>
-                )}
-              </div>
-            ) : (
-              <div 
-                className="w-full"
-                style={{
-                  filter: (() => {
-                    const intensity = (currentSlide.style.text.shadowIntensity || 10) / 10;
-                    const radius = (currentSlide.style.text.shadowRadius || 20) / 3;
-                    return `drop-shadow(0 ${radius}px ${radius * 2}px rgba(0, 0, 0, ${intensity}))`;
-                  })(),
-                }}
-              >
-                <h1
-                  className={cn("font-bold")}
-                  style={{
-                    fontFamily: currentSlide.style.text.fontFamily,
-                    fontSize: `${currentSlide.style.text.fontSize / 3}px`,
-                    fontWeight: currentSlide.style.text.fontWeight,
-                    lineHeight: currentSlide.style.text.lineHeight,
-                    letterSpacing: `${currentSlide.style.text.letterSpacing}em`,
-                    color: currentSlide.style.text.color,
-                    textAlign: currentSlide.style.text.alignment,
-                    wordWrap: "break-word",
-                    textTransform: currentSlide.style.text.textTransform as any,
-                  }}
-                >
-                  {currentSlide.title.replace(/^\[.*?\]\s*/, '')}
-                </h1>
-                {currentSlide.body && (
-                  <p
-                    className="mt-3"
-                    style={{
-                      fontFamily: currentSlide.style.text.bodyFontFamily || currentSlide.style.text.fontFamily,
-                      fontSize: `${(currentSlide.style.text.bodyFontSize || currentSlide.style.text.fontSize * 0.5) / 3}px`,
-                      fontWeight: currentSlide.style.text.bodyFontWeight || currentSlide.style.text.fontWeight - 200,
-                      lineHeight: currentSlide.style.text.lineHeight * 1.2,
-                      color: currentSlide.style.text.bodyColor || currentSlide.style.text.color,
-                      textAlign: currentSlide.style.text.alignment,
-                      wordWrap: "break-word",
-                      textTransform: currentSlide.style.text.textTransform as any,
-                    }}
-                  >
-                    {currentSlide.body.replace(/^\[.*?\]\s*/, '')}
-                  </p>
-                )}
-              </div>
-            )}
-          </div>
-        ) : (
-          // Default centered text mode
-          <div
-            className="absolute inset-0 flex flex-col items-center justify-center p-6"
-            style={{
-              paddingTop: `${currentSlide.style.safeMarginTop}%`,
-              paddingBottom: `${currentSlide.style.safeMarginBottom}%`,
-            }}
-          >
-            {currentSlide.style.plate.enabled ? (
-              <div
-                className="rounded-lg"
-                style={{
-                  padding: `${currentSlide.style.plate.padding}px`,
-                  borderRadius: `${currentSlide.style.plate.borderRadius}px`,
-                  backgroundColor: (() => {
-                    const color = currentSlide.style.plate.backgroundColor;
-                    const opacity = currentSlide.style.plate.opacity;
-                    
-                    if (color.startsWith('#')) {
-                      const r = parseInt(color.slice(1, 3), 16);
-                      const g = parseInt(color.slice(3, 5), 16);
-                      const b = parseInt(color.slice(5, 7), 16);
-                      return `rgba(${r}, ${g}, ${b}, ${opacity})`;
-                    } else if (color.startsWith('rgb')) {
-                      const match = color.match(/(\d+),\s*(\d+),\s*(\d+)/);
-                      if (match) {
-                        return `rgba(${match[1]}, ${match[2]}, ${match[3]}, ${opacity})`;
-                      }
-                    }
-                    return color;
-                  })(),
-                  filter: (() => {
-                    const intensity = (currentSlide.style.text.shadowIntensity || 10) / 10;
-                    const radius = (currentSlide.style.text.shadowRadius || 20) / 3;
-                    return `drop-shadow(0 ${radius}px ${radius * 2}px rgba(0, 0, 0, ${intensity}))`;
-                  })(),
-                }}
-              >
-                <h1
-                  className={cn("font-bold")}
-                  style={{
-                    fontFamily: currentSlide.style.text.fontFamily,
-                    fontSize: `${currentSlide.style.text.fontSize / 3}px`,
-                    fontWeight: currentSlide.style.text.fontWeight,
-                    lineHeight: currentSlide.style.text.lineHeight,
-                    letterSpacing: `${currentSlide.style.text.letterSpacing}em`,
-                    color: currentSlide.style.text.color,
-                    textAlign: currentSlide.style.text.alignment,
-                    wordWrap: "break-word",
-                    maxWidth: "80%",
-                    textTransform: currentSlide.style.text.textTransform as any,
-                  }}
-                >
-                  {currentSlide.title.replace(/^\[.*?\]\s*/, '')}
-                </h1>
-                {currentSlide.body && (
-                  <p
-                    className="mt-3"
-                    style={{
-                      fontFamily: currentSlide.style.text.bodyFontFamily || currentSlide.style.text.fontFamily,
-                      fontSize: `${(currentSlide.style.text.bodyFontSize || currentSlide.style.text.fontSize * 0.5) / 3}px`,
-                      fontWeight: currentSlide.style.text.bodyFontWeight || currentSlide.style.text.fontWeight - 200,
-                      lineHeight: currentSlide.style.text.lineHeight * 1.2,
-                      color: currentSlide.style.text.bodyColor || currentSlide.style.text.color,
-                      textAlign: currentSlide.style.text.alignment,
-                      wordWrap: "break-word",
-                      maxWidth: "80%",
-                      textTransform: currentSlide.style.text.textTransform as any,
-                    }}
-                  >
-                    {currentSlide.body.replace(/^\[.*?\]\s*/, '')}
-                  </p>
-                )}
-              </div>
-            ) : (
-              <div 
-                className="w-full max-w-[80%]"
-                style={{
-                  filter: (() => {
-                    const intensity = (currentSlide.style.text.shadowIntensity || 10) / 10;
-                    const radius = (currentSlide.style.text.shadowRadius || 20) / 3;
-                    return `drop-shadow(0 ${radius}px ${radius * 2}px rgba(0, 0, 0, ${intensity}))`;
-                  })(),
-                }}
-              >
-                <h1
-                  className={cn("font-bold")}
-                  style={{
-                    fontFamily: currentSlide.style.text.fontFamily,
-                    fontSize: `${currentSlide.style.text.fontSize / 3}px`,
-                    fontWeight: currentSlide.style.text.fontWeight,
-                    lineHeight: currentSlide.style.text.lineHeight,
-                    letterSpacing: `${currentSlide.style.text.letterSpacing}em`,
-                    color: currentSlide.style.text.color,
-                    textAlign: currentSlide.style.text.alignment,
-                    wordWrap: "break-word",
-                    textTransform: currentSlide.style.text.textTransform as any,
-                  }}
-                >
-                  {currentSlide.title.replace(/^\[.*?\]\s*/, '')}
-                </h1>
-                {currentSlide.body && (
-                  <p
-                    className="mt-3"
-                    style={{
-                      fontFamily: currentSlide.style.text.bodyFontFamily || currentSlide.style.text.fontFamily,
-                      fontSize: `${(currentSlide.style.text.bodyFontSize || currentSlide.style.text.fontSize * 0.5) / 3}px`,
-                      fontWeight: currentSlide.style.text.bodyFontWeight || currentSlide.style.text.fontWeight - 200,
-                      lineHeight: currentSlide.style.text.lineHeight * 1.2,
-                      color: currentSlide.style.text.bodyColor || currentSlide.style.text.color,
-                      textAlign: currentSlide.style.text.alignment,
-                      wordWrap: "break-word",
-                      textTransform: currentSlide.style.text.textTransform as any,
-                    }}
-                  >
-                    {currentSlide.body.replace(/^\[.*?\]\s*/, '')}
-                  </p>
-                )}
-              </div>
-            )}
-          </div>
-        )}
-        </div>
+        {/* Canvas overlay for text rendering */}
+        <canvas
+          ref={canvasRef}
+          width={1080}
+          height={1920}
+          className="absolute inset-0 w-full h-full"
+          style={{ pointerEvents: 'none' }}
+        />
 
           {/* Duration indicator */}
           <div className="absolute bottom-4 left-4 bg-black/70 text-white text-xs px-2 py-1 rounded">
