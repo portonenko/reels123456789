@@ -15,6 +15,7 @@ export interface TextStyle {
   shadowIntensity?: number; // Shadow darkness multiplier (0-10)
   shadowRadius?: number; // Shadow spread radius in pixels (0-100)
   alignment: "left" | "center" | "right";
+  textTransform?: "none" | "uppercase" | "lowercase" | "capitalize"; // Text transformation
   // Text effects (when plate is disabled)
   stroke?: string; // Text outline
   strokeWidth?: number;

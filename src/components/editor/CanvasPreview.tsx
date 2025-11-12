@@ -318,6 +318,7 @@ export const CanvasPreview = ({ slide, globalOverlay, showTextBoxControls = fals
                     color: currentSlide.style.text.color,
                     textAlign: currentSlide.style.text.alignment,
                     wordWrap: "break-word",
+                    textTransform: currentSlide.style.text.textTransform as any,
                   }}
                 >
                   {currentSlide.title.replace(/^\[.*?\]\s*/, '')}
@@ -333,6 +334,7 @@ export const CanvasPreview = ({ slide, globalOverlay, showTextBoxControls = fals
                       color: currentSlide.style.text.bodyColor || currentSlide.style.text.color,
                       textAlign: currentSlide.style.text.alignment,
                       wordWrap: "break-word",
+                      textTransform: currentSlide.style.text.textTransform as any,
                     }}
                   >
                     {currentSlide.body.replace(/^\[.*?\]\s*/, '')}
@@ -361,6 +363,7 @@ export const CanvasPreview = ({ slide, globalOverlay, showTextBoxControls = fals
                     color: currentSlide.style.text.color,
                     textAlign: currentSlide.style.text.alignment,
                     wordWrap: "break-word",
+                    textTransform: currentSlide.style.text.textTransform as any,
                   }}
                 >
                   {currentSlide.title.replace(/^\[.*?\]\s*/, '')}
@@ -376,6 +379,7 @@ export const CanvasPreview = ({ slide, globalOverlay, showTextBoxControls = fals
                       color: currentSlide.style.text.bodyColor || currentSlide.style.text.color,
                       textAlign: currentSlide.style.text.alignment,
                       wordWrap: "break-word",
+                      textTransform: currentSlide.style.text.textTransform as any,
                     }}
                   >
                     {currentSlide.body.replace(/^\[.*?\]\s*/, '')}
@@ -435,6 +439,7 @@ export const CanvasPreview = ({ slide, globalOverlay, showTextBoxControls = fals
                     textAlign: currentSlide.style.text.alignment,
                     wordWrap: "break-word",
                     maxWidth: "80%",
+                    textTransform: currentSlide.style.text.textTransform as any,
                   }}
                 >
                   {currentSlide.title.replace(/^\[.*?\]\s*/, '')}
@@ -451,11 +456,7 @@ export const CanvasPreview = ({ slide, globalOverlay, showTextBoxControls = fals
                       textAlign: currentSlide.style.text.alignment,
                       wordWrap: "break-word",
                       maxWidth: "80%",
-                      textShadow: (() => {
-                        const intensity = (currentSlide.style.text.shadowIntensity || 10) / 10;
-                        const radius = (currentSlide.style.text.shadowRadius || 20) / 3;
-                        return `0 ${radius}px ${radius * 2}px rgba(0, 0, 0, ${intensity})`;
-                      })(),
+                      textTransform: currentSlide.style.text.textTransform as any,
                     }}
                   >
                     {currentSlide.body.replace(/^\[.*?\]\s*/, '')}
@@ -463,7 +464,8 @@ export const CanvasPreview = ({ slide, globalOverlay, showTextBoxControls = fals
                 )}
               </div>
             ) : (
-              <div
+              <div 
+                className="w-full max-w-[80%]"
                 style={{
                   filter: (() => {
                     const intensity = (currentSlide.style.text.shadowIntensity || 10) / 10;
@@ -483,7 +485,7 @@ export const CanvasPreview = ({ slide, globalOverlay, showTextBoxControls = fals
                     color: currentSlide.style.text.color,
                     textAlign: currentSlide.style.text.alignment,
                     wordWrap: "break-word",
-                    maxWidth: "80%",
+                    textTransform: currentSlide.style.text.textTransform as any,
                   }}
                 >
                   {currentSlide.title.replace(/^\[.*?\]\s*/, '')}
@@ -499,7 +501,7 @@ export const CanvasPreview = ({ slide, globalOverlay, showTextBoxControls = fals
                       color: currentSlide.style.text.bodyColor || currentSlide.style.text.color,
                       textAlign: currentSlide.style.text.alignment,
                       wordWrap: "break-word",
-                      maxWidth: "80%",
+                      textTransform: currentSlide.style.text.textTransform as any,
                     }}
                   >
                     {currentSlide.body.replace(/^\[.*?\]\s*/, '')}
