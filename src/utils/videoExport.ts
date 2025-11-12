@@ -106,7 +106,7 @@ const renderSlideToCanvas = (
 
   // Calculate position for text box if defined
   let textX = centerX;
-  let textBoxWidth = canvas.width * 0.70; // Default 70% width
+  let textBoxWidth = canvas.width * 0.80; // Match preview default 80% width
   
   if (slide.style.text.position) {
     textX = (slide.style.text.position.x / 100) * canvas.width + (slide.style.text.position.width / 100 * canvas.width) / 2;
@@ -116,6 +116,14 @@ const renderSlideToCanvas = (
 
   // Calculate wrapped text dimensions first (needed for plate sizing)
   ctx.font = `${slide.style.text.fontWeight} ${slide.style.text.fontSize}px ${slide.style.text.fontFamily}`;
+  
+  // Helper function to measure text width with letter spacing
+  const measureTextWithSpacing = (text: string) => {
+    const metrics = ctx.measureText(text);
+    const letterSpacingPx = slide.style.text.letterSpacing * slide.style.text.fontSize;
+    return metrics.width + (text.length - 1) * letterSpacingPx;
+  };
+  
   const titleWords = cleanTitle.split(' ');
   let titleLine = '';
   const titleLines: string[] = [];
@@ -123,10 +131,10 @@ const renderSlideToCanvas = (
 
   for (const word of titleWords) {
     const testLine = titleLine + word + ' ';
-    const metrics = ctx.measureText(testLine);
-    if (metrics.width > textBoxWidth && titleLine.length > 0) {
+    const testWidth = measureTextWithSpacing(testLine);
+    if (testWidth > textBoxWidth && titleLine.length > 0) {
       titleLines.push(titleLine.trim());
-      maxTitleWidth = Math.max(maxTitleWidth, ctx.measureText(titleLine.trim()).width);
+      maxTitleWidth = Math.max(maxTitleWidth, measureTextWithSpacing(titleLine.trim()));
       titleLine = word + ' ';
     } else {
       titleLine = testLine;
@@ -134,7 +142,7 @@ const renderSlideToCanvas = (
   }
   if (titleLine.trim()) {
     titleLines.push(titleLine.trim());
-    maxTitleWidth = Math.max(maxTitleWidth, ctx.measureText(titleLine.trim()).width);
+    maxTitleWidth = Math.max(maxTitleWidth, measureTextWithSpacing(titleLine.trim()));
   }
 
   const titleLineHeight = slide.style.text.fontSize * slide.style.text.lineHeight;
@@ -147,15 +155,23 @@ const renderSlideToCanvas = (
   
   if (cleanBody) {
     ctx.font = `${slide.style.text.bodyFontWeight || slide.style.text.fontWeight - 200} ${slide.style.text.bodyFontSize || slide.style.text.fontSize * 0.5}px ${slide.style.text.fontFamily}`;
+    
+    // Helper for body text measurement with letter spacing
+    const measureBodyTextWithSpacing = (text: string) => {
+      const metrics = ctx.measureText(text);
+      const letterSpacingPx = slide.style.text.letterSpacing * (slide.style.text.bodyFontSize || slide.style.text.fontSize * 0.5);
+      return metrics.width + (text.length - 1) * letterSpacingPx;
+    };
+    
     const bodyWords = cleanBody.split(' ');
     let bodyLine = '';
 
     for (const word of bodyWords) {
       const testLine = bodyLine + word + ' ';
-      const metrics = ctx.measureText(testLine);
-      if (metrics.width > textBoxWidth && bodyLine.length > 0) {
+      const testWidth = measureBodyTextWithSpacing(testLine);
+      if (testWidth > textBoxWidth && bodyLine.length > 0) {
         bodyLines.push(bodyLine.trim());
-        maxBodyWidth = Math.max(maxBodyWidth, ctx.measureText(bodyLine.trim()).width);
+        maxBodyWidth = Math.max(maxBodyWidth, measureBodyTextWithSpacing(bodyLine.trim()));
         bodyLine = word + ' ';
       } else {
         bodyLine = testLine;
@@ -163,7 +179,7 @@ const renderSlideToCanvas = (
     }
     if (bodyLine.trim()) {
       bodyLines.push(bodyLine.trim());
-      maxBodyWidth = Math.max(maxBodyWidth, ctx.measureText(bodyLine.trim()).width);
+      maxBodyWidth = Math.max(maxBodyWidth, measureBodyTextWithSpacing(bodyLine.trim()));
     }
     
     const bodyLineHeight = (slide.style.text.bodyFontSize || slide.style.text.fontSize * 0.5) * slide.style.text.lineHeight * 1.2;
@@ -297,6 +313,7 @@ const renderSlideToCanvas = (
       // Рисуем title shadow
       let shadowY = currentY;
       ctx.font = `${slide.style.text.fontWeight} ${slide.style.text.fontSize}px ${slide.style.text.fontFamily}`;
+      ctx.letterSpacing = `${slide.style.text.letterSpacing}em`;
       titleLines.forEach((line) => {
         ctx.fillStyle = slide.style.text.color;
         ctx.fillText(line, textX, shadowY);
@@ -307,6 +324,7 @@ const renderSlideToCanvas = (
       if (cleanBody) {
         shadowY += 30;
         ctx.font = `${slide.style.text.bodyFontWeight || slide.style.text.fontWeight - 200} ${slide.style.text.bodyFontSize || slide.style.text.fontSize * 0.5}px ${slide.style.text.bodyFontFamily || slide.style.text.fontFamily}`;
+        ctx.letterSpacing = `${slide.style.text.letterSpacing}em`;
         const bodyLineHeight = (slide.style.text.bodyFontSize || slide.style.text.fontSize * 0.5) * slide.style.text.lineHeight * 1.2;
         bodyLines.forEach((line) => {
           const bodyColor = slide.style.text.bodyColor || slide.style.text.color;
@@ -328,6 +346,8 @@ const renderSlideToCanvas = (
 
   // Draw title lines (основной текст)
   ctx.font = `${slide.style.text.fontWeight} ${slide.style.text.fontSize}px ${slide.style.text.fontFamily}`;
+  ctx.letterSpacing = `${slide.style.text.letterSpacing}em`;
+  
   titleLines.forEach((line) => {
     let displayLine = line;
     if (slide.style.text.textTransform === 'uppercase') {
@@ -349,6 +369,7 @@ const renderSlideToCanvas = (
     const bodyColor = slide.style.text.bodyColor || slide.style.text.color;
     
     ctx.font = `${slide.style.text.bodyFontWeight || slide.style.text.fontWeight - 200} ${slide.style.text.bodyFontSize || slide.style.text.fontSize * 0.5}px ${slide.style.text.bodyFontFamily || slide.style.text.fontFamily}`;
+    ctx.letterSpacing = `${slide.style.text.letterSpacing}em`;
 
     const bodyLineHeight = (slide.style.text.bodyFontSize || slide.style.text.fontSize * 0.5) * slide.style.text.lineHeight * 1.2;
     
