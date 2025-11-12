@@ -285,11 +285,23 @@ export const exportVideo = async (
     const now = Date.now();
     const elapsed = (now - startTime) / 1000; // seconds
     
+    // Check if we've reached the end (with small tolerance for timing precision)
+    if (elapsed >= totalDuration + 0.1) {
+      // Stop recording
+      if (backgroundVideo) {
+        backgroundVideo.pause();
+      }
+      if (backgroundAudio) {
+        backgroundAudio.pause();
+      }
+      mediaRecorder.stop();
+      console.log('Recording completed at:', elapsed, 'seconds');
+      return;
+    }
+    
     // Throttle to 20 FPS for consistent performance
     if (now - lastFrameTime < frameInterval) {
-      if (elapsed < totalDuration) {
-        requestAnimationFrame(animate);
-      }
+      requestAnimationFrame(animate);
       return;
     }
     lastFrameTime = now;
@@ -310,32 +322,19 @@ export const exportVideo = async (
     }
 
     // Render current slide with transition
-    if (currentSlideIndex < slides.length) {
-      const slideElapsed = elapsed - slideStartTime;
-      const transitionDuration = 0.5; // 0.5 seconds
-      const transitionProgress = Math.min(slideElapsed / transitionDuration, 1);
-      
-      renderSlideToCanvas(
-        slides[currentSlideIndex], 
-        canvas, 
-        backgroundVideo, 
-        transitionProgress,
-        globalOverlay
-      );
-      
-      if (elapsed < totalDuration) {
-        requestAnimationFrame(animate);
-      } else {
-        // Stop recording
-        if (backgroundVideo) {
-          backgroundVideo.pause();
-        }
-        if (backgroundAudio) {
-          backgroundAudio.pause();
-        }
-        mediaRecorder.stop();
-      }
-    }
+    const slideElapsed = elapsed - slideStartTime;
+    const transitionDuration = 0.5; // 0.5 seconds
+    const transitionProgress = Math.min(slideElapsed / transitionDuration, 1);
+    
+    renderSlideToCanvas(
+      slides[currentSlideIndex], 
+      canvas, 
+      backgroundVideo, 
+      transitionProgress,
+      globalOverlay
+    );
+    
+    requestAnimationFrame(animate);
   };
 
   animate();
