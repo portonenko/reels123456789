@@ -10,14 +10,15 @@ interface TextInputDialogProps {
   open: boolean;
   onClose: () => void;
   onParse: (text: string) => void;
+  onManualCreate?: (slides: ManualSlide[]) => void;
 }
 
-interface ManualSlide {
+export interface ManualSlide {
   title: string;
   body: string;
 }
 
-export const TextInputDialog = ({ open, onClose, onParse }: TextInputDialogProps) => {
+export const TextInputDialog = ({ open, onClose, onParse, onManualCreate }: TextInputDialogProps) => {
   const [text, setText] = useState("");
   const [mode, setMode] = useState<"auto" | "manual">("auto");
   const [manualSlides, setManualSlides] = useState<ManualSlide[]>([{ title: "", body: "" }]);
@@ -29,23 +30,23 @@ export const TextInputDialog = ({ open, onClose, onParse }: TextInputDialogProps
       setText("");
       setManualSlides([{ title: "", body: "" }]);
     } else if (mode === "manual" && manualSlides.some(s => s.title.trim())) {
-      // Convert manual slides to text format that parseTextToSlides understands
-      // Each slide should be: title\n\nbody (if exists)
-      // Slides separated by \n\n
-      const formattedText = manualSlides
-        .filter(s => s.title.trim())
-        .map(s => {
-          if (s.body.trim()) {
-            return `${s.title}\n\n${s.body}`;
-          }
-          return s.title;
-        })
-        .join('\n\n');
-      
-      console.log('Manual mode - formatted text:', formattedText);
-      console.log('Number of slides:', manualSlides.filter(s => s.title.trim()).length);
-      
-      onParse(formattedText);
+      if (onManualCreate) {
+        // Direct creation from manual slides
+        const validSlides = manualSlides.filter(s => s.title.trim());
+        onManualCreate(validSlides);
+      } else {
+        // Fallback: convert to text format
+        const formattedText = manualSlides
+          .filter(s => s.title.trim())
+          .map(s => {
+            if (s.body.trim()) {
+              return `${s.title}\n\n${s.body}`;
+            }
+            return s.title;
+          })
+          .join('\n\n');
+        onParse(formattedText);
+      }
       onClose();
       setText("");
       setManualSlides([{ title: "", body: "" }]);

@@ -4,7 +4,7 @@ import { useEditorStore } from "@/store/useEditorStore";
 import { SlideCard } from "@/components/editor/SlideCard";
 import { CanvasPreview } from "@/components/editor/CanvasPreview";
 import { StylePanel } from "@/components/editor/StylePanel";
-import { TextInputDialog } from "@/components/editor/TextInputDialog";
+import { TextInputDialog, ManualSlide } from "@/components/editor/TextInputDialog";
 import { TranslationDialog } from "@/components/editor/TranslationDialog";
 import { ExportDialog } from "@/components/editor/ExportDialog";
 import { LanguageSwitcher } from "@/components/editor/LanguageSwitcher";
@@ -111,6 +111,37 @@ const Editor = () => {
       setSelectedSlideId(parsedSlides[0].id);
     }
     toast.success(`Created ${parsedSlides.length} slides`);
+  };
+
+  const handleManualCreate = (manualSlides: Array<{ title: string; body: string }>) => {
+    const defaultStyle = getDefaultStyle();
+    const newSlides: Slide[] = manualSlides.map((slide, index) => {
+      const hasBody = slide.body.trim().length > 0;
+      const type: "title-only" | "title-body" = hasBody ? "title-body" : "title-only";
+      
+      // Calculate duration based on body text if present
+      const words = hasBody ? slide.body.split(/\s+/).length : 0;
+      const readingTime = words > 0 ? (words / 160) * 60 : 2;
+      const duration = hasBody ? Math.max(2, Math.min(6, readingTime)) : 2;
+
+      return {
+        id: crypto.randomUUID(),
+        projectId: "project-1",
+        index,
+        type,
+        title: slide.title.trim(),
+        body: hasBody ? slide.body.trim() : undefined,
+        durationSec: duration,
+        style: defaultStyle,
+        language: currentLanguage,
+      };
+    });
+
+    setSlides(newSlides);
+    if (newSlides.length > 0) {
+      setSelectedSlideId(newSlides[0].id);
+    }
+    toast.success(language === 'ru' ? `Создано ${newSlides.length} слайдов` : `Created ${newSlides.length} slides`);
   };
 
   const handleTranslate = async (languages: string[]) => {
@@ -435,6 +466,7 @@ const Editor = () => {
         open={showTextDialog}
         onClose={() => setShowTextDialog(false)}
         onParse={handleParseText}
+        onManualCreate={handleManualCreate}
       />
 
       <TextTemplateManager
