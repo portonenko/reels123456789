@@ -181,7 +181,7 @@ export const SmartRandomVideoDialog = ({
       localStorage.setItem(`lastUnusedText_${currentLanguage}`, unusedText);
       
       // Update store - music URL is already the public URL from the database
-      setSlides(selectedSlides);
+      setSlides(finalSlides);
       setBackgroundMusic(randomMusic.url);
 
       // Add all assets to store
@@ -196,7 +196,7 @@ export const SmartRandomVideoDialog = ({
         });
       });
 
-      toast.success(`Random video created with ${selectedSlides.length} slides!`);
+      toast.success(`Random video created with ${finalSlides.length} slides!`);
       onOpenChange(false);
     } catch (error) {
       console.error("Error generating random video:", error);
