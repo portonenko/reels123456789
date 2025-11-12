@@ -30,10 +30,21 @@ export const TextInputDialog = ({ open, onClose, onParse }: TextInputDialogProps
       setManualSlides([{ title: "", body: "" }]);
     } else if (mode === "manual" && manualSlides.some(s => s.title.trim())) {
       // Convert manual slides to text format that parseTextToSlides understands
+      // Each slide should be: title\n\nbody (if exists)
+      // Slides separated by \n\n
       const formattedText = manualSlides
         .filter(s => s.title.trim())
-        .map(s => `${s.title}${s.body.trim() ? '\n\n' + s.body : ''}`)
+        .map(s => {
+          if (s.body.trim()) {
+            return `${s.title}\n\n${s.body}`;
+          }
+          return s.title;
+        })
         .join('\n\n');
+      
+      console.log('Manual mode - formatted text:', formattedText);
+      console.log('Number of slides:', manualSlides.filter(s => s.title.trim()).length);
+      
       onParse(formattedText);
       onClose();
       setText("");
