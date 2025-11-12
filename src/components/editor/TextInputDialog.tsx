@@ -96,6 +96,7 @@ export const TextInputDialog = ({ open, onClose, onParse }: TextInputDialogProps
                     </span>
                     {manualSlides.length > 1 && (
                       <Button
+                        type="button"
                         variant="ghost"
                         size="sm"
                         onClick={() => removeSlide(index)}
@@ -119,6 +120,7 @@ export const TextInputDialog = ({ open, onClose, onParse }: TextInputDialogProps
               ))}
             </div>
             <Button
+              type="button"
               variant="outline"
               onClick={addSlide}
               className="w-full"
@@ -130,10 +132,10 @@ export const TextInputDialog = ({ open, onClose, onParse }: TextInputDialogProps
         </Tabs>
 
         <div className="flex justify-end gap-2 pt-4 border-t">
-          <Button variant="outline" onClick={onClose}>
+          <Button type="button" variant="outline" onClick={onClose}>
             Отмена
           </Button>
-          <Button onClick={handleParse} disabled={!canParse} className="bg-gradient-primary">
+          <Button type="button" onClick={handleParse} disabled={!canParse} className="bg-gradient-primary">
             <Sparkles className="w-4 h-4 mr-2" />
             Создать слайды
           </Button>
