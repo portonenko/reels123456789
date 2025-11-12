@@ -170,16 +170,12 @@ export const exportVideo = async (
 
   onProgress(10, "Starting recording...");
 
-  // Try to use most compatible video format
-  let mimeType = 'video/webm;codecs=vp9,opus'; // VP9 - better compression, smoother playback
+  // Use H.264 for maximum compatibility - works on all devices
+  let mimeType = 'video/mp4;codecs=avc1.42E01E,mp4a.40.2'; // H.264 Baseline + AAC
   
+  // Fallback to WebM VP8 if H.264 not supported
   if (!MediaRecorder.isTypeSupported(mimeType)) {
-    mimeType = 'video/webm;codecs=vp8,opus'; // VP8 - widely supported fallback
-  }
-  
-  // Try H.264 if WebM not supported (mainly for Safari)
-  if (!MediaRecorder.isTypeSupported(mimeType)) {
-    mimeType = 'video/mp4;codecs=avc1.42E01E,mp4a.40.2'; // H.264 Baseline + AAC
+    mimeType = 'video/webm;codecs=vp8,opus'; // VP8 - widely supported
   }
   
   // Final fallback
@@ -224,11 +220,11 @@ export const exportVideo = async (
     combinedStream = videoStream;
   }
   
-  // Use variable bitrate for better quality/size balance
+  // Use balanced bitrate for smooth playback and good quality
   const recorderOptions: any = {
     mimeType,
-    videoBitsPerSecond: 2500000, // 2.5 Mbps - lower for smoother playback
-    audioBitsPerSecond: 96000,   // 96 kbps audio - sufficient quality
+    videoBitsPerSecond: 3000000, // 3 Mbps - balanced for 1080p vertical
+    audioBitsPerSecond: 128000,  // 128 kbps audio
   };
   
   const mediaRecorder = new MediaRecorder(combinedStream, recorderOptions);
@@ -259,8 +255,8 @@ export const exportVideo = async (
     };
   });
 
-  // Request data in larger chunks for better performance (every 1 second)
-  mediaRecorder.start(1000);
+  // Request data in smaller chunks for better sync (every 500ms)
+  mediaRecorder.start(500);
   console.log('MediaRecorder started with format:', mimeType);
 
   // Start background video and audio if available
