@@ -185,8 +185,8 @@ export const exportVideo = async (
 
   console.log('Using video format:', mimeType);
 
-  // Create MediaRecorder with audio support
-  const videoStream = canvas.captureStream(30); // 30 FPS
+  // Create MediaRecorder with optimized settings for smooth playback
+  const videoStream = canvas.captureStream(24); // 24 FPS - standard for video, smoother playback
   const chunks: Blob[] = [];
   
   // Combine video and audio streams if music is available
@@ -222,8 +222,8 @@ export const exportVideo = async (
   
   const mediaRecorder = new MediaRecorder(combinedStream, {
     mimeType,
-    videoBitsPerSecond: 8000000, // 8 Mbps - higher quality for better text clarity
-    audioBitsPerSecond: 192000, // 192 kbps for audio
+    videoBitsPerSecond: 5000000, // 5 Mbps - balanced quality/filesize for smooth playback
+    audioBitsPerSecond: 128000, // 128 kbps for audio - sufficient quality
   });
 
   mediaRecorder.ondataavailable = (e) => {
@@ -256,14 +256,26 @@ export const exportVideo = async (
     console.log("Background audio playing");
   }
 
-  // Animate through slides
+  // Animate through slides at 24 FPS
   const totalDuration = slides.reduce((sum, s) => sum + s.durationSec, 0);
   const startTime = Date.now();
+  const frameInterval = 1000 / 24; // ~41.67ms per frame for 24 FPS
   let currentSlideIndex = 0;
   let slideStartTime = 0;
+  let lastFrameTime = startTime;
 
   const animate = () => {
-    const elapsed = (Date.now() - startTime) / 1000; // seconds
+    const now = Date.now();
+    const elapsed = (now - startTime) / 1000; // seconds
+    
+    // Throttle to 24 FPS
+    if (now - lastFrameTime < frameInterval) {
+      if (elapsed < totalDuration) {
+        requestAnimationFrame(animate);
+      }
+      return;
+    }
+    lastFrameTime = now;
     
     // Update progress
     const progressPercent = Math.min((elapsed / totalDuration) * 100, 100);
