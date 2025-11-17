@@ -10,7 +10,7 @@ interface TextInputDialogProps {
   open: boolean;
   onClose: () => void;
   onParse: (text: string) => void;
-  onManualCreate?: (slides: ManualSlide[]) => void;
+  onManualCreate?: (slides: ManualSlide[]) => Promise<void>;
 }
 
 export interface ManualSlide {
@@ -23,7 +23,7 @@ export const TextInputDialog = ({ open, onClose, onParse, onManualCreate }: Text
   const [mode, setMode] = useState<"auto" | "manual">("auto");
   const [manualSlides, setManualSlides] = useState<ManualSlide[]>([{ title: "", body: "" }]);
 
-  const handleParse = () => {
+  const handleParse = async () => {
     if (mode === "auto" && text.trim()) {
       onParse(text);
       onClose();
@@ -33,7 +33,7 @@ export const TextInputDialog = ({ open, onClose, onParse, onManualCreate }: Text
       if (onManualCreate) {
         // Direct creation from manual slides
         const validSlides = manualSlides.filter(s => s.title.trim());
-        onManualCreate(validSlides);
+        await onManualCreate(validSlides);
       } else {
         // Fallback: convert to text format
         const formattedText = manualSlides
