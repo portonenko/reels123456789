@@ -113,11 +113,37 @@ const Editor = () => {
     toast.success(`Created ${parsedSlides.length} slides`);
   };
 
-  const handleManualCreate = (manualSlides: Array<{ title: string; body: string }>) => {
+  const handleManualCreate = async (manualSlides: Array<{ title: string; body: string }>) => {
     const defaultStyle = getDefaultStyle();
     
-    // Get available assets to assign to slides
-    const availableAssets = Object.values(assets);
+    // Load assets from database if not in store
+    let availableAssets = Object.values(assets);
+    
+    if (availableAssets.length === 0) {
+      try {
+        const { data: dbAssets, error } = await supabase
+          .from("assets")
+          .select("*");
+        
+        if (!error && dbAssets && dbAssets.length > 0) {
+          availableAssets = dbAssets.map(asset => ({
+            id: asset.id,
+            url: asset.url,
+            duration: Number(asset.duration),
+            width: asset.width,
+            height: asset.height,
+            createdAt: new Date(asset.created_at),
+          }));
+          
+          // Add to store for future use
+          availableAssets.forEach(asset => {
+            useEditorStore.getState().addAsset(asset);
+          });
+        }
+      } catch (error) {
+        console.error("Error loading assets:", error);
+      }
+    }
     
     const newSlides: Slide[] = manualSlides.map((slide, index) => {
       const hasBody = slide.body.trim().length > 0;
