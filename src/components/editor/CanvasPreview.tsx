@@ -89,59 +89,26 @@ export const CanvasPreview = ({ slide, globalOverlay, showTextBoxControls = fals
     }
   }, [isPlaying, currentSlideIndex, slides]);
 
-  // Handle video switching when slide changes - critical for smooth playback
-  useEffect(() => {
-    if (!videoRef.current || !currentSlide) return;
-    
-    const backgroundAsset = assets.find((a) => a.id === currentSlide.assetId);
-    if (!backgroundAsset) return;
 
-    // Reset video to start when slide changes
-    const video = videoRef.current;
-    if (video.src !== backgroundAsset.url) {
-      video.src = backgroundAsset.url;
-      video.load(); // Preload the new video
-    }
-    
-    // Start playing immediately if in playback mode
-    if (isPlaying) {
-      video.currentTime = 0;
-      video.play().catch(err => console.error("Video play error:", err));
-    }
-  }, [currentSlide, currentSlideIndex, isPlaying, assets]);
-
-
-  // Render canvas text overlay - heavily optimized to prevent stuttering
+  // Render canvas text overlay - only during transitions
   useEffect(() => {
     if (!canvasRef.current || !currentSlide) return;
     
     const canvas = canvasRef.current;
-    const ctx = canvas.getContext('2d', { 
-      alpha: true,
-      willReadFrequently: false,
-      desynchronized: true // Async rendering for better performance
-    });
+    const ctx = canvas.getContext('2d', { alpha: true });
     if (!ctx) return;
-
-    // Only render during transitions to minimize redraws
-    const transitionDuration = 0.5;
-    const isTransitioning = slideTime <= transitionDuration;
-    
-    // Skip rendering if playing and past transition
-    if (isPlaying && !isTransitioning) {
-      return;
-    }
 
     // Clear canvas
     ctx.clearRect(0, 0, canvas.width, canvas.height);
 
     // Calculate transition progress
+    const transitionDuration = 0.5;
     const transitionProgress = Math.min(slideTime / transitionDuration, 1);
 
     // Apply transition effects to canvas
     ctx.save();
     
-    if (isPlaying && isTransitioning && currentSlide.transition) {
+    if (isPlaying && slideTime < transitionDuration && currentSlide.transition) {
       let opacity = 1;
       let offsetX = 0;
       
