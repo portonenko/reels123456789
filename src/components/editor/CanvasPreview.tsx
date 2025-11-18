@@ -41,20 +41,25 @@ export const CanvasPreview = ({ slide, globalOverlay, showTextBoxControls = fals
   }, [slide, slides, isPlaying]);
 
 
-  // Animate slide time for transitions - optimized with throttling
+  // Animate slide time for transitions - reduced update frequency
   useEffect(() => {
     if (isPlaying && slides.length > 0) {
       const currentSlideDuration = slides[currentSlideIndex]?.durationSec || 2;
       const startTime = Date.now();
       let lastUpdateTime = startTime;
-      const UPDATE_INTERVAL = 1000 / 30; // 30 FPS cap for smoother performance
+      const UPDATE_INTERVAL = 1000 / 15; // Reduced to 15 FPS for better performance
       
       const animate = () => {
         const now = Date.now();
         const elapsed = (now - startTime) / 1000;
         
-        // Throttle updates to reduce rerender frequency
-        if (now - lastUpdateTime >= UPDATE_INTERVAL) {
+        // Only update during transition period (first 0.5s) for smooth effects
+        const transitionDuration = 0.5;
+        if (elapsed < transitionDuration) {
+          // Update every frame during transition
+          setSlideTime(elapsed);
+        } else if (now - lastUpdateTime >= UPDATE_INTERVAL) {
+          // Throttle updates after transition
           setSlideTime(elapsed);
           lastUpdateTime = now;
         }
@@ -90,7 +95,7 @@ export const CanvasPreview = ({ slide, globalOverlay, showTextBoxControls = fals
   }, [isPlaying, currentSlideIndex, slides]);
 
 
-  // Render canvas text overlay - only during transitions
+  // Render canvas text overlay - optimized to prevent stuttering
   useEffect(() => {
     if (!canvasRef.current || !currentSlide) return;
     
@@ -98,11 +103,17 @@ export const CanvasPreview = ({ slide, globalOverlay, showTextBoxControls = fals
     const ctx = canvas.getContext('2d', { alpha: true });
     if (!ctx) return;
 
+    const transitionDuration = 0.5;
+    
+    // Only rerender during transitions or when not playing
+    if (isPlaying && slideTime > transitionDuration) {
+      return; // Skip rendering after transition is complete
+    }
+
     // Clear canvas
     ctx.clearRect(0, 0, canvas.width, canvas.height);
 
     // Calculate transition progress
-    const transitionDuration = 0.5;
     const transitionProgress = Math.min(slideTime / transitionDuration, 1);
 
     // Apply transition effects to canvas
