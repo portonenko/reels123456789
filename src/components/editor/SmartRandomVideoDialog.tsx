@@ -10,6 +10,13 @@ import {
 } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { useEditorStore } from "@/store/useEditorStore";
@@ -35,14 +42,28 @@ export const SmartRandomVideoDialog = ({
   const [selectedIndices, setSelectedIndices] = useState<Set<number>>(new Set());
   const [unusedText, setUnusedText] = useState("");
   const [templateContent, setTemplateContent] = useState("");
+  const [selectedCategory, setSelectedCategory] = useState<string>("all");
+  const [categories, setCategories] = useState<string[]>([]);
   
   const { setSlides, addAsset, setBackgroundMusic, getDefaultStyle } = useEditorStore();
 
   useEffect(() => {
     if (open) {
       loadRandomTemplate();
+      loadCategories();
     }
   }, [open]);
+
+  const loadCategories = async () => {
+    const { data: assets } = await supabase
+      .from("assets")
+      .select("category");
+    
+    if (assets) {
+      const uniqueCategories = Array.from(new Set(assets.map(a => a.category || 'default')));
+      setCategories(uniqueCategories);
+    }
+  };
 
   const loadRandomTemplate = async () => {
     const { data: templates, error } = await supabase
@@ -112,12 +133,16 @@ export const SmartRandomVideoDialog = ({
 
     try {
       // Get random assets and music
-      const { data: assets, error: assetsError } = await supabase
-        .from("assets")
-        .select("*");
+      let query = supabase.from("assets").select("*");
+      
+      if (selectedCategory !== "all") {
+        query = query.eq("category", selectedCategory);
+      }
+      
+      const { data: assets, error: assetsError } = await query;
 
       if (assetsError || !assets || assets.length === 0) {
-        toast.error("No video assets found. Please upload some first!");
+        toast.error("No video assets found in this category. Please upload some first!");
         return;
       }
 
@@ -217,6 +242,24 @@ export const SmartRandomVideoDialog = ({
         </DialogHeader>
 
         <div className="space-y-6">
+          {/* Category Selection */}
+          <div className="space-y-3">
+            <Label htmlFor="category-select">Выберите категорию видео:</Label>
+            <Select value={selectedCategory} onValueChange={setSelectedCategory}>
+              <SelectTrigger id="category-select" className="w-full">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Все категории</SelectItem>
+                {categories.map(cat => (
+                  <SelectItem key={cat} value={cat}>
+                    {cat}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
           {/* Slide Selection */}
           <div className="space-y-3">
             <Label>Select slides to include in video:</Label>

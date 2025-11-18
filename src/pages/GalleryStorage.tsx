@@ -2,10 +2,19 @@ import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import { Home, Upload, Trash2 } from "lucide-react";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Home, Upload, Trash2, Folder } from "lucide-react";
 import { useEditorStore } from "@/store/useEditorStore";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 
 interface AssetDb {
   id: string;
@@ -14,6 +23,7 @@ interface AssetDb {
   width: number;
   height: number;
   created_at: string;
+  category: string;
 }
 
 const GalleryStorage = () => {
@@ -21,6 +31,9 @@ const GalleryStorage = () => {
   const { assets, setAssets, addAsset, deleteAsset } = useEditorStore();
   const [uploading, setUploading] = useState(false);
   const [userId, setUserId] = useState<string | null>(null);
+  const [selectedCategory, setSelectedCategory] = useState<string>("all");
+  const [newCategory, setNewCategory] = useState<string>("");
+  const [categories, setCategories] = useState<string[]>(["default"]);
 
   useEffect(() => {
     checkUserAndLoadAssets();
@@ -57,6 +70,10 @@ const GalleryStorage = () => {
         return acc;
       }, []);
 
+      // Extract unique categories
+      const uniqueCategories = Array.from(new Set(uniqueAssets.map(a => a.category || 'default')));
+      setCategories(uniqueCategories);
+
       const loadedAssets = uniqueAssets.map((a: AssetDb) => {
         // Get the storage URL for each asset
         const { data: urlData } = supabase.storage
@@ -70,6 +87,7 @@ const GalleryStorage = () => {
           width: a.width,
           height: a.height,
           createdAt: new Date(a.created_at),
+          category: a.category || 'default',
         };
       });
       
@@ -120,6 +138,7 @@ const GalleryStorage = () => {
               .getPublicUrl(`${userId}/${assetId}`);
 
             // Save metadata to database
+            const category = newCategory.trim() || "default";
             const { error: dbError } = await supabase.from("assets").insert({
               id: assetId,
               user_id: userId,
@@ -127,6 +146,7 @@ const GalleryStorage = () => {
               duration: video.duration,
               width: video.videoWidth,
               height: video.videoHeight,
+              category: category,
             });
 
             if (dbError) {
@@ -144,7 +164,13 @@ const GalleryStorage = () => {
               width: video.videoWidth,
               height: video.videoHeight,
               createdAt: new Date(),
+              category: category,
             });
+            
+            // Add to categories if new
+            if (!categories.includes(category)) {
+              setCategories([...categories, category]);
+            }
 
             URL.revokeObjectURL(tempUrl);
             resolve(null);
@@ -197,107 +223,132 @@ const GalleryStorage = () => {
     toast.success("Video deleted");
   };
 
+  const assetArray = Object.values(assets);
+  const filteredAssets = selectedCategory === "all" 
+    ? assetArray 
+    : assetArray.filter(a => (a as any).category === selectedCategory);
+
   return (
-    <div className="min-h-screen bg-background">
-      <header className="h-14 border-b border-border bg-card px-4 flex items-center justify-between">
-        <div className="flex items-center gap-4">
-          <Button variant="ghost" size="sm" onClick={() => navigate("/")}>
-            <Home className="w-4 h-4 mr-2" />
+    <div className="min-h-screen bg-background p-8">
+      <div className="max-w-7xl mx-auto space-y-6">
+        {/* Header */}
+        <div className="flex flex-wrap gap-4 items-end">
+          <Button
+            variant="outline"
+            onClick={() => navigate("/")}
+            className="flex items-center gap-2"
+          >
+            <Home className="w-4 h-4" />
             Home
           </Button>
-          <h1 className="font-semibold">Video Gallery</h1>
-        </div>
 
-        <label htmlFor="video-upload">
-          <Button asChild disabled={uploading || !userId}>
-            <span className="cursor-pointer">
-              <Upload className="w-4 h-4 mr-2" />
-              {uploading ? "Uploading..." : "Upload Videos"}
-            </span>
-          </Button>
-        </label>
-        <input
-          id="video-upload"
-          type="file"
-          accept="video/mp4,video/webm"
-          multiple
-          className="hidden"
-          onChange={handleFileUpload}
-        />
-      </header>
-
-      <div className="p-6">
-        {!userId ? (
-          <div className="max-w-2xl mx-auto text-center py-16">
-            <h2 className="text-2xl font-bold mb-2">Please log in</h2>
-            <p className="text-muted-foreground">
-              You need to be logged in to access the video gallery
-            </p>
-          </div>
-        ) : assets.length === 0 ? (
-          <div className="max-w-2xl mx-auto text-center py-16">
-            <div className="w-20 h-20 rounded-full bg-primary/10 flex items-center justify-center mx-auto mb-4">
-              <Upload className="w-10 h-10 text-primary" />
-            </div>
-            <h2 className="text-2xl font-bold mb-2">No videos yet</h2>
-            <p className="text-muted-foreground mb-6">
-              Upload background videos to use in your vertical video projects
-            </p>
-            <label htmlFor="video-upload-2">
-              <Button asChild className="bg-gradient-primary">
-                <span className="cursor-pointer">
-                  <Upload className="w-4 h-4 mr-2" />
-                  Upload Your First Video
-                </span>
-              </Button>
-            </label>
-            <input
-              id="video-upload-2"
-              type="file"
-              accept="video/mp4,video/webm"
-              multiple
-              className="hidden"
-              onChange={handleFileUpload}
+          <div className="flex-1 min-w-[200px]">
+            <Label htmlFor="new-category" className="text-sm mb-2 flex items-center gap-1">
+              <Folder className="w-4 h-4" />
+              Категория для загрузки
+            </Label>
+            <Input
+              id="new-category"
+              placeholder="default"
+              value={newCategory}
+              onChange={(e) => setNewCategory(e.target.value)}
+              disabled={uploading || !userId}
             />
           </div>
+          
+          <label htmlFor="video-upload">
+            <Button asChild disabled={uploading || !userId}>
+              <span className="cursor-pointer">
+                <Upload className="w-4 h-4 mr-2" />
+                {uploading ? "Загрузка..." : "Загрузить видео"}
+              </span>
+            </Button>
+          </label>
+          <input
+            id="video-upload"
+            type="file"
+            accept="video/*"
+            multiple
+            onChange={handleFileUpload}
+            className="hidden"
+          />
+        </div>
+
+        {/* Category Filter */}
+        <div className="flex items-center gap-4">
+          <Label htmlFor="category-filter">Фильтр:</Label>
+          <Select value={selectedCategory} onValueChange={setSelectedCategory}>
+            <SelectTrigger className="w-48">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Все категории</SelectItem>
+              {categories.map(cat => (
+                <SelectItem key={cat} value={cat}>
+                  {cat}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+
+        {/* Gallery Grid */}
+        {!userId ? (
+          <div className="text-center py-12">
+            <p className="text-muted-foreground">
+              Войдите, чтобы загрузить и просматривать видео
+            </p>
+          </div>
+        ) : filteredAssets.length === 0 ? (
+          <div className="text-center py-12">
+            <Upload className="w-16 h-16 mx-auto mb-4 text-muted-foreground" />
+            <h2 className="text-2xl font-bold mb-2">
+              {selectedCategory === "all" ? "Нет видео" : `Нет видео в категории "${selectedCategory}"`}
+            </h2>
+            <p className="text-muted-foreground mb-6">
+              Загрузите видео для использования в качестве фонов
+            </p>
+          </div>
         ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-            {assets.map((asset) => (
-              <Card key={asset.id} className="group relative overflow-hidden">
-                <div className="aspect-video bg-black">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {filteredAssets.map((asset) => (
+              <Card key={asset.id} className="overflow-hidden group relative">
+                <div className="aspect-[9/16] bg-black relative">
                   <video
                     src={asset.url}
                     className="w-full h-full object-cover"
                     muted
                     loop
                     preload="metadata"
-                    crossOrigin="anonymous"
                     onMouseEnter={(e) => e.currentTarget.play()}
                     onMouseLeave={(e) => {
                       e.currentTarget.pause();
                       e.currentTarget.currentTime = 0;
                     }}
-                    onError={(e) => {
-                      console.error('Video load error:', asset.url);
-                    }}
                   />
+                  <Button
+                    size="sm"
+                    variant="destructive"
+                    className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity"
+                    onClick={() => handleDelete(asset.id)}
+                  >
+                    <Trash2 className="w-4 h-4" />
+                  </Button>
                 </div>
-
-                <div className="p-3 bg-card">
-                  <div className="text-xs text-muted-foreground space-y-1">
-                    <div>Duration: {asset.duration.toFixed(1)}s</div>
-                    <div>Resolution: {asset.width}×{asset.height}</div>
+                <div className="p-4">
+                  <div className="text-sm space-y-1">
+                    <div className="flex items-center gap-2">
+                      <Folder className="w-3 h-3 text-muted-foreground" />
+                      <span className="font-medium">{(asset as any).category || 'default'}</span>
+                    </div>
+                    <p className="text-xs text-muted-foreground">
+                      Duration: {asset.duration.toFixed(1)}s
+                    </p>
+                    <p className="text-xs text-muted-foreground">
+                      {asset.width}×{asset.height}
+                    </p>
                   </div>
                 </div>
-
-                <Button
-                  size="sm"
-                  variant="destructive"
-                  className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity"
-                  onClick={() => handleDelete(asset.id)}
-                >
-                  <Trash2 className="w-4 h-4" />
-                </Button>
               </Card>
             ))}
           </div>

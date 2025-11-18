@@ -16,6 +16,7 @@ export type Database = {
     Tables: {
       assets: {
         Row: {
+          category: string | null
           created_at: string | null
           duration: number
           height: number
@@ -25,6 +26,7 @@ export type Database = {
           width: number
         }
         Insert: {
+          category?: string | null
           created_at?: string | null
           duration: number
           height: number
@@ -34,6 +36,7 @@ export type Database = {
           width: number
         }
         Update: {
+          category?: string | null
           created_at?: string | null
           duration?: number
           height?: number
