@@ -40,26 +40,20 @@ export const CanvasPreview = ({ slide, globalOverlay, showTextBoxControls = fals
     }
   }, [slide, slides, isPlaying]);
 
-
-  // Animate slide time for transitions - reduced update frequency
+  // Animate slide time for transitions - optimized with throttling
   useEffect(() => {
     if (isPlaying && slides.length > 0) {
       const currentSlideDuration = slides[currentSlideIndex]?.durationSec || 2;
       const startTime = Date.now();
       let lastUpdateTime = startTime;
-      const UPDATE_INTERVAL = 1000 / 15; // Reduced to 15 FPS for better performance
+      const UPDATE_INTERVAL = 1000 / 30; // 30 FPS cap for smoother performance
       
       const animate = () => {
         const now = Date.now();
         const elapsed = (now - startTime) / 1000;
         
-        // Only update during transition period (first 0.5s) for smooth effects
-        const transitionDuration = 0.5;
-        if (elapsed < transitionDuration) {
-          // Update every frame during transition
-          setSlideTime(elapsed);
-        } else if (now - lastUpdateTime >= UPDATE_INTERVAL) {
-          // Throttle updates after transition
+        // Throttle updates to reduce rerender frequency
+        if (now - lastUpdateTime >= UPDATE_INTERVAL) {
           setSlideTime(elapsed);
           lastUpdateTime = now;
         }
@@ -94,26 +88,22 @@ export const CanvasPreview = ({ slide, globalOverlay, showTextBoxControls = fals
     }
   }, [isPlaying, currentSlideIndex, slides]);
 
-
-  // Render canvas text overlay - optimized to prevent stuttering
+  // Render canvas text overlay - optimized
   useEffect(() => {
     if (!canvasRef.current || !currentSlide) return;
     
     const canvas = canvasRef.current;
-    const ctx = canvas.getContext('2d', { alpha: true });
+    const ctx = canvas.getContext('2d', { 
+      alpha: true,
+      willReadFrequently: false // Performance optimization
+    });
     if (!ctx) return;
 
-    const transitionDuration = 0.5;
-    
-    // Only rerender during transitions or when not playing
-    if (isPlaying && slideTime > transitionDuration) {
-      return; // Skip rendering after transition is complete
-    }
-
-    // Clear canvas
+    // Clear canvas efficiently
     ctx.clearRect(0, 0, canvas.width, canvas.height);
 
     // Calculate transition progress
+    const transitionDuration = 0.5;
     const transitionProgress = Math.min(slideTime / transitionDuration, 1);
 
     // Apply transition effects to canvas
@@ -325,7 +315,6 @@ export const CanvasPreview = ({ slide, globalOverlay, showTextBoxControls = fals
             loop
             muted
             playsInline
-            preload="auto"
           />
         ) : (
           <div className="absolute inset-0 bg-gradient-to-br from-purple-900 via-blue-900 to-cyan-900" />

@@ -1,6 +1,6 @@
 import { Slide } from "@/types";
 import { Button } from "@/components/ui/button";
-import { Copy, Trash2, GripVertical, Edit } from "lucide-react";
+import { Copy, Trash2, GripVertical } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 interface SlideCardProps {
@@ -9,7 +9,6 @@ interface SlideCardProps {
   onSelect: () => void;
   onDuplicate: () => void;
   onDelete: () => void;
-  onEdit?: () => void;
   index: number;
   onDragStart?: (e: React.DragEvent) => void;
   onDragOver?: (e: React.DragEvent) => void;
@@ -23,7 +22,6 @@ export const SlideCard = ({
   onSelect,
   onDuplicate,
   onDelete,
-  onEdit,
   index,
   onDragStart,
   onDragOver,
@@ -80,19 +78,6 @@ export const SlideCard = ({
       </div>
 
       <div className="flex gap-2 mt-3 opacity-0 group-hover:opacity-100 transition-opacity">
-        {onEdit && (
-          <Button
-            size="sm"
-            variant="ghost"
-            onClick={(e) => {
-              e.stopPropagation();
-              onEdit();
-            }}
-            className="h-7 px-2"
-          >
-            <Edit className="w-3 h-3" />
-          </Button>
-        )}
         <Button
           size="sm"
           variant="ghost"
