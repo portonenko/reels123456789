@@ -13,6 +13,7 @@ import { RandomVideoButton } from "@/components/editor/RandomVideoButton";
 import { PresetManager } from "@/components/editor/PresetManager";
 import { SmartRandomVideoDialog } from "@/components/editor/SmartRandomVideoDialog";
 import { RandomizeBackgroundDialog } from "@/components/editor/RandomizeBackgroundDialog";
+import { SlideEditDialog } from "@/components/editor/SlideEditDialog";
 import { Button } from "@/components/ui/button";
 import { Sparkles, Home, Download, Shuffle, Globe, FileText, Palette } from "lucide-react";
 import {
@@ -51,6 +52,8 @@ const Editor = () => {
   const [showSmartRandomDialog, setShowSmartRandomDialog] = useState(false);
   const [showRandomizeDialog, setShowRandomizeDialog] = useState(false);
   const [showTextBoxControls, setShowTextBoxControls] = useState(false);
+  const [showEditDialog, setShowEditDialog] = useState(false);
+  const [editingSlide, setEditingSlide] = useState<Slide | null>(null);
   const [draggedSlideIndex, setDraggedSlideIndex] = useState<number | null>(null);
   
   const {
@@ -428,6 +431,10 @@ const Editor = () => {
                     onSelect={() => setSelectedSlideId(slide.id)}
                     onDuplicate={() => duplicateSlide(slide.id)}
                     onDelete={() => deleteSlide(slide.id)}
+                    onEdit={() => {
+                      setEditingSlide(slide);
+                      setShowEditDialog(true);
+                    }}
                     isDraggable={index > 0}
                     onDragStart={index > 0 ? handleDragStart(index) : undefined}
                     onDragOver={index > 0 ? handleDragOver(index) : undefined}
@@ -531,6 +538,18 @@ const Editor = () => {
         open={showTranslationDialog}
         onClose={() => setShowTranslationDialog(false)}
         onTranslate={handleTranslate}
+      />
+
+      <SlideEditDialog
+        open={showEditDialog}
+        onOpenChange={setShowEditDialog}
+        slide={editingSlide}
+        onSave={(updates) => {
+          if (editingSlide) {
+            updateSlide(editingSlide.id, updates);
+            toast.success("Текст слайда обновлён");
+          }
+        }}
       />
 
       <ExportDialog
