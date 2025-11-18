@@ -12,6 +12,7 @@ import { TextTemplateManager } from "@/components/editor/TextTemplateManager";
 import { RandomVideoButton } from "@/components/editor/RandomVideoButton";
 import { PresetManager } from "@/components/editor/PresetManager";
 import { SmartRandomVideoDialog } from "@/components/editor/SmartRandomVideoDialog";
+import { RandomizeBackgroundDialog } from "@/components/editor/RandomizeBackgroundDialog";
 import { Button } from "@/components/ui/button";
 import { Sparkles, Home, Download, Shuffle, Globe, FileText, Palette } from "lucide-react";
 import {
@@ -48,6 +49,7 @@ const Editor = () => {
   const [showTemplateManager, setShowTemplateManager] = useState(false);
   const [showPresetManager, setShowPresetManager] = useState(false);
   const [showSmartRandomDialog, setShowSmartRandomDialog] = useState(false);
+  const [showRandomizeDialog, setShowRandomizeDialog] = useState(false);
   const [showTextBoxControls, setShowTextBoxControls] = useState(false);
   const [draggedSlideIndex, setDraggedSlideIndex] = useState<number | null>(null);
   
@@ -375,7 +377,7 @@ const Editor = () => {
           <Button
             variant="outline"
             size="sm"
-            onClick={randomizeBackgrounds}
+            onClick={() => setShowRandomizeDialog(true)}
             disabled={slides.length === 0}
           >
             <Shuffle className="w-4 h-4 mr-2" />
@@ -518,6 +520,11 @@ const Editor = () => {
       <SmartRandomVideoDialog
         open={showSmartRandomDialog}
         onOpenChange={setShowSmartRandomDialog}
+      />
+
+      <RandomizeBackgroundDialog
+        open={showRandomizeDialog}
+        onOpenChange={setShowRandomizeDialog}
       />
 
       <TranslationDialog
