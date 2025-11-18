@@ -167,6 +167,7 @@ export type Database = {
       user_preferences: {
         Row: {
           created_at: string | null
+          default_video_category: string | null
           favorite_colors: string[] | null
           keep_music_across_languages: boolean | null
           updated_at: string | null
@@ -174,6 +175,7 @@ export type Database = {
         }
         Insert: {
           created_at?: string | null
+          default_video_category?: string | null
           favorite_colors?: string[] | null
           keep_music_across_languages?: boolean | null
           updated_at?: string | null
@@ -181,6 +183,7 @@ export type Database = {
         }
         Update: {
           created_at?: string | null
+          default_video_category?: string | null
           favorite_colors?: string[] | null
           keep_music_across_languages?: boolean | null
           updated_at?: string | null
