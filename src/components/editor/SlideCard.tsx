@@ -1,7 +1,10 @@
 import { Slide } from "@/types";
 import { Button } from "@/components/ui/button";
-import { Copy, Trash2, GripVertical } from "lucide-react";
+import { Copy, Trash2, GripVertical, Edit2 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useState } from "react";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 
 interface SlideCardProps {
   slide: Slide;
@@ -9,6 +12,7 @@ interface SlideCardProps {
   onSelect: () => void;
   onDuplicate: () => void;
   onDelete: () => void;
+  onUpdate: (updates: Partial<Slide>) => void;
   index: number;
   onDragStart?: (e: React.DragEvent) => void;
   onDragOver?: (e: React.DragEvent) => void;
@@ -22,12 +26,31 @@ export const SlideCard = ({
   onSelect,
   onDuplicate,
   onDelete,
+  onUpdate,
   index,
   onDragStart,
   onDragOver,
   onDrop,
   isDraggable = false,
 }: SlideCardProps) => {
+  const [isEditing, setIsEditing] = useState(false);
+  const [editTitle, setEditTitle] = useState(slide.title);
+  const [editBody, setEditBody] = useState(slide.body || "");
+
+  const handleSave = () => {
+    onUpdate({
+      title: editTitle,
+      body: editBody || undefined,
+    });
+    setIsEditing(false);
+  };
+
+  const handleCancel = () => {
+    setEditTitle(slide.title);
+    setEditBody(slide.body || "");
+    setIsEditing(false);
+  };
+
   return (
     <div
       onClick={onSelect}
@@ -70,37 +93,77 @@ export const SlideCard = ({
             </span>
           </div>
 
-          <h4 className="font-medium text-sm mb-1 line-clamp-1">{slide.title}</h4>
-          {slide.body && (
-            <p className="text-xs text-muted-foreground line-clamp-2">{slide.body}</p>
+          {isEditing ? (
+            <div className="space-y-2" onClick={(e) => e.stopPropagation()}>
+              <Input
+                value={editTitle}
+                onChange={(e) => setEditTitle(e.target.value)}
+                placeholder="Title"
+                className="h-8 text-sm"
+              />
+              <Textarea
+                value={editBody}
+                onChange={(e) => setEditBody(e.target.value)}
+                placeholder="Body (optional)"
+                className="min-h-[60px] text-xs resize-none"
+              />
+              <div className="flex gap-2">
+                <Button size="sm" onClick={handleSave} className="h-7 text-xs">
+                  Save
+                </Button>
+                <Button size="sm" variant="outline" onClick={handleCancel} className="h-7 text-xs">
+                  Cancel
+                </Button>
+              </div>
+            </div>
+          ) : (
+            <>
+              <h4 className="font-medium text-sm mb-1 line-clamp-1">{slide.title}</h4>
+              {slide.body && (
+                <p className="text-xs text-muted-foreground line-clamp-2">{slide.body}</p>
+              )}
+            </>
           )}
         </div>
       </div>
 
-      <div className="flex gap-2 mt-3 opacity-0 group-hover:opacity-100 transition-opacity">
-        <Button
-          size="sm"
-          variant="ghost"
-          onClick={(e) => {
-            e.stopPropagation();
-            onDuplicate();
-          }}
-          className="h-7 px-2"
-        >
-          <Copy className="w-3 h-3" />
-        </Button>
-        <Button
-          size="sm"
-          variant="ghost"
-          onClick={(e) => {
-            e.stopPropagation();
-            onDelete();
-          }}
-          className="h-7 px-2 text-destructive hover:text-destructive"
-        >
-          <Trash2 className="w-3 h-3" />
-        </Button>
-      </div>
+      {!isEditing && (
+        <div className="flex gap-2 mt-3 opacity-0 group-hover:opacity-100 transition-opacity">
+          <Button
+            size="sm"
+            variant="ghost"
+            onClick={(e) => {
+              e.stopPropagation();
+              setIsEditing(true);
+            }}
+            className="h-7 px-2"
+          >
+            <Edit2 className="w-3 h-3" />
+          </Button>
+          <Button
+            size="sm"
+            variant="ghost"
+            onClick={(e) => {
+              e.stopPropagation();
+              onDuplicate();
+            }}
+            className="h-7 px-2"
+          >
+            <Copy className="w-3 h-3" />
+          </Button>
+          <Button
+            size="sm"
+            variant="ghost"
+            onClick={(e) => {
+              e.stopPropagation();
+              onDelete();
+            }}
+            className="h-7 px-2 text-destructive hover:text-destructive"
+          >
+            <Trash2 className="w-3 h-3" />
+          </Button>
+        </div>
+      )}
     </div>
   );
 };
