@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Home, Upload, Trash2, Folder } from "lucide-react";
+import { Home, Upload, Trash2, Folder, FolderPlus } from "lucide-react";
 import { useEditorStore } from "@/store/useEditorStore";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
@@ -15,6 +15,13 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from "@/components/ui/dialog";
 
 interface AssetDb {
   id: string;
@@ -34,6 +41,8 @@ const GalleryStorage = () => {
   const [selectedCategory, setSelectedCategory] = useState<string>("all");
   const [newCategory, setNewCategory] = useState<string>("");
   const [categories, setCategories] = useState<string[]>(["default"]);
+  const [showCreateFolder, setShowCreateFolder] = useState(false);
+  const [folderName, setFolderName] = useState("");
 
   useEffect(() => {
     checkUserAndLoadAssets();
@@ -223,6 +232,25 @@ const GalleryStorage = () => {
     toast.success("Video deleted");
   };
 
+  const handleCreateFolder = () => {
+    const trimmedName = folderName.trim();
+    if (!trimmedName) {
+      toast.error("Введите название папки");
+      return;
+    }
+    
+    if (categories.includes(trimmedName)) {
+      toast.error("Папка с таким названием уже существует");
+      return;
+    }
+
+    setCategories([...categories, trimmedName]);
+    setNewCategory(trimmedName);
+    setFolderName("");
+    setShowCreateFolder(false);
+    toast.success(`Папка "${trimmedName}" создана`);
+  };
+
   const assetArray = Object.values(assets);
   const filteredAssets = selectedCategory === "all" 
     ? assetArray 
@@ -242,18 +270,33 @@ const GalleryStorage = () => {
             Home
           </Button>
 
+          <Button
+            variant="outline"
+            onClick={() => setShowCreateFolder(true)}
+            className="flex items-center gap-2"
+            disabled={!userId}
+          >
+            <FolderPlus className="w-4 h-4" />
+            Создать папку
+          </Button>
+
           <div className="flex-1 min-w-[200px]">
             <Label htmlFor="new-category" className="text-sm mb-2 flex items-center gap-1">
               <Folder className="w-4 h-4" />
               Категория для загрузки
             </Label>
-            <Input
-              id="new-category"
-              placeholder="default"
-              value={newCategory}
-              onChange={(e) => setNewCategory(e.target.value)}
-              disabled={uploading || !userId}
-            />
+            <Select value={newCategory || "default"} onValueChange={setNewCategory}>
+              <SelectTrigger id="new-category">
+                <SelectValue placeholder="default" />
+              </SelectTrigger>
+              <SelectContent>
+                {categories.map(cat => (
+                  <SelectItem key={cat} value={cat}>
+                    {cat}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
           
           <label htmlFor="video-upload">
@@ -354,6 +397,40 @@ const GalleryStorage = () => {
           </div>
         )}
       </div>
+
+      {/* Create Folder Dialog */}
+      <Dialog open={showCreateFolder} onOpenChange={setShowCreateFolder}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Создать новую папку</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div>
+              <Label htmlFor="folder-name">Название папки</Label>
+              <Input
+                id="folder-name"
+                placeholder="Введите название..."
+                value={folderName}
+                onChange={(e) => setFolderName(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') {
+                    handleCreateFolder();
+                  }
+                }}
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowCreateFolder(false)}>
+              Отмена
+            </Button>
+            <Button onClick={handleCreateFolder}>
+              <FolderPlus className="w-4 h-4 mr-2" />
+              Создать
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
