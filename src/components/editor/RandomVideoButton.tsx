@@ -1,4 +1,20 @@
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
+import { Label } from "@/components/ui/label";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from "@/components/ui/dialog";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Sparkles } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
@@ -7,6 +23,24 @@ import { parseTextToSlides } from "@/utils/textParser";
 
 export const RandomVideoButton = () => {
   const { setSlides, addAsset, setBackgroundMusic, getDefaultStyle } = useEditorStore();
+  const [showDialog, setShowDialog] = useState(false);
+  const [selectedCategory, setSelectedCategory] = useState<string>("all");
+  const [categories, setCategories] = useState<string[]>([]);
+
+  useEffect(() => {
+    loadCategories();
+  }, []);
+
+  const loadCategories = async () => {
+    const { data: assets } = await supabase
+      .from("assets")
+      .select("category");
+    
+    if (assets) {
+      const uniqueCategories = Array.from(new Set(assets.map(a => a.category || 'default')));
+      setCategories(uniqueCategories);
+    }
+  };
 
   const generateRandomVideo = async () => {
     try {
@@ -23,12 +57,16 @@ export const RandomVideoButton = () => {
       const randomTemplate = templates[Math.floor(Math.random() * templates.length)];
 
       // 2. Get random assets
-      const { data: assets, error: assetsError } = await supabase
-        .from("assets")
-        .select("*");
+      let query = supabase.from("assets").select("*");
+      
+      if (selectedCategory !== "all") {
+        query = query.eq("category", selectedCategory);
+      }
+      
+      const { data: assets, error: assetsError } = await query;
 
       if (assetsError || !assets || assets.length === 0) {
-        toast.error("No video assets found. Please upload some first!");
+        toast.error("No video assets found in this category. Please upload some first!");
         return;
       }
 
@@ -76,6 +114,7 @@ export const RandomVideoButton = () => {
       });
 
       toast.success(`Random video created from "${randomTemplate.name}"!`);
+      setShowDialog(false);
     } catch (error) {
       console.error("Error generating random video:", error);
       toast.error("Failed to generate random video");
@@ -83,12 +122,51 @@ export const RandomVideoButton = () => {
   };
 
   return (
-    <Button
-      onClick={generateRandomVideo}
-      className="bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600"
-    >
-      <Sparkles className="w-4 h-4 mr-2" />
-      Random Video
-    </Button>
+    <>
+      <Button
+        onClick={() => setShowDialog(true)}
+        className="bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600"
+      >
+        <Sparkles className="w-4 h-4 mr-2" />
+        Random Video
+      </Button>
+
+      <Dialog open={showDialog} onOpenChange={setShowDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Выберите категорию видео</DialogTitle>
+          </DialogHeader>
+          
+          <div className="space-y-4">
+            <div>
+              <Label htmlFor="category-select">Категория:</Label>
+              <Select value={selectedCategory} onValueChange={setSelectedCategory}>
+                <SelectTrigger id="category-select" className="w-full mt-2">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Все категории</SelectItem>
+                  {categories.map(cat => (
+                    <SelectItem key={cat} value={cat}>
+                      {cat}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowDialog(false)}>
+              Отмена
+            </Button>
+            <Button onClick={generateRandomVideo}>
+              <Sparkles className="w-4 h-4 mr-2" />
+              Создать видео
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </>
   );
 };

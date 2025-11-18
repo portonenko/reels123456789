@@ -66,6 +66,7 @@ export interface Asset {
   width: number;
   height: number;
   createdAt: Date;
+  category?: string;
 }
 
 export interface Project {
