@@ -40,6 +40,7 @@ export const CanvasPreview = ({ slide, globalOverlay, showTextBoxControls = fals
     }
   }, [slide, slides, isPlaying]);
 
+
   // Animate slide time for transitions - optimized with throttling
   useEffect(() => {
     if (isPlaying && slides.length > 0) {
@@ -87,6 +88,28 @@ export const CanvasPreview = ({ slide, globalOverlay, showTextBoxControls = fals
       };
     }
   }, [isPlaying, currentSlideIndex, slides]);
+
+  // Handle video switching when slide changes - critical for smooth playback
+  useEffect(() => {
+    if (!videoRef.current || !currentSlide) return;
+    
+    const backgroundAsset = assets.find((a) => a.id === currentSlide.assetId);
+    if (!backgroundAsset) return;
+
+    // Reset video to start when slide changes
+    const video = videoRef.current;
+    if (video.src !== backgroundAsset.url) {
+      video.src = backgroundAsset.url;
+      video.load(); // Preload the new video
+    }
+    
+    // Start playing immediately if in playback mode
+    if (isPlaying) {
+      video.currentTime = 0;
+      video.play().catch(err => console.error("Video play error:", err));
+    }
+  }, [currentSlide, currentSlideIndex, isPlaying, assets]);
+
 
   // Render canvas text overlay - heavily optimized to prevent stuttering
   useEffect(() => {
@@ -324,6 +347,7 @@ export const CanvasPreview = ({ slide, globalOverlay, showTextBoxControls = fals
             loop
             muted
             playsInline
+            preload="auto"
           />
         ) : (
           <div className="absolute inset-0 bg-gradient-to-br from-purple-900 via-blue-900 to-cyan-900" />
