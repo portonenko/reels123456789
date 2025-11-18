@@ -88,28 +88,37 @@ export const CanvasPreview = ({ slide, globalOverlay, showTextBoxControls = fals
     }
   }, [isPlaying, currentSlideIndex, slides]);
 
-  // Render canvas text overlay - optimized
+  // Render canvas text overlay - heavily optimized to prevent stuttering
   useEffect(() => {
     if (!canvasRef.current || !currentSlide) return;
     
     const canvas = canvasRef.current;
     const ctx = canvas.getContext('2d', { 
       alpha: true,
-      willReadFrequently: false // Performance optimization
+      willReadFrequently: false,
+      desynchronized: true // Async rendering for better performance
     });
     if (!ctx) return;
 
-    // Clear canvas efficiently
+    // Only render during transitions to minimize redraws
+    const transitionDuration = 0.5;
+    const isTransitioning = slideTime <= transitionDuration;
+    
+    // Skip rendering if playing and past transition
+    if (isPlaying && !isTransitioning) {
+      return;
+    }
+
+    // Clear canvas
     ctx.clearRect(0, 0, canvas.width, canvas.height);
 
     // Calculate transition progress
-    const transitionDuration = 0.5;
     const transitionProgress = Math.min(slideTime / transitionDuration, 1);
 
     // Apply transition effects to canvas
     ctx.save();
     
-    if (isPlaying && slideTime < transitionDuration && currentSlide.transition) {
+    if (isPlaying && isTransitioning && currentSlide.transition) {
       let opacity = 1;
       let offsetX = 0;
       
