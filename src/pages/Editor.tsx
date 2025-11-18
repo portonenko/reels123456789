@@ -14,7 +14,7 @@ import { PresetManager } from "@/components/editor/PresetManager";
 import { SmartRandomVideoDialog } from "@/components/editor/SmartRandomVideoDialog";
 import { RandomizeBackgroundDialog } from "@/components/editor/RandomizeBackgroundDialog";
 import { Button } from "@/components/ui/button";
-import { Sparkles, Home, Download, Shuffle, Globe, FileText, Palette } from "lucide-react";
+import { Sparkles, Home, Download, Shuffle, Globe, FileText, Palette, Plus } from "lucide-react";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -306,6 +306,23 @@ const Editor = () => {
     toast.success(language === 'ru' ? 'Финальный слайд создан' : 'Final slide created');
   };
 
+  const addNewSlide = () => {
+    const newSlide: Slide = {
+      id: `slide-${Date.now()}`,
+      projectId: "project-1",
+      index: slides.length,
+      type: "title-only",
+      title: language === 'ru' ? 'Новый слайд' : 'New Slide',
+      durationSec: 3,
+      style: getDefaultStyle(),
+      language: currentLanguage,
+    };
+    
+    setSlides([...slides, newSlide]);
+    setSelectedSlideId(newSlide.id);
+    toast.success(language === 'ru' ? 'Слайд добавлен' : 'Slide added');
+  };
+
   return (
     <div className="h-screen flex flex-col bg-background">
       {/* Top bar */}
@@ -401,6 +418,15 @@ const Editor = () => {
         <div className="w-80 border-r border-border bg-panel p-4 overflow-y-auto">
           <h2 className="font-semibold mb-4 flex items-center justify-between">
             <span>Slides ({slides.length})</span>
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={addNewSlide}
+              className="h-8"
+            >
+              <Plus className="w-4 h-4 mr-1" />
+              {language === 'ru' ? 'Добавить' : 'Add'}
+            </Button>
           </h2>
 
           {slides.length === 0 ? (
@@ -428,6 +454,7 @@ const Editor = () => {
                     onSelect={() => setSelectedSlideId(slide.id)}
                     onDuplicate={() => duplicateSlide(slide.id)}
                     onDelete={() => deleteSlide(slide.id)}
+                    onUpdate={(updates) => updateSlide(slide.id, updates)}
                     isDraggable={index > 0}
                     onDragStart={index > 0 ? handleDragStart(index) : undefined}
                     onDragOver={index > 0 ? handleDragOver(index) : undefined}
