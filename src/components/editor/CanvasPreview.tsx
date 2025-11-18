@@ -40,15 +40,23 @@ export const CanvasPreview = ({ slide, globalOverlay, showTextBoxControls = fals
     }
   }, [slide, slides, isPlaying]);
 
-  // Animate slide time for transitions
+  // Animate slide time for transitions - optimized with throttling
   useEffect(() => {
     if (isPlaying && slides.length > 0) {
       const currentSlideDuration = slides[currentSlideIndex]?.durationSec || 2;
       const startTime = Date.now();
+      let lastUpdateTime = startTime;
+      const UPDATE_INTERVAL = 1000 / 30; // 30 FPS cap for smoother performance
       
       const animate = () => {
-        const elapsed = (Date.now() - startTime) / 1000;
-        setSlideTime(elapsed);
+        const now = Date.now();
+        const elapsed = (now - startTime) / 1000;
+        
+        // Throttle updates to reduce rerender frequency
+        if (now - lastUpdateTime >= UPDATE_INTERVAL) {
+          setSlideTime(elapsed);
+          lastUpdateTime = now;
+        }
         
         if (elapsed < currentSlideDuration) {
           animationRef.current = requestAnimationFrame(animate);
@@ -80,15 +88,18 @@ export const CanvasPreview = ({ slide, globalOverlay, showTextBoxControls = fals
     }
   }, [isPlaying, currentSlideIndex, slides]);
 
-  // Render canvas text overlay
+  // Render canvas text overlay - optimized
   useEffect(() => {
     if (!canvasRef.current || !currentSlide) return;
     
     const canvas = canvasRef.current;
-    const ctx = canvas.getContext('2d');
+    const ctx = canvas.getContext('2d', { 
+      alpha: true,
+      willReadFrequently: false // Performance optimization
+    });
     if (!ctx) return;
 
-    // Clear canvas
+    // Clear canvas efficiently
     ctx.clearRect(0, 0, canvas.width, canvas.height);
 
     // Calculate transition progress
