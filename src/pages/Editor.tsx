@@ -70,6 +70,7 @@ const Editor = () => {
     randomizeBackgrounds,
     getDefaultStyle,
     reorderSlides,
+    resetToDefaultLanguage,
   } = useEditorStore();
 
   const selectedSlide = slides.find((s) => s.id === selectedSlideId) || null;
@@ -101,6 +102,9 @@ const Editor = () => {
   };
 
   const handleParseText = (text: string) => {
+    // Reset all translations when creating new video
+    resetToDefaultLanguage();
+    
     // Store the original text for unused text tracking (language-specific)
     localStorage.setItem(`lastParsedText_${currentLanguage}`, text);
     
@@ -116,6 +120,9 @@ const Editor = () => {
   };
 
   const handleManualCreate = async (manualSlides: Array<{ title: string; body: string }>) => {
+    // Reset all translations when creating new video
+    resetToDefaultLanguage();
+    
     const defaultStyle = getDefaultStyle();
     
     // Load assets from database if not in store
