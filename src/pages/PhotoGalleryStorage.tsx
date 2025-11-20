@@ -92,7 +92,7 @@ const PhotoGalleryStorage = () => {
       const loadedAssets = uniqueAssets.map((a: AssetDb) => {
         // Get the storage URL for each asset
         const { data: urlData } = supabase.storage
-          .from('video-assets')
+          .from('photo-assets')
           .getPublicUrl(`${uid}/${a.id}`);
         
         return {
@@ -136,10 +136,11 @@ const PhotoGalleryStorage = () => {
             try {
               // Upload to Supabase Storage
               const { error: uploadError } = await supabase.storage
-                .from('video-assets')
+                .from('photo-assets')
                 .upload(`${userId}/${assetId}`, file, {
                   cacheControl: '3600',
-                  upsert: false
+                  upsert: false,
+                  contentType: file.type
                 });
 
               if (uploadError) {
@@ -151,7 +152,7 @@ const PhotoGalleryStorage = () => {
 
               // Get public URL
               const { data: urlData } = supabase.storage
-                .from('video-assets')
+                .from('photo-assets')
                 .getPublicUrl(`${userId}/${assetId}`);
 
               // Save metadata to database
@@ -163,6 +164,7 @@ const PhotoGalleryStorage = () => {
                 width: img.width,
                 height: img.height,
                 category: newCategory || 'default',
+                type: 'image',
               });
 
               if (dbError) {
@@ -225,7 +227,7 @@ const PhotoGalleryStorage = () => {
     try {
       // Delete from storage
       const { error: storageError } = await supabase.storage
-        .from('video-assets')
+        .from('photo-assets')
         .remove([`${userId}/${id}`]);
 
       if (storageError) {
