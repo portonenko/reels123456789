@@ -44,6 +44,7 @@ export const SmartRandomVideoDialog = ({
   const [templateContent, setTemplateContent] = useState("");
   const [selectedCategory, setSelectedCategory] = useState<string>("all");
   const [categories, setCategories] = useState<string[]>([]);
+  const [contentType, setContentType] = useState<"video" | "photo">("video");
   
   const { setSlides, addAsset, setBackgroundMusic, getDefaultStyle } = useEditorStore();
 
@@ -132,20 +133,7 @@ export const SmartRandomVideoDialog = ({
     }
 
     try {
-      // Get random assets and music
-      let query = supabase.from("assets").select("*");
-      
-      if (selectedCategory !== "all") {
-        query = query.eq("category", selectedCategory);
-      }
-      
-      const { data: assets, error: assetsError } = await query;
-
-      if (assetsError || !assets || assets.length === 0) {
-        toast.error("No video assets found in this category. Please upload some first!");
-        return;
-      }
-
+      // Get random music
       const { data: music, error: musicError } = await supabase
         .from("music_tracks")
         .select("*");
@@ -168,61 +156,122 @@ export const SmartRandomVideoDialog = ({
       const selectedSlides = allSlides
         .filter((_, index) => selectedIndices.has(index));
 
-      // Calculate total duration needed
-      const totalDuration = selectedSlides.reduce((sum, slide) => sum + slide.durationSec, 0);
-      
-      // Find assets that are equal or longer than total duration
-      const suitableAssets = assets.filter(asset => {
-        const assetDuration = Number(asset.duration);
-        return assetDuration >= totalDuration;
-      });
+      if (contentType === "photo") {
+        // Photo carousel mode: pick one random photo for all slides
+        let query = supabase.from("assets").select("*").eq("type", "image");
+        
+        if (selectedCategory !== "all") {
+          query = query.eq("category", selectedCategory);
+        }
+        
+        const { data: photos, error: photosError } = await query;
 
-      // Select from suitable assets, or pick the longest available
-      let selectedAsset;
-      if (suitableAssets.length > 0) {
-        selectedAsset = suitableAssets[Math.floor(Math.random() * suitableAssets.length)];
-      } else {
-        // If no asset is long enough, pick the longest one
-        selectedAsset = assets.reduce((longest, asset) => {
-          return Number(asset.duration) > Number(longest.duration) ? asset : longest;
-        });
-      }
+        if (photosError || !photos || photos.length === 0) {
+          toast.error("No photos found in this category. Please upload some first!");
+          return;
+        }
 
-      console.log('Selected music:', randomMusic.name, 'URL:', randomMusic.url);
-      console.log('Total duration needed:', totalDuration, 'Selected asset duration:', selectedAsset.duration);
+        const randomPhoto = photos[Math.floor(Math.random() * photos.length)];
 
-      // Apply the selected asset to all slides
-      const finalSlides = selectedSlides.map((slide, newIndex) => ({
-        ...slide,
-        index: newIndex,
-        assetId: selectedAsset.id,
-      }));
+        // Apply the same photo to all slides
+        const finalSlides = selectedSlides.map((slide, newIndex) => ({
+          ...slide,
+          index: newIndex,
+          assetId: randomPhoto.id,
+        }));
 
-      // Save the full template content for the Global tab (language-specific)
-      const { currentLanguage } = useEditorStore.getState();
-      localStorage.setItem(`lastParsedText_${currentLanguage}`, templateContent);
-      
-      // Save the actual unused text (only unselected slides)
-      localStorage.setItem(`lastUnusedText_${currentLanguage}`, unusedText);
-      
-      // Update store - music URL is already the public URL from the database
-      setSlides(finalSlides);
-      setBackgroundMusic(randomMusic.url);
+        // Save template and unused text
+        const { currentLanguage } = useEditorStore.getState();
+        localStorage.setItem(`lastParsedText_${currentLanguage}`, templateContent);
+        localStorage.setItem(`lastUnusedText_${currentLanguage}`, unusedText);
+        
+        setSlides(finalSlides);
+        setBackgroundMusic(randomMusic.url);
 
-      // Add all assets to store
-      assets.forEach((asset) => {
+        // Add photo to store
         addAsset({
-          id: asset.id,
-          url: asset.url,
-          duration: Number(asset.duration),
-          width: asset.width,
-          height: asset.height,
-          createdAt: new Date(asset.created_at),
+          id: randomPhoto.id,
+          url: randomPhoto.url,
+          duration: Number(randomPhoto.duration),
+          width: randomPhoto.width,
+          height: randomPhoto.height,
+          createdAt: new Date(randomPhoto.created_at),
+          type: 'image',
         });
-      });
 
-      toast.success(`Random video created with ${finalSlides.length} slides!`);
-      onOpenChange(false);
+        toast.success(`Photo carousel created with ${finalSlides.length} slides!`);
+        onOpenChange(false);
+      } else {
+        // Video mode: original logic
+        let query = supabase.from("assets").select("*").eq("type", "video");
+        
+        if (selectedCategory !== "all") {
+          query = query.eq("category", selectedCategory);
+        }
+        
+        const { data: assets, error: assetsError } = await query;
+
+        if (assetsError || !assets || assets.length === 0) {
+          toast.error("No video assets found in this category. Please upload some first!");
+          return;
+        }
+
+        // Calculate total duration needed
+        const totalDuration = selectedSlides.reduce((sum, slide) => sum + slide.durationSec, 0);
+        
+        // Find assets that are equal or longer than total duration
+        const suitableAssets = assets.filter(asset => {
+          const assetDuration = Number(asset.duration);
+          return assetDuration >= totalDuration;
+        });
+
+        // Select from suitable assets, or pick the longest available
+        let selectedAsset;
+        if (suitableAssets.length > 0) {
+          selectedAsset = suitableAssets[Math.floor(Math.random() * suitableAssets.length)];
+        } else {
+          // If no asset is long enough, pick the longest one
+          selectedAsset = assets.reduce((longest, asset) => {
+            return Number(asset.duration) > Number(longest.duration) ? asset : longest;
+          });
+        }
+
+        console.log('Selected music:', randomMusic.name, 'URL:', randomMusic.url);
+        console.log('Total duration needed:', totalDuration, 'Selected asset duration:', selectedAsset.duration);
+
+        // Apply the selected asset to all slides
+        const finalSlides = selectedSlides.map((slide, newIndex) => ({
+          ...slide,
+          index: newIndex,
+          assetId: selectedAsset.id,
+        }));
+
+        // Save the full template content for the Global tab (language-specific)
+        const { currentLanguage } = useEditorStore.getState();
+        localStorage.setItem(`lastParsedText_${currentLanguage}`, templateContent);
+        
+        // Save the actual unused text (only unselected slides)
+        localStorage.setItem(`lastUnusedText_${currentLanguage}`, unusedText);
+        
+        // Update store - music URL is already the public URL from the database
+        setSlides(finalSlides);
+        setBackgroundMusic(randomMusic.url);
+
+        // Add all assets to store
+        assets.forEach((asset) => {
+          addAsset({
+            id: asset.id,
+            url: asset.url,
+            duration: Number(asset.duration),
+            width: asset.width,
+            height: asset.height,
+            createdAt: new Date(asset.created_at),
+          });
+        });
+
+        toast.success(`Random video created with ${finalSlides.length} slides!`);
+        onOpenChange(false);
+      }
     } catch (error) {
       console.error("Error generating random video:", error);
       toast.error("Failed to generate random video");
@@ -238,13 +287,34 @@ export const SmartRandomVideoDialog = ({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>Smart Random Video Generator</DialogTitle>
+          <DialogTitle>Умный рандом</DialogTitle>
         </DialogHeader>
 
         <div className="space-y-6">
+          {/* Content Type Selection */}
+          <div className="space-y-3">
+            <Label htmlFor="content-type">Тип контента:</Label>
+            <Select value={contentType} onValueChange={(value: "video" | "photo") => setContentType(value)}>
+              <SelectTrigger id="content-type" className="w-full">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="video">Видео</SelectItem>
+                <SelectItem value="photo">Фото карусель</SelectItem>
+              </SelectContent>
+            </Select>
+            <p className="text-sm text-muted-foreground">
+              {contentType === "photo" 
+                ? "Одно случайное фото будет применено ко всем слайдам" 
+                : "Одно случайное видео будет применено ко всем слайдам"}
+            </p>
+          </div>
+
           {/* Category Selection */}
           <div className="space-y-3">
-            <Label htmlFor="category-select">Выберите категорию видео:</Label>
+            <Label htmlFor="category-select">
+              {contentType === "photo" ? "Категория фото:" : "Категория видео:"}
+            </Label>
             <Select value={selectedCategory} onValueChange={setSelectedCategory}>
               <SelectTrigger id="category-select" className="w-full">
                 <SelectValue />
@@ -324,7 +394,7 @@ export const SmartRandomVideoDialog = ({
           </Button>
           <Button type="button" onClick={generateVideo}>
             <Sparkles className="w-4 h-4 mr-2" />
-            Generate Video
+            {contentType === "photo" ? "Создать карусель" : "Создать видео"}
           </Button>
         </DialogFooter>
       </DialogContent>
