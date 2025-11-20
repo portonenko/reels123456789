@@ -132,6 +132,8 @@ export const SmartRandomVideoDialog = ({
       return;
     }
 
+    console.log('Smart Random - Content Type:', contentType);
+
     try {
       // Get random music
       const { data: music, error: musicError } = await supabase
@@ -153,10 +155,14 @@ export const SmartRandomVideoDialog = ({
         getDefaultStyle()
       );
 
-      const selectedSlides = allSlides
-        .filter((_, index) => selectedIndices.has(index));
+    const selectedSlides = allSlides
+      .filter((_, index) => selectedIndices.has(index));
 
-      if (contentType === "photo") {
+    console.log('Selected slides:', selectedSlides.length);
+    console.log('Content type check:', contentType === "photo" ? 'PHOTO MODE' : 'VIDEO MODE');
+
+    if (contentType === "photo") {
+      console.log('Executing photo carousel logic...');
         // Photo carousel mode: pick one random photo for all slides
         let query = supabase.from("assets").select("*").eq("type", "image");
         
@@ -202,6 +208,7 @@ export const SmartRandomVideoDialog = ({
         toast.success(`Photo carousel created with ${finalSlides.length} slides!`);
         onOpenChange(false);
       } else {
+        console.log('Executing video logic...');
         // Video mode: original logic
         let query = supabase.from("assets").select("*").eq("type", "video");
         
