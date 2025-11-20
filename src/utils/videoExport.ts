@@ -1,10 +1,11 @@
 import { Slide, Asset } from "@/types";
 import { renderSlideText } from "./canvasTextRenderer";
+import JSZip from "jszip";
 
 const renderSlideToCanvas = (
   slide: Slide,
   canvas: HTMLCanvasElement,
-  backgroundVideo?: HTMLVideoElement,
+  backgroundMedia?: HTMLVideoElement | HTMLImageElement,
   transitionProgress?: number,
   globalOverlay?: number
 ): void => {
@@ -71,9 +72,9 @@ const renderSlideToCanvas = (
     ctx.filter = filterValue;
   }
 
-  // Draw background
-  if (backgroundVideo) {
-    ctx.drawImage(backgroundVideo, 0, 0, canvas.width, canvas.height);
+  // Draw background (video or image)
+  if (backgroundMedia) {
+    ctx.drawImage(backgroundMedia, 0, 0, canvas.width, canvas.height);
   } else {
     // Gradient fallback
     const gradient = ctx.createLinearGradient(0, 0, canvas.width, canvas.height);
@@ -340,5 +341,77 @@ export const exportVideo = async (
   
   onProgress(100, "Complete!");
   return videoBlob;
+};
+
+export const exportPhotos = async (
+  slides: Slide[],
+  backgroundAsset: Asset | null,
+  onProgress: (progress: number, message: string) => void,
+  globalOverlay?: number
+): Promise<Blob> => {
+  onProgress(5, "Preparing photo export...");
+
+  const canvas = document.createElement("canvas");
+  canvas.width = 1080;
+  canvas.height = 1920;
+
+  let backgroundImage: HTMLImageElement | undefined;
+  
+  // Load background image if available
+  if (backgroundAsset && backgroundAsset.type === 'image') {
+    onProgress(10, "Loading background image...");
+    backgroundImage = document.createElement("img");
+    backgroundImage.src = backgroundAsset.url;
+    if (!backgroundAsset.url.startsWith('blob:')) {
+      backgroundImage.crossOrigin = "anonymous";
+    }
+    await new Promise((resolve, reject) => {
+      backgroundImage!.onload = resolve;
+      backgroundImage!.onerror = (e) => {
+        console.error("Image loading error:", e);
+        reject(new Error("Failed to load background image"));
+      };
+    });
+  }
+
+  onProgress(20, "Rendering slides...");
+
+  const zip = new JSZip();
+  const totalSlides = slides.length;
+
+  for (let i = 0; i < slides.length; i++) {
+    const slide = slides[i];
+    const progressPercent = 20 + ((i / totalSlides) * 70);
+    onProgress(progressPercent, `Rendering slide ${i + 1}/${totalSlides}...`);
+
+    // Render slide to canvas
+    renderSlideToCanvas(slide, canvas, backgroundImage, 1, globalOverlay);
+
+    // Convert canvas to blob
+    const blob = await new Promise<Blob>((resolve, reject) => {
+      canvas.toBlob(
+        (b) => {
+          if (b) resolve(b);
+          else reject(new Error("Failed to create image blob"));
+        },
+        'image/png',
+        1.0
+      );
+    });
+
+    // Add to ZIP with slide number
+    const fileName = `slide_${String(i + 1).padStart(3, '0')}.png`;
+    zip.file(fileName, blob);
+  }
+
+  onProgress(90, "Creating ZIP archive...");
+  const zipBlob = await zip.generateAsync({ 
+    type: "blob",
+    compression: "DEFLATE",
+    compressionOptions: { level: 6 }
+  });
+
+  onProgress(100, "Complete!");
+  return zipBlob;
 };
 
