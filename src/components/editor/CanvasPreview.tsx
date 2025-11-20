@@ -308,14 +308,22 @@ export const CanvasPreview = ({ slide, globalOverlay, showTextBoxControls = fals
       <div className="relative bg-black rounded-lg overflow-hidden shadow-2xl" style={{ width: "360px", height: "640px" }}>
         {/* Background video - plays continuously */}
         {backgroundAsset ? (
-          <video
-            ref={videoRef}
-            src={backgroundAsset.url}
-            className="absolute inset-0 w-full h-full object-cover"
-            loop
-            muted
-            playsInline
-          />
+          backgroundAsset.type === 'image' ? (
+            <img
+              src={backgroundAsset.url}
+              className="absolute inset-0 w-full h-full object-cover"
+              alt="Background"
+            />
+          ) : (
+            <video
+              ref={videoRef}
+              src={backgroundAsset.url}
+              className="absolute inset-0 w-full h-full object-cover"
+              loop
+              muted
+              playsInline
+            />
+          )
         ) : (
           <div className="absolute inset-0 bg-gradient-to-br from-purple-900 via-blue-900 to-cyan-900" />
         )}
