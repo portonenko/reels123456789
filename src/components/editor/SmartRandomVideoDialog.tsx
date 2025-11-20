@@ -45,6 +45,7 @@ export const SmartRandomVideoDialog = ({
   const [selectedCategory, setSelectedCategory] = useState<string>("all");
   const [categories, setCategories] = useState<string[]>([]);
   const [contentType, setContentType] = useState<"video" | "photo">("video");
+  const [includeMusic, setIncludeMusic] = useState(true);
   
   const { setSlides, addAsset, setBackgroundMusic, getDefaultStyle } = useEditorStore();
 
@@ -133,17 +134,20 @@ export const SmartRandomVideoDialog = ({
     }
 
     try {
-      // Get random music
-      const { data: music, error: musicError } = await supabase
-        .from("music_tracks")
-        .select("*");
+      // Get random music only if includeMusic is true
+      let randomMusic = null;
+      if (includeMusic) {
+        const { data: music, error: musicError } = await supabase
+          .from("music_tracks")
+          .select("*");
 
-      if (musicError || !music || music.length === 0) {
-        toast.error("No music tracks found. Please upload some first!");
-        return;
+        if (musicError || !music || music.length === 0) {
+          toast.error("No music tracks found. Please upload some first!");
+          return;
+        }
+
+        randomMusic = music[Math.floor(Math.random() * music.length)];
       }
-
-      const randomMusic = music[Math.floor(Math.random() * music.length)];
 
       // Create slides only from selected indices
       const projectId = crypto.randomUUID();
@@ -186,7 +190,7 @@ export const SmartRandomVideoDialog = ({
         localStorage.setItem(`lastUnusedText_${currentLanguage}`, unusedText);
         
         setSlides(finalSlides);
-        setBackgroundMusic(randomMusic.url);
+        setBackgroundMusic(includeMusic && randomMusic ? randomMusic.url : null);
 
         // Add photo to store
         addAsset({
@@ -255,7 +259,7 @@ export const SmartRandomVideoDialog = ({
         
         // Update store - music URL is already the public URL from the database
         setSlides(finalSlides);
-        setBackgroundMusic(randomMusic.url);
+        setBackgroundMusic(includeMusic && randomMusic ? randomMusic.url : null);
 
         // Add all assets to store
         assets.forEach((asset) => {
@@ -308,6 +312,18 @@ export const SmartRandomVideoDialog = ({
                 ? "Одно случайное фото будет применено ко всем слайдам" 
                 : "Одно случайное видео будет применено ко всем слайдам"}
             </p>
+          </div>
+
+          {/* Music Option */}
+          <div className="flex items-center space-x-2">
+            <Checkbox
+              id="include-music"
+              checked={includeMusic}
+              onCheckedChange={(checked) => setIncludeMusic(checked as boolean)}
+            />
+            <Label htmlFor="include-music" className="cursor-pointer">
+              Добавить музыку
+            </Label>
           </div>
 
           {/* Category Selection */}
