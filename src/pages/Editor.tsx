@@ -15,7 +15,7 @@ import { SmartRandomVideoDialog } from "@/components/editor/SmartRandomVideoDial
 import { RandomizeBackgroundDialog } from "@/components/editor/RandomizeBackgroundDialog";
 import { CarouselCreatorDialog } from "@/components/editor/CarouselCreatorDialog";
 import { Button } from "@/components/ui/button";
-import { Sparkles, Home, Download, Shuffle, Globe, FileText, Palette, Plus } from "lucide-react";
+import { Sparkles, Home, Download, Shuffle, Globe, FileText, Palette, Plus, Image } from "lucide-react";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -73,6 +73,7 @@ const Editor = () => {
     getDefaultStyle,
     reorderSlides,
     resetToDefaultLanguage,
+    addAsset,
   } = useEditorStore();
 
   const selectedSlide = slides.find((s) => s.id === selectedSlideId) || null;
@@ -407,6 +408,68 @@ const Editor = () => {
     toast.success(language === 'ru' ? 'Слайд добавлен' : 'Slide added');
   };
 
+  const replaceAllPhotos = async () => {
+    // Check if slides have photo assets (type: 'image')
+    const hasPhotos = slides.some(slide => {
+      const asset = assets.find(a => a.id === slide.assetId);
+      return asset?.type === 'image';
+    });
+
+    if (!hasPhotos) {
+      toast.error(language === 'ru' ? 'Нет фото для замены' : 'No photos to replace');
+      return;
+    }
+
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        toast.error(language === 'ru' ? 'Необходимо войти в систему' : 'Please log in');
+        return;
+      }
+
+      // Fetch all photo assets from database
+      const { data: photoAssets, error } = await supabase
+        .from("assets")
+        .select("*")
+        .eq("user_id", user.id)
+        .eq("type", "image");
+
+      if (error || !photoAssets || photoAssets.length === 0) {
+        toast.error(language === 'ru' ? 'Фото не найдены' : 'No photos found');
+        return;
+      }
+
+      // Pick a random photo
+      const randomPhoto = photoAssets[Math.floor(Math.random() * photoAssets.length)];
+
+      // Update all slides to use this photo
+      const updatedSlides = slides.map(slide => ({
+        ...slide,
+        assetId: randomPhoto.id,
+      }));
+
+      setSlides(updatedSlides);
+
+      // Add photo to store if not already there
+      if (!assets.find(a => a.id === randomPhoto.id)) {
+        addAsset({
+          id: randomPhoto.id,
+          url: randomPhoto.url,
+          duration: Number(randomPhoto.duration),
+          width: randomPhoto.width,
+          height: randomPhoto.height,
+          createdAt: new Date(randomPhoto.created_at),
+          type: 'image',
+        });
+      }
+
+      toast.success(language === 'ru' ? 'Фото заменено на всех слайдах' : 'Photo replaced on all slides');
+    } catch (error) {
+      console.error('Error replacing photos:', error);
+      toast.error(language === 'ru' ? 'Ошибка при замене фото' : 'Error replacing photos');
+    }
+  };
+
   return (
     <div className="h-screen flex flex-col bg-background">
       {/* Top bar */}
@@ -491,6 +554,15 @@ const Editor = () => {
           >
             <Shuffle className="w-4 h-4 mr-2" />
             {language === 'ru' ? 'Случайный фон' : 'Randomize'}
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={replaceAllPhotos}
+            disabled={slides.length === 0}
+          >
+            <Image className="w-4 h-4 mr-2" />
+            {language === 'ru' ? 'Заменить фото' : 'Replace Photo'}
           </Button>
           <Button
             size="sm"
