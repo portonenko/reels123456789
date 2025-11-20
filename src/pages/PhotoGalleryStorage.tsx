@@ -31,6 +31,7 @@ interface AssetDb {
   height: number;
   created_at: string;
   category: string;
+  type: string;
 }
 
 const PhotoGalleryStorage = () => {
@@ -71,11 +72,8 @@ const PhotoGalleryStorage = () => {
     }
 
     if (data) {
-      // Filter only image assets
-      const imageAssets = data.filter((a: AssetDb) => {
-        const url = a.url.toLowerCase();
-        return url.includes('.jpg') || url.includes('.jpeg') || url.includes('.png') || url.includes('.webp') || url.includes('.gif');
-      });
+      // Filter only image assets by type field
+      const imageAssets = data.filter((a: AssetDb & { type?: string }) => a.type === 'image');
 
       // Remove duplicates by ID
       const uniqueAssets = imageAssets.reduce((acc: AssetDb[], curr: AssetDb) => {
