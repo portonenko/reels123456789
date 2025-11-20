@@ -67,6 +67,7 @@ export interface Asset {
   height: number;
   createdAt: Date;
   category?: string;
+  type?: 'video' | 'image'; // Type of asset
 }
 
 export interface Project {

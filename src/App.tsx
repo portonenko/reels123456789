@@ -8,6 +8,7 @@ import Editor from "./pages/Editor";
 import Auth from "./pages/Auth";
 import Gallery from "./pages/Gallery";
 import GalleryStorage from "./pages/GalleryStorage";
+import PhotoGalleryStorage from "./pages/PhotoGalleryStorage";
 import MusicGallery from "./pages/MusicGallery";
 import MusicGalleryStorage from "./pages/MusicGalleryStorage";
 import NotFound from "./pages/NotFound";
@@ -25,6 +26,7 @@ const App = () => (
           <Route path="/auth" element={<Auth />} />
           <Route path="/editor" element={<Editor />} />
           <Route path="/gallery" element={<GalleryStorage />} />
+          <Route path="/photos" element={<PhotoGalleryStorage />} />
           <Route path="/music" element={<MusicGalleryStorage />} />
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
           <Route path="*" element={<NotFound />} />
