@@ -13,6 +13,7 @@ import { RandomVideoButton } from "@/components/editor/RandomVideoButton";
 import { PresetManager } from "@/components/editor/PresetManager";
 import { SmartRandomVideoDialog } from "@/components/editor/SmartRandomVideoDialog";
 import { RandomizeBackgroundDialog } from "@/components/editor/RandomizeBackgroundDialog";
+import { CarouselCreatorDialog } from "@/components/editor/CarouselCreatorDialog";
 import { Button } from "@/components/ui/button";
 import { Sparkles, Home, Download, Shuffle, Globe, FileText, Palette, Plus } from "lucide-react";
 import {
@@ -50,6 +51,7 @@ const Editor = () => {
   const [showPresetManager, setShowPresetManager] = useState(false);
   const [showSmartRandomDialog, setShowSmartRandomDialog] = useState(false);
   const [showRandomizeDialog, setShowRandomizeDialog] = useState(false);
+  const [showCarouselDialog, setShowCarouselDialog] = useState(false);
   const [showTextBoxControls, setShowTextBoxControls] = useState(false);
   const [draggedSlideIndex, setDraggedSlideIndex] = useState<number | null>(null);
   
@@ -187,6 +189,81 @@ const Editor = () => {
       setSelectedSlideId(newSlides[0].id);
     }
     toast.success(language === 'ru' ? `Создано ${newSlides.length} слайдов` : `Created ${newSlides.length} slides`);
+  };
+
+  const handleCreateCarousel = async (slideCount: number) => {
+    // Reset all translations when creating new carousel
+    resetToDefaultLanguage();
+    
+    const defaultStyle = getDefaultStyle();
+    
+    // Load image assets from database if not in store
+    let availableAssets = Object.values(assets).filter(a => a.type === 'image');
+    
+    if (availableAssets.length === 0) {
+      try {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (user) {
+          const { data: dbAssets, error } = await supabase
+            .from("assets")
+            .select("*")
+            .eq("user_id", user.id);
+          
+          if (!error && dbAssets && dbAssets.length > 0) {
+            // Filter image assets
+            const imageAssets = dbAssets.filter((a: any) => {
+              const url = a.url.toLowerCase();
+              return url.includes('.jpg') || url.includes('.jpeg') || url.includes('.png') || url.includes('.webp') || url.includes('.gif');
+            });
+
+            availableAssets = imageAssets.map(asset => ({
+              id: asset.id,
+              url: asset.url,
+              duration: Number(asset.duration) || 5,
+              width: asset.width,
+              height: asset.height,
+              createdAt: new Date(asset.created_at),
+              type: 'image' as const,
+            }));
+            
+            // Add to store for future use
+            availableAssets.forEach(asset => {
+              useEditorStore.getState().addAsset(asset);
+            });
+          }
+        }
+      } catch (error) {
+        console.error("Error loading photo assets:", error);
+      }
+    }
+
+    if (availableAssets.length === 0) {
+      toast.error(language === 'ru' ? "Сначала загрузите фото в галерею" : "Please upload photos to the gallery first");
+      return;
+    }
+    
+    const newSlides: Slide[] = Array.from({ length: slideCount }, (_, index) => {
+      // Assign random photo
+      const randomAsset = availableAssets[Math.floor(Math.random() * availableAssets.length)];
+
+      return {
+        id: crypto.randomUUID(),
+        projectId: "project-1",
+        index,
+        type: "title-only",
+        title: `Slide ${index + 1}`,
+        durationSec: 5, // Default 5 seconds for carousel slides
+        style: defaultStyle,
+        language: currentLanguage,
+        assetId: randomAsset.id,
+      };
+    });
+
+    setSlides(newSlides);
+    if (newSlides.length > 0) {
+      setSelectedSlideId(newSlides[0].id);
+    }
+    toast.success(language === 'ru' ? `Создана карусель из ${newSlides.length} слайдов` : `Created carousel with ${newSlides.length} slides`);
   };
 
   const handleTranslate = async (languages: string[]) => {
@@ -401,6 +478,14 @@ const Editor = () => {
           <Button
             variant="outline"
             size="sm"
+            onClick={() => setShowCarouselDialog(true)}
+          >
+            <Plus className="w-4 h-4 mr-2" />
+            {language === 'ru' ? 'Карусель фото' : 'Photo Carousel'}
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
             onClick={() => setShowRandomizeDialog(true)}
             disabled={slides.length === 0}
           >
@@ -559,6 +644,12 @@ const Editor = () => {
       <RandomizeBackgroundDialog
         open={showRandomizeDialog}
         onOpenChange={setShowRandomizeDialog}
+      />
+
+      <CarouselCreatorDialog
+        open={showCarouselDialog}
+        onOpenChange={setShowCarouselDialog}
+        onCreateCarousel={handleCreateCarousel}
       />
 
       <TranslationDialog
