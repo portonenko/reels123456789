@@ -14,7 +14,7 @@ import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
 import { Loader2, Download } from "lucide-react";
 import { Slide, Asset } from "@/types";
-import { exportVideo } from "@/utils/videoExport";
+import { exportVideo, exportPhotos } from "@/utils/videoExport";
 import { supabase } from "@/integrations/supabase/client";
 
 interface ProjectData {
@@ -37,6 +37,16 @@ export const ExportDialog = ({ open, onClose, projects, assets }: ExportDialogPr
   const [currentStep, setCurrentStep] = useState("");
   const [keepMusicAcrossLanguages, setKeepMusicAcrossLanguages] = useState(false);
   const [selectedLanguages, setSelectedLanguages] = useState<Set<string>>(new Set());
+
+  // Check if any project is a photo carousel
+  const isPhotoCarousel = Object.values(projects).some(project => {
+    const firstSlide = project.slides[0];
+    if (firstSlide?.assetId) {
+      const asset = assets.find(a => a.id === firstSlide.assetId);
+      return asset?.type === 'image';
+    }
+    return false;
+  });
 
   // Initialize with all languages selected
   useEffect(() => {
@@ -166,25 +176,42 @@ export const ExportDialog = ({ open, onClose, projects, assets }: ExportDialogPr
       ? assets.find(a => a.id === firstSlide.assetId) || null
       : null;
 
-    console.log(`Calling exportVideo for ${language}...`);
-    const videoBlob = await exportVideo(
-      langSlides,
-      backgroundAsset,
-      (progress, message) => {
-        console.log(`Export progress for ${language}: ${progress}% - ${message}`);
-        setProgress(progress);
-        setCurrentStep(`${language}: ${message}`);
-      },
-      project.backgroundMusicUrl || undefined,
-      project.globalOverlay
-    );
+    // Check if this is a photo carousel (all slides use image assets)
+    const isPhotoCarousel = backgroundAsset?.type === 'image';
+
+    console.log(`Calling ${isPhotoCarousel ? 'exportPhotos' : 'exportVideo'} for ${language}...`);
+    
+    const blob = isPhotoCarousel 
+      ? await exportPhotos(
+          langSlides,
+          backgroundAsset,
+          (progress, message) => {
+            console.log(`Export progress for ${language}: ${progress}% - ${message}`);
+            setProgress(progress);
+            setCurrentStep(`${language}: ${message}`);
+          },
+          project.globalOverlay
+        )
+      : await exportVideo(
+          langSlides,
+          backgroundAsset,
+          (progress, message) => {
+            console.log(`Export progress for ${language}: ${progress}% - ${message}`);
+            setProgress(progress);
+            setCurrentStep(`${language}: ${message}`);
+          },
+          project.backgroundMusicUrl || undefined,
+          project.globalOverlay
+        );
 
     console.log(`Export complete for ${language}, downloading...`);
-    // Download the video as MP4
-    const url = URL.createObjectURL(videoBlob);
+    // Download the file (video or zip)
+    const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
-    a.download = `video-${language}-${Date.now()}.mp4`;
+    a.download = isPhotoCarousel 
+      ? `photos-${language}-${Date.now()}.zip`
+      : `video-${language}-${Date.now()}.mp4`;
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
@@ -196,31 +223,39 @@ export const ExportDialog = ({ open, onClose, projects, assets }: ExportDialogPr
     <Dialog open={open} onOpenChange={onClose}>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
-          <DialogTitle>Export Videos</DialogTitle>
+          <DialogTitle>
+            {isPhotoCarousel ? 'Экспорт фото' : 'Export Videos'}
+          </DialogTitle>
           <DialogDescription>
-            Export your project as MP4 files (1080×1920, ready for social media)
+            {isPhotoCarousel 
+              ? 'Экспорт слайдов как изображений в ZIP архиве (1080×1920)'
+              : 'Export your project as MP4 files (1080×1920, ready for social media)'}
           </DialogDescription>
         </DialogHeader>
 
         <div className="space-y-4 py-4">
-          <div className="flex items-center justify-between p-3 bg-secondary rounded-lg">
-            <div className="flex flex-col gap-1">
-              <Label htmlFor="keep-music" className="text-sm font-medium cursor-pointer">
-                Keep Same Music Across All Languages
-              </Label>
-              <p className="text-xs text-muted-foreground">
-                Use the same background music for all exported videos
-              </p>
+          {!isPhotoCarousel && (
+            <div className="flex items-center justify-between p-3 bg-secondary rounded-lg">
+              <div className="flex flex-col gap-1">
+                <Label htmlFor="keep-music" className="text-sm font-medium cursor-pointer">
+                  Keep Same Music Across All Languages
+                </Label>
+                <p className="text-xs text-muted-foreground">
+                  Use the same background music for all exported videos
+                </p>
+              </div>
+              <Switch
+                id="keep-music"
+                checked={keepMusicAcrossLanguages}
+                onCheckedChange={handleToggleKeepMusic}
+              />
             </div>
-            <Switch
-              id="keep-music"
-              checked={keepMusicAcrossLanguages}
-              onCheckedChange={handleToggleKeepMusic}
-            />
-          </div>
+          )}
 
           <div className="space-y-2">
-            <h4 className="text-sm font-medium">Select Videos to Export:</h4>
+            <h4 className="text-sm font-medium">
+              {isPhotoCarousel ? 'Выбрать для экспорта:' : 'Select Videos to Export:'}
+            </h4>
             {Object.entries(projects).map(([lang, project]) => (
               <div
                 key={lang}
@@ -254,7 +289,10 @@ export const ExportDialog = ({ open, onClose, projects, assets }: ExportDialogPr
 
           <div className="bg-blue-500/10 border border-blue-500/20 rounded-lg p-3">
             <p className="text-xs text-blue-200">
-              <strong>Format:</strong> Videos are exported as MP4 (H.264 + AAC) for maximum compatibility with mobile devices. Note: MP4 conversion takes 1-2 minutes.
+              {isPhotoCarousel 
+                ? <><strong>Формат:</strong> Фото экспортируются как PNG изображения в ZIP архиве. Каждый слайд сохраняется как отдельное изображение.</>
+                : <><strong>Format:</strong> Videos are exported as MP4 (H.264 + AAC) for maximum compatibility with mobile devices. Note: MP4 conversion takes 1-2 minutes.</>
+              }
             </p>
           </div>
         </div>
@@ -265,7 +303,10 @@ export const ExportDialog = ({ open, onClose, projects, assets }: ExportDialogPr
           </Button>
           <Button onClick={handleExportAll} disabled={isExporting || selectedLanguages.size === 0}>
             {isExporting && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
-            Export Selected ({selectedLanguages.size} {selectedLanguages.size === 1 ? 'video' : 'videos'})
+            {isPhotoCarousel 
+              ? `Экспорт (${selectedLanguages.size})`
+              : `Export Selected (${selectedLanguages.size} ${selectedLanguages.size === 1 ? 'video' : 'videos'})`
+            }
           </Button>
         </div>
       </DialogContent>
