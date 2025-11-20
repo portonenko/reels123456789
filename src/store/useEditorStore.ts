@@ -50,6 +50,7 @@ interface EditorStore {
   setCurrentLanguage: (lang: string) => void;
   getAvailableLanguages: () => string[];
   deleteLanguageProject: (lang: string) => void;
+  resetToDefaultLanguage: () => void;
   
   setSlides: (slides: Slide[]) => void;
   addSlide: (slide: Omit<Slide, "id">) => void;
@@ -145,6 +146,23 @@ export const useEditorStore = create<EditorStore>((set, get) => ({
         globalOverlay: newProject.globalOverlay,
         projectName: newProject.projectName,
         backgroundMusicUrl: newProject.backgroundMusicUrl,
+      };
+    });
+  },
+  
+  resetToDefaultLanguage: () => {
+    set((state) => {
+      const defaultProject = state.projects["default"];
+      return {
+        projects: {
+          default: defaultProject,
+        },
+        currentLanguage: "default",
+        slides: defaultProject.slides,
+        globalOverlay: defaultProject.globalOverlay,
+        projectName: defaultProject.projectName,
+        backgroundMusicUrl: defaultProject.backgroundMusicUrl,
+        selectedSlideId: null,
       };
     });
   },
