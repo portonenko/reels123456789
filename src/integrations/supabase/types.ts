@@ -21,6 +21,7 @@ export type Database = {
           duration: number
           height: number
           id: string
+          type: string | null
           url: string
           user_id: string
           width: number
@@ -31,6 +32,7 @@ export type Database = {
           duration: number
           height: number
           id?: string
+          type?: string | null
           url: string
           user_id: string
           width: number
@@ -41,6 +43,7 @@ export type Database = {
           duration?: number
           height?: number
           id?: string
+          type?: string | null
           url?: string
           user_id?: string
           width?: number
