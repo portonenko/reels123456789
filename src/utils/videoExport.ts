@@ -256,35 +256,27 @@ export const exportVideo = async (
     };
   });
 
-  // Request data in larger chunks for better stability (every 1000ms)
+  // Request data in chunks for stability
   mediaRecorder.start(1000);
   console.log('MediaRecorder started with format:', mimeType);
 
-  // Start background video and audio if available
-  if (backgroundVideo) {
-    backgroundVideo.play();
-  }
+  // Start background audio if available
   if (backgroundAudio) {
-    // Don't set volume here as it's controlled by gain node
     await backgroundAudio.play();
     console.log("Background audio playing");
   }
 
-  // Animate through slides at 30 FPS with precise timing
+  // Render slides frame-by-frame with manual timing control
   const totalDuration = slides.reduce((sum, s) => sum + s.durationSec, 0);
-  const startTime = performance.now();
   const fps = 30;
-  const frameDuration = 1000 / fps; // ~33.33ms per frame
+  const frameDuration = 1000 / fps;
+  const totalFrames = Math.ceil(totalDuration * fps);
+  let currentFrame = 0;
   let currentSlideIndex = 0;
   let slideStartTime = 0;
-  let frameCount = 0;
 
-  const animate = () => {
-    const now = performance.now();
-    const elapsed = (now - startTime) / 1000; // seconds
-    
-    // Check if we've reached the end
-    if (elapsed >= totalDuration) {
+  const renderNextFrame = async () => {
+    if (currentFrame >= totalFrames) {
       // Stop recording
       if (backgroundVideo) {
         backgroundVideo.pause();
@@ -293,54 +285,64 @@ export const exportVideo = async (
         backgroundAudio.pause();
       }
       mediaRecorder.stop();
-      console.log('Recording completed at:', elapsed, 'seconds');
+      console.log('Recording completed');
       return;
     }
-    
-    // Calculate expected frame time based on frame count for consistent timing
-    const expectedTime = startTime + (frameCount * frameDuration);
-    const drift = now - expectedTime;
-    
-    // Only render if we're at or past the expected frame time
-    if (drift >= 0) {
-      frameCount++;
-      
-      // Update progress
-      const progressPercent = Math.min((elapsed / totalDuration) * 100, 100);
-      onProgress(10 + progressPercent * 0.85, `Recording slide ${currentSlideIndex + 1}/${slides.length}...`);
 
-      // Find current slide based on elapsed time
-      let accumulatedTime = 0;
-      for (let i = 0; i < slides.length; i++) {
-        if (elapsed < accumulatedTime + slides[i].durationSec) {
-          currentSlideIndex = i;
-          slideStartTime = accumulatedTime;
-          break;
+    const elapsed = currentFrame / fps;
+    
+    // Sync background video to exact frame time
+    if (backgroundVideo && backgroundVideo.duration) {
+      const videoTime = elapsed % backgroundVideo.duration;
+      backgroundVideo.currentTime = videoTime;
+      // Wait for video to seek to correct frame
+      await new Promise(resolve => {
+        if (Math.abs(backgroundVideo.currentTime - videoTime) < 0.1) {
+          resolve(null);
+        } else {
+          backgroundVideo.onseeked = () => resolve(null);
         }
-        accumulatedTime += slides[i].durationSec;
-      }
-
-      // Render current slide with transition
-      const slideElapsed = elapsed - slideStartTime;
-      const transitionDuration = 0.5; // 0.5 seconds
-      const transitionProgress = Math.min(slideElapsed / transitionDuration, 1);
-      
-      renderSlideToCanvas(
-        slides[currentSlideIndex], 
-        canvas, 
-        backgroundVideo, 
-        transitionProgress,
-        globalOverlay
-      );
+      });
     }
     
-    // Schedule next frame with precise timing compensation
-    const nextFrameTime = expectedTime + frameDuration;
-    const delay = Math.max(0, nextFrameTime - performance.now());
-    setTimeout(() => requestAnimationFrame(animate), delay);
+    // Update progress
+    const progressPercent = (currentFrame / totalFrames) * 100;
+    onProgress(10 + progressPercent * 0.85, `Recording slide ${currentSlideIndex + 1}/${slides.length}...`);
+
+    // Find current slide based on elapsed time
+    let accumulatedTime = 0;
+    for (let i = 0; i < slides.length; i++) {
+      if (elapsed < accumulatedTime + slides[i].durationSec) {
+        currentSlideIndex = i;
+        slideStartTime = accumulatedTime;
+        break;
+      }
+      accumulatedTime += slides[i].durationSec;
+    }
+
+    // Render current slide with transition
+    const slideElapsed = elapsed - slideStartTime;
+    const transitionDuration = 0.5;
+    const transitionProgress = Math.min(slideElapsed / transitionDuration, 1);
+    
+    renderSlideToCanvas(
+      slides[currentSlideIndex], 
+      canvas, 
+      backgroundVideo, 
+      transitionProgress,
+      globalOverlay
+    );
+    
+    currentFrame++;
+    
+    // Use setTimeout for consistent frame timing
+    setTimeout(() => {
+      requestAnimationFrame(renderNextFrame);
+    }, frameDuration);
   };
 
-  animate();
+  // Start rendering
+  renderNextFrame();
 
   onProgress(95, "Finalizing video...");
   const videoBlob = await recordingPromise;
