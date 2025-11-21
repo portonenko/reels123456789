@@ -220,34 +220,25 @@ export const SmartRandomVideoDialog = ({
           return;
         }
 
-        // Calculate total duration needed
-        const totalDuration = selectedSlides.reduce((sum, slide) => sum + slide.durationSec, 0);
+        // Pick a random video asset
+        const selectedAsset = assets[Math.floor(Math.random() * assets.length)];
+        const videoDuration = Number(selectedAsset.duration);
         
-        // Find assets that are equal or longer than total duration
-        const suitableAssets = assets.filter(asset => {
-          const assetDuration = Number(asset.duration);
-          return assetDuration >= totalDuration;
-        });
-
-        // Select from suitable assets, or pick the longest available
-        let selectedAsset;
-        if (suitableAssets.length > 0) {
-          selectedAsset = suitableAssets[Math.floor(Math.random() * suitableAssets.length)];
-        } else {
-          // If no asset is long enough, pick the longest one
-          selectedAsset = assets.reduce((longest, asset) => {
-            return Number(asset.duration) > Number(longest.duration) ? asset : longest;
-          });
+        // Distribute video duration equally among slides
+        const durationPerSlide = videoDuration / selectedSlides.length;
+        
+        console.log('Selected video duration:', videoDuration, 'seconds');
+        console.log('Duration per slide:', durationPerSlide.toFixed(2), 'seconds');
+        if (includeMusic && randomMusic) {
+          console.log('Selected music:', randomMusic.name, 'URL:', randomMusic.url);
         }
 
-        console.log('Selected music:', randomMusic.name, 'URL:', randomMusic.url);
-        console.log('Total duration needed:', totalDuration, 'Selected asset duration:', selectedAsset.duration);
-
-        // Apply the selected asset to all slides
+        // Apply the selected asset and update durations for all slides
         const finalSlides = selectedSlides.map((slide, newIndex) => ({
           ...slide,
           index: newIndex,
           assetId: selectedAsset.id,
+          durationSec: durationPerSlide,
         }));
 
         // Save the full template content for the Global tab (language-specific)
