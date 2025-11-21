@@ -221,11 +221,17 @@ export const exportVideo = async (
     combinedStream = videoStream;
   }
   
-  // Use very high bitrate for smooth, high quality video
+  // Calculate total duration for adaptive settings
+  const totalDuration = slides.reduce((sum, s) => sum + s.durationSec, 0);
+  
+  // Adaptive bitrate based on video duration
+  const videoBitrate = totalDuration > 30 ? 4000000 : totalDuration > 15 ? 6000000 : 8000000;
+  const chunkInterval = totalDuration > 30 ? 2000 : 1000; // Larger chunks for long videos
+  
   const recorderOptions: any = {
     mimeType,
-    videoBitsPerSecond: 8000000, // 8 Mbps - very high quality for smooth 1080p vertical
-    audioBitsPerSecond: 128000,  // 128 kbps audio
+    videoBitsPerSecond: videoBitrate,
+    audioBitsPerSecond: 128000,
   };
   
   const mediaRecorder = new MediaRecorder(combinedStream, recorderOptions);
@@ -272,11 +278,10 @@ export const exportVideo = async (
   }
 
   // Now start recording after media is playing
-  mediaRecorder.start(1000);
-  console.log('MediaRecorder started with format:', mimeType);
+  mediaRecorder.start(chunkInterval);
+  console.log('MediaRecorder started with format:', mimeType, 'bitrate:', videoBitrate, 'chunk interval:', chunkInterval);
 
   // Render slides at fixed 30 FPS
-  const totalDuration = slides.reduce((sum, s) => sum + s.durationSec, 0);
   const fps = 30;
   const frameDuration = 1000 / fps;
   const startTime = performance.now();
