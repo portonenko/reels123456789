@@ -274,11 +274,21 @@ export const exportVideo = async (
   const fps = 30;
   const frameDuration = 1000 / fps;
   const startTime = performance.now();
+  let lastFrameTime = startTime;
   let currentSlideIndex = 0;
   let slideStartTime = 0;
 
   const animate = () => {
     const now = performance.now();
+    const timeSinceLastFrame = now - lastFrameTime;
+    
+    // Only render if enough time has passed for next frame (30 FPS = ~33ms per frame)
+    if (timeSinceLastFrame < frameDuration) {
+      requestAnimationFrame(animate);
+      return;
+    }
+    
+    lastFrameTime = now - (timeSinceLastFrame % frameDuration);
     const elapsed = (now - startTime) / 1000;
     
     // Check if recording is complete
@@ -318,7 +328,7 @@ export const exportVideo = async (
       globalOverlay
     );
     
-    // Schedule next frame at fixed interval
+    // Schedule next frame
     requestAnimationFrame(animate);
   };
 
