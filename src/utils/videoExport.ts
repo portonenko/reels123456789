@@ -256,18 +256,24 @@ export const exportVideo = async (
     };
   });
 
-  // Request data in chunks for stability
-  mediaRecorder.start(1000);
-  console.log('MediaRecorder started with format:', mimeType);
-
-  // Start background video and audio - let them play naturally
+  // Start background video and audio FIRST - before recording
   if (backgroundVideo) {
+    backgroundVideo.currentTime = 0;
     await backgroundVideo.play();
+    // Wait for video to actually start playing
+    await new Promise(resolve => setTimeout(resolve, 100));
+    console.log("Background video playing at:", backgroundVideo.currentTime);
   }
   if (backgroundAudio) {
+    backgroundAudio.currentTime = 0;
     await backgroundAudio.play();
-    console.log("Background audio playing");
+    await new Promise(resolve => setTimeout(resolve, 100));
+    console.log("Background audio playing at:", backgroundAudio.currentTime);
   }
+
+  // Now start recording after media is playing
+  mediaRecorder.start(1000);
+  console.log('MediaRecorder started with format:', mimeType);
 
   // Render slides at fixed 30 FPS
   const totalDuration = slides.reduce((sum, s) => sum + s.durationSec, 0);
