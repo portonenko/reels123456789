@@ -221,10 +221,10 @@ export const exportVideo = async (
     combinedStream = videoStream;
   }
   
-  // Use high bitrate for excellent quality
+  // Use very high bitrate for smooth, high quality video
   const recorderOptions: any = {
     mimeType,
-    videoBitsPerSecond: 5000000, // 5 Mbps - high quality for 1080p vertical
+    videoBitsPerSecond: 8000000, // 8 Mbps - very high quality for smooth 1080p vertical
     audioBitsPerSecond: 128000,  // 128 kbps audio
   };
   
@@ -260,56 +260,41 @@ export const exportVideo = async (
   mediaRecorder.start(1000);
   console.log('MediaRecorder started with format:', mimeType);
 
-  // Start background audio if available
+  // Start background video and audio - let them play naturally
+  if (backgroundVideo) {
+    await backgroundVideo.play();
+  }
   if (backgroundAudio) {
     await backgroundAudio.play();
     console.log("Background audio playing");
   }
 
-  // Render slides frame-by-frame with manual timing control
+  // Render slides at fixed 30 FPS
   const totalDuration = slides.reduce((sum, s) => sum + s.durationSec, 0);
   const fps = 30;
   const frameDuration = 1000 / fps;
-  const totalFrames = Math.ceil(totalDuration * fps);
-  let currentFrame = 0;
+  const startTime = performance.now();
   let currentSlideIndex = 0;
   let slideStartTime = 0;
 
-  const renderNextFrame = async () => {
-    if (currentFrame >= totalFrames) {
-      // Stop recording
-      if (backgroundVideo) {
-        backgroundVideo.pause();
-      }
-      if (backgroundAudio) {
-        backgroundAudio.pause();
-      }
-      mediaRecorder.stop();
-      console.log('Recording completed');
-      return;
-    }
-
-    const elapsed = currentFrame / fps;
+  const animate = () => {
+    const now = performance.now();
+    const elapsed = (now - startTime) / 1000;
     
-    // Sync background video to exact frame time
-    if (backgroundVideo && backgroundVideo.duration) {
-      const videoTime = elapsed % backgroundVideo.duration;
-      backgroundVideo.currentTime = videoTime;
-      // Wait for video to seek to correct frame
-      await new Promise(resolve => {
-        if (Math.abs(backgroundVideo.currentTime - videoTime) < 0.1) {
-          resolve(null);
-        } else {
-          backgroundVideo.onseeked = () => resolve(null);
-        }
-      });
+    // Check if recording is complete
+    if (elapsed >= totalDuration) {
+      if (backgroundVideo) backgroundVideo.pause();
+      if (backgroundAudio) backgroundAudio.pause();
+      mediaRecorder.stop();
+      console.log('Recording completed at:', elapsed.toFixed(2), 'seconds');
+      return;
     }
     
     // Update progress
-    const progressPercent = (currentFrame / totalFrames) * 100;
+    const progressPercent = (elapsed / totalDuration) * 100;
     onProgress(10 + progressPercent * 0.85, `Recording slide ${currentSlideIndex + 1}/${slides.length}...`);
 
-    // Find current slide based on elapsed time
+    // Find current slide
     let accumulatedTime = 0;
     for (let i = 0; i < slides.length; i++) {
       if (elapsed < accumulatedTime + slides[i].durationSec) {
@@ -320,7 +305,7 @@ export const exportVideo = async (
       accumulatedTime += slides[i].durationSec;
     }
 
-    // Render current slide with transition
+    // Render slide with transition
     const slideElapsed = elapsed - slideStartTime;
     const transitionDuration = 0.5;
     const transitionProgress = Math.min(slideElapsed / transitionDuration, 1);
@@ -333,16 +318,12 @@ export const exportVideo = async (
       globalOverlay
     );
     
-    currentFrame++;
-    
-    // Use setTimeout for consistent frame timing
-    setTimeout(() => {
-      requestAnimationFrame(renderNextFrame);
-    }, frameDuration);
+    // Schedule next frame at fixed interval
+    requestAnimationFrame(animate);
   };
 
-  // Start rendering
-  renderNextFrame();
+  // Start animation loop
+  animate();
 
   onProgress(95, "Finalizing video...");
   const videoBlob = await recordingPromise;
