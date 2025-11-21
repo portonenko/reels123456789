@@ -256,8 +256,8 @@ export const exportVideo = async (
     };
   });
 
-  // Request data in smaller chunks for better sync (every 500ms)
-  mediaRecorder.start(500);
+  // Request data in larger chunks for better stability (every 1000ms)
+  mediaRecorder.start(1000);
   console.log('MediaRecorder started with format:', mimeType);
 
   // Start background video and audio if available
@@ -270,20 +270,21 @@ export const exportVideo = async (
     console.log("Background audio playing");
   }
 
-  // Animate through slides at 30 FPS for high quality
+  // Animate through slides at 30 FPS with precise timing
   const totalDuration = slides.reduce((sum, s) => sum + s.durationSec, 0);
-  const startTime = Date.now();
-  const frameInterval = 1000 / 30; // ~33ms per frame for 30 FPS
+  const startTime = performance.now();
+  const fps = 30;
+  const frameDuration = 1000 / fps; // ~33.33ms per frame
   let currentSlideIndex = 0;
   let slideStartTime = 0;
-  let lastFrameTime = startTime;
+  let frameCount = 0;
 
   const animate = () => {
-    const now = Date.now();
+    const now = performance.now();
     const elapsed = (now - startTime) / 1000; // seconds
     
-    // Check if we've reached the end (with small tolerance for timing precision)
-    if (elapsed >= totalDuration + 0.1) {
+    // Check if we've reached the end
+    if (elapsed >= totalDuration) {
       // Stop recording
       if (backgroundVideo) {
         backgroundVideo.pause();
@@ -296,42 +297,47 @@ export const exportVideo = async (
       return;
     }
     
-    // Throttle to 30 FPS for high quality
-    if (now - lastFrameTime < frameInterval) {
-      requestAnimationFrame(animate);
-      return;
-    }
-    lastFrameTime = now;
+    // Calculate expected frame time based on frame count for consistent timing
+    const expectedTime = startTime + (frameCount * frameDuration);
+    const drift = now - expectedTime;
     
-    // Update progress
-    const progressPercent = Math.min((elapsed / totalDuration) * 100, 100);
-    onProgress(10 + progressPercent * 0.85, `Recording slide ${currentSlideIndex + 1}/${slides.length}...`);
+    // Only render if we're at or past the expected frame time
+    if (drift >= 0) {
+      frameCount++;
+      
+      // Update progress
+      const progressPercent = Math.min((elapsed / totalDuration) * 100, 100);
+      onProgress(10 + progressPercent * 0.85, `Recording slide ${currentSlideIndex + 1}/${slides.length}...`);
 
-    // Find current slide based on elapsed time
-    let accumulatedTime = 0;
-    for (let i = 0; i < slides.length; i++) {
-      if (elapsed < accumulatedTime + slides[i].durationSec) {
-        currentSlideIndex = i;
-        slideStartTime = accumulatedTime;
-        break;
+      // Find current slide based on elapsed time
+      let accumulatedTime = 0;
+      for (let i = 0; i < slides.length; i++) {
+        if (elapsed < accumulatedTime + slides[i].durationSec) {
+          currentSlideIndex = i;
+          slideStartTime = accumulatedTime;
+          break;
+        }
+        accumulatedTime += slides[i].durationSec;
       }
-      accumulatedTime += slides[i].durationSec;
-    }
 
-    // Render current slide with transition
-    const slideElapsed = elapsed - slideStartTime;
-    const transitionDuration = 0.5; // 0.5 seconds
-    const transitionProgress = Math.min(slideElapsed / transitionDuration, 1);
+      // Render current slide with transition
+      const slideElapsed = elapsed - slideStartTime;
+      const transitionDuration = 0.5; // 0.5 seconds
+      const transitionProgress = Math.min(slideElapsed / transitionDuration, 1);
+      
+      renderSlideToCanvas(
+        slides[currentSlideIndex], 
+        canvas, 
+        backgroundVideo, 
+        transitionProgress,
+        globalOverlay
+      );
+    }
     
-    renderSlideToCanvas(
-      slides[currentSlideIndex], 
-      canvas, 
-      backgroundVideo, 
-      transitionProgress,
-      globalOverlay
-    );
-    
-    requestAnimationFrame(animate);
+    // Schedule next frame with precise timing compensation
+    const nextFrameTime = expectedTime + frameDuration;
+    const delay = Math.max(0, nextFrameTime - performance.now());
+    setTimeout(() => requestAnimationFrame(animate), delay);
   };
 
   animate();
