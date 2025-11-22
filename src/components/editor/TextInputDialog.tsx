@@ -1,10 +1,13 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Sparkles, Plus, Trash2 } from "lucide-react";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Sparkles, Plus, Trash2, Save, FolderOpen } from "lucide-react";
+import { supabase } from "@/integrations/supabase/client";
+import { toast } from "sonner";
 
 interface TextInputDialogProps {
   open: boolean;
@@ -18,10 +21,20 @@ export interface ManualSlide {
   body: string;
 }
 
+interface TextTemplate {
+  id: string;
+  name: string;
+  content: string;
+}
+
 export const TextInputDialog = ({ open, onClose, onParse, onManualCreate }: TextInputDialogProps) => {
   const [text, setText] = useState("");
   const [mode, setMode] = useState<"auto" | "manual">("auto");
   const [manualSlides, setManualSlides] = useState<ManualSlide[]>([{ title: "", body: "" }]);
+  const [templates, setTemplates] = useState<TextTemplate[]>([]);
+  const [selectedTemplate, setSelectedTemplate] = useState<string>("");
+  const [showSaveDialog, setShowSaveDialog] = useState(false);
+  const [templateName, setTemplateName] = useState("");
 
   const handleParse = async () => {
     if (mode === "auto" && text.trim()) {
@@ -69,6 +82,68 @@ export const TextInputDialog = ({ open, onClose, onParse, onManualCreate }: Text
     setManualSlides(updated);
   };
 
+  useEffect(() => {
+    if (open) {
+      loadTemplates();
+    }
+  }, [open]);
+
+  const loadTemplates = async () => {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return;
+
+    const { data, error } = await supabase
+      .from('text_templates')
+      .select('*')
+      .eq('user_id', user.id)
+      .order('created_at', { ascending: false });
+
+    if (error) {
+      console.error('Error loading templates:', error);
+      return;
+    }
+
+    setTemplates(data || []);
+  };
+
+  const handleSaveTemplate = async () => {
+    if (!templateName.trim() || !text.trim()) {
+      toast.error("Введите название и текст шаблона");
+      return;
+    }
+
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return;
+
+    const { error } = await supabase
+      .from('text_templates')
+      .insert({
+        name: templateName,
+        content: text,
+        user_id: user.id
+      });
+
+    if (error) {
+      toast.error("Ошибка при сохранении шаблона");
+      console.error(error);
+      return;
+    }
+
+    toast.success("Шаблон сохранен");
+    setTemplateName("");
+    setShowSaveDialog(false);
+    loadTemplates();
+  };
+
+  const handleLoadTemplate = (templateId: string) => {
+    const template = templates.find(t => t.id === templateId);
+    if (template) {
+      setText(template.content);
+      setSelectedTemplate(templateId);
+      toast.success(`Загружен шаблон: ${template.name}`);
+    }
+  };
+
   const canParse = mode === "auto" 
     ? text.trim() 
     : manualSlides.some(s => s.title.trim());
@@ -90,6 +165,42 @@ export const TextInputDialog = ({ open, onClose, onParse, onManualCreate }: Text
           </TabsList>
 
           <TabsContent value="auto" className="space-y-4">
+            <div className="flex gap-2">
+              <Select value={selectedTemplate} onValueChange={handleLoadTemplate}>
+                <SelectTrigger className="flex-1">
+                  <SelectValue placeholder="Загрузить шаблон..." />
+                </SelectTrigger>
+                <SelectContent>
+                  {templates.map((template) => (
+                    <SelectItem key={template.id} value={template.id}>
+                      {template.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <Button
+                type="button"
+                variant="outline"
+                size="icon"
+                onClick={() => setShowSaveDialog(!showSaveDialog)}
+                title="Сохранить как шаблон"
+              >
+                <Save className="w-4 h-4" />
+              </Button>
+            </div>
+
+            {showSaveDialog && (
+              <div className="flex gap-2">
+                <Input
+                  placeholder="Название шаблона"
+                  value={templateName}
+                  onChange={(e) => setTemplateName(e.target.value)}
+                />
+                <Button onClick={handleSaveTemplate}>Сохранить</Button>
+                <Button variant="outline" onClick={() => setShowSaveDialog(false)}>Отмена</Button>
+              </div>
+            )}
+
             <Textarea
               value={text}
               onChange={(e) => setText(e.target.value)}
