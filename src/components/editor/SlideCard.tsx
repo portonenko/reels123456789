@@ -6,6 +6,7 @@ import { useState, useRef } from "react";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { ColorInsertButton } from "./ColorInsertButton";
+import { TextBlockTimeline } from "./TextBlockTimeline";
 
 // Helper to remove color tags from text for display
 const stripColorTags = (text: string): string => {
@@ -163,6 +164,15 @@ export const SlideCard = ({
 
           {isEditing ? (
             <div className="space-y-3" onClick={(e) => e.stopPropagation()}>
+              {/* Timeline editor */}
+              {editTextBlocks.length > 1 && (
+                <TextBlockTimeline
+                  blocks={editTextBlocks}
+                  slideDuration={slide.durationSec}
+                  onChange={setEditTextBlocks}
+                />
+              )}
+              
               {editTextBlocks.map((block, blockIndex) => (
                 <div key={blockIndex} className="space-y-2 p-3 border border-border rounded-md bg-background/50">
                     <div className="flex items-center justify-between mb-1">
