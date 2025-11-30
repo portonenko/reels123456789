@@ -625,7 +625,7 @@ const Editor = () => {
       </div>
 
       {/* Bottom section - Horizontal Timeline */}
-      <div className="h-64 border-t border-border bg-panel overflow-hidden">
+      <div className="h-64 border-t border-border bg-panel overflow-auto">
         <SlidesTimeline
           slides={slides}
           selectedSlideId={selectedSlideId}
