@@ -1,7 +1,15 @@
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useMemo } from "react";
 import { Slide } from "@/types";
 import { Button } from "@/components/ui/button";
 import { AlignHorizontalJustifyCenter, AlignVerticalJustifyCenter, Maximize2 } from "lucide-react";
+
+// Default position constant to avoid recreating on each render
+const DEFAULT_POSITION = {
+  x: 10, // 10% from left
+  y: 30, // 30% from top
+  width: 80, // 80% width
+  height: 40, // 40% height
+};
 
 interface DraggableTextBoxProps {
   slide: Slide;
@@ -20,15 +28,11 @@ export const DraggableTextBox = ({
 }: DraggableTextBoxProps) => {
   const boxRef = useRef<HTMLDivElement>(null);
   
-  // Default position if not set: center of screen
-  const defaultPos = {
-    x: 10, // 10% from left
-    y: 30, // 30% from top
-    width: 80, // 80% width
-    height: 40, // 40% height
-  };
-  
-  const position = slide.style.text.position || defaultPos;
+  // Memoize position to avoid unnecessary rerenders
+  const position = useMemo(() => 
+    slide.style.text.position || DEFAULT_POSITION,
+    [slide.style.text.position]
+  );
   
   const [isDragging, setIsDragging] = useState(false);
   const [isResizing, setIsResizing] = useState(false);

@@ -164,8 +164,8 @@ export const SlideCard = ({
 
           {isEditing ? (
             <div className="space-y-3" onClick={(e) => e.stopPropagation()}>
-              {/* Timeline editor */}
-              {editTextBlocks.length > 1 && (
+              {/* Timeline editor - always show if multiple blocks */}
+              {editTextBlocks.length > 0 && (
                 <TextBlockTimeline
                   blocks={editTextBlocks}
                   slideDuration={slide.durationSec}
