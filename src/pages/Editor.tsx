@@ -635,6 +635,8 @@ const Editor = () => {
             onSlideUpdate={updateSlide}
             onSlideDuplicate={duplicateSlide}
             onSlideDelete={deleteSlide}
+            onSlideAdd={addNewSlide}
+            lang={language}
           />
         )}
       </div>

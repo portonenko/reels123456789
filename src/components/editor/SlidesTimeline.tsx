@@ -11,6 +11,8 @@ interface SlidesTimelineProps {
   onSlideUpdate: (slideId: string, updates: Partial<Slide>) => void;
   onSlideDuplicate: (slideId: string) => void;
   onSlideDelete: (slideId: string) => void;
+  onSlideAdd: () => void;
+  lang?: 'en' | 'ru';
 }
 
 export const SlidesTimeline = ({
@@ -20,6 +22,8 @@ export const SlidesTimeline = ({
   onSlideUpdate,
   onSlideDuplicate,
   onSlideDelete,
+  onSlideAdd,
+  lang = 'ru',
 }: SlidesTimelineProps) => {
   const timelineRef = useRef<HTMLDivElement>(null);
   const [dragState, setDragState] = useState<{
@@ -109,20 +113,31 @@ export const SlidesTimeline = ({
   }
 
   return (
-    <div className="w-full space-y-3 p-4 bg-card border border-border rounded-lg">
+    <div className="w-full h-full space-y-3 p-4 bg-card overflow-hidden flex flex-col">
       <div className="flex items-center justify-between">
-        <h3 className="text-sm font-semibold">Timeline слайдов</h3>
-        <span className="text-xs text-muted-foreground">
-          Всего: {slides.length} слайдов
-        </span>
+        <h3 className="text-sm font-semibold">
+          {lang === 'ru' ? 'Временная шкала слайдов' : 'Slides Timeline'}
+        </h3>
+        <div className="flex items-center gap-2">
+          <span className="text-xs text-muted-foreground">
+            {lang === 'ru' ? `Всего: ${slides.length} слайдов` : `Total: ${slides.length} slides`}
+          </span>
+          <Button
+            size="sm"
+            onClick={onSlideAdd}
+            className="bg-primary hover:bg-primary/90"
+          >
+            <GripVertical className="w-4 h-4 mr-1" />
+            {lang === 'ru' ? 'Добавить слайд' : 'Add Slide'}
+          </Button>
+        </div>
       </div>
 
       <div
         ref={timelineRef}
-        className="relative bg-background border-2 border-border rounded-lg overflow-x-auto overflow-y-hidden"
+        className="flex-1 relative bg-background border-2 border-border rounded-lg overflow-x-auto overflow-y-hidden"
         style={{ 
-          height: TIMELINE_HEIGHT + 50,
-          minWidth: "100%"
+          minHeight: TIMELINE_HEIGHT + 50,
         }}
       >
         {/* Time markers */}
@@ -237,12 +252,12 @@ export const SlidesTimeline = ({
         </div>
       </div>
 
-      <div className="flex items-start gap-2 text-xs text-muted-foreground bg-muted/50 p-3 rounded">
+      <div className="flex items-start gap-2 text-xs text-muted-foreground bg-muted/50 p-3 rounded flex-shrink-0">
         <span className="text-lg">💡</span>
         <div className="space-y-1">
-          <p><strong>Перетаскивайте слайды</strong> влево-вправо для изменения времени появления</p>
-          <p><strong>Тяните за правый край</strong> для изменения длительности слайда</p>
-          <p><strong>Слайды могут накладываться</strong> друг на друга по времени</p>
+          <p><strong>{lang === 'ru' ? 'Перетаскивайте слайды' : 'Drag slides'}</strong> {lang === 'ru' ? 'влево-вправо для изменения времени появления' : 'left-right to change start time'}</p>
+          <p><strong>{lang === 'ru' ? 'Тяните за правый край' : 'Drag right edge'}</strong> {lang === 'ru' ? 'для изменения длительности слайда' : 'to change slide duration'}</p>
+          <p><strong>{lang === 'ru' ? 'Слайды могут накладываться' : 'Slides can overlap'}</strong> {lang === 'ru' ? 'друг на друга по времени' : 'on the timeline'}</p>
         </div>
       </div>
     </div>
