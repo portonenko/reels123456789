@@ -15,6 +15,7 @@ import { SmartRandomVideoDialog } from "@/components/editor/SmartRandomVideoDial
 import { RandomizeBackgroundDialog } from "@/components/editor/RandomizeBackgroundDialog";
 import { CarouselCreatorDialog } from "@/components/editor/CarouselCreatorDialog";
 import { SlidesTimeline } from "@/components/editor/SlidesTimeline";
+import { SlideEditDialog } from "@/components/editor/SlideEditDialog";
 import { Button } from "@/components/ui/button";
 import { Sparkles, Home, Download, Shuffle, Globe, FileText, Palette, Plus, Image } from "lucide-react";
 import {
@@ -54,6 +55,8 @@ const Editor = () => {
   const [showRandomizeDialog, setShowRandomizeDialog] = useState(false);
   const [showCarouselDialog, setShowCarouselDialog] = useState(false);
   const [showTextBoxControls, setShowTextBoxControls] = useState(false);
+  const [showSlideEditDialog, setShowSlideEditDialog] = useState(false);
+  const [editingSlideId, setEditingSlideId] = useState<string | null>(null);
   const [draggedSlideIndex, setDraggedSlideIndex] = useState<number | null>(null);
   
   const {
@@ -471,6 +474,17 @@ const Editor = () => {
     }
   };
 
+  const handleSlideEdit = (slideId: string) => {
+    setEditingSlideId(slideId);
+    setShowSlideEditDialog(true);
+  };
+
+  const handleSaveSlideEdit = (updates: Partial<Slide>) => {
+    if (editingSlideId) {
+      updateSlide(editingSlideId, updates);
+    }
+  };
+
   return (
     <div className="h-screen flex flex-col bg-background">
       {/* Top bar */}
@@ -620,6 +634,7 @@ const Editor = () => {
           onSlideDuplicate={duplicateSlide}
           onSlideDelete={deleteSlide}
           onSlideAdd={addNewSlide}
+          onSlideEdit={handleSlideEdit}
           lang={language}
         />
       </div>
@@ -669,6 +684,14 @@ const Editor = () => {
         onClose={() => setShowExportDialog(false)}
         projects={projects}
         assets={assets}
+      />
+
+      <SlideEditDialog
+        slide={editingSlideId ? slides.find(s => s.id === editingSlideId) || null : null}
+        open={showSlideEditDialog}
+        onOpenChange={setShowSlideEditDialog}
+        onSave={handleSaveSlideEdit}
+        lang={language}
       />
     </div>
   );
