@@ -39,10 +39,15 @@ export const SlideEditDialog = ({
   const handleSave = () => {
     if (!slide) return;
     
+    // Keep blocks that have either title or body
+    const validBlocks = editTextBlocks.filter(block => 
+      block.title.trim() || (block.body && block.body.trim())
+    );
+    
     onSave({
-      textBlocks: editTextBlocks.filter(block => block.title.trim()),
-      title: editTextBlocks[0]?.title || slide.title,
-      body: editTextBlocks[0]?.body,
+      textBlocks: validBlocks.length > 0 ? validBlocks : [{ title: "", body: "" }],
+      title: validBlocks[0]?.title || "",
+      body: validBlocks[0]?.body,
     });
     onOpenChange(false);
   };
@@ -149,7 +154,7 @@ export const SlideEditDialog = ({
 
               <div className="space-y-2">
                 <div className="flex items-center gap-2">
-                  <Label>{lang === 'ru' ? 'Заголовок' : 'Title'}</Label>
+                  <Label>{lang === 'ru' ? 'Заголовок (опционально)' : 'Title (optional)'}</Label>
                   <ColorInsertButton
                     onInsert={(color) => insertColorIntoBlock(index, "title", color)}
                   />
@@ -160,7 +165,7 @@ export const SlideEditDialog = ({
                   }}
                   value={block.title}
                   onChange={(e) => updateTextBlock(index, "title", e.target.value)}
-                  placeholder={lang === 'ru' ? 'Введите заголовок...' : 'Enter title...'}
+                  placeholder={lang === 'ru' ? 'Заголовок (можно оставить пустым)' : 'Title (can be left empty)'}
                 />
               </div>
 
