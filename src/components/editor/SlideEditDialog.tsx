@@ -209,6 +209,55 @@ export const SlideEditDialog = ({
                   />
                 </div>
               </div>
+
+              <div className="space-y-2">
+                <Label className="text-sm font-medium">
+                  {lang === 'ru' ? 'Позиция на экране (опционально)' : 'Position on screen (optional)'}
+                </Label>
+                <div className="grid grid-cols-2 gap-4 text-sm">
+                  <div>
+                    <Label className="text-xs">{lang === 'ru' ? 'X (%, 0=слева, 50=центр)' : 'X (%, 0=left, 50=center)'}</Label>
+                    <Input
+                      type="number"
+                      min="0"
+                      max="100"
+                      step="1"
+                      value={block.position?.x || 50}
+                      onChange={(e) => {
+                        const x = parseFloat(e.target.value) || 50;
+                        const updated = [...editTextBlocks];
+                        updated[index].position = { 
+                          x, 
+                          y: updated[index].position?.y || 50 
+                        };
+                        setEditTextBlocks(updated);
+                      }}
+                    />
+                  </div>
+                  <div>
+                    <Label className="text-xs">{lang === 'ru' ? 'Y (%, 0=сверху, 50=центр)' : 'Y (%, 0=top, 50=center)'}</Label>
+                    <Input
+                      type="number"
+                      min="0"
+                      max="100"
+                      step="1"
+                      value={block.position?.y || 50}
+                      onChange={(e) => {
+                        const y = parseFloat(e.target.value) || 50;
+                        const updated = [...editTextBlocks];
+                        updated[index].position = { 
+                          x: updated[index].position?.x || 50, 
+                          y 
+                        };
+                        setEditTextBlocks(updated);
+                      }}
+                    />
+                  </div>
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  {lang === 'ru' ? 'Если не задано, блок отобразится в центре' : 'If not set, block will be displayed in the center'}
+                </p>
+              </div>
             </div>
           ))}
         </div>
