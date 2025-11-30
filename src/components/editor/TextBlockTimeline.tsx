@@ -122,15 +122,15 @@ export const TextBlockTimeline = ({ blocks, slideDuration, onChange }: TextBlock
       
       <div
         ref={timelineRef}
-        className="relative bg-background border-2 border-border rounded-lg overflow-hidden"
-        style={{ height: TIMELINE_HEIGHT + 40 }}
+        className="relative bg-background border-2 border-border rounded-lg overflow-visible"
+        style={{ height: TIMELINE_HEIGHT + 50 }}
       >
         {/* Time markers */}
-        <div className="absolute top-0 left-0 right-0 h-8 border-b-2 border-border bg-muted/50 flex items-center px-2">
+        <div className="absolute -top-6 left-0 right-0 h-6 flex items-center px-2">
           {timeMarkers.map((time) => (
             <div
               key={time}
-              className="absolute text-xs font-medium text-foreground"
+              className="absolute text-xs font-medium text-muted-foreground"
               style={{ left: `${timeToPixels(time)}px`, transform: "translateX(-50%)" }}
             >
               {time}s
@@ -139,7 +139,7 @@ export const TextBlockTimeline = ({ blocks, slideDuration, onChange }: TextBlock
         </div>
 
         {/* Grid lines */}
-        <div className="absolute top-8 left-0 right-0 bottom-0">
+        <div className="absolute top-0 left-0 right-0 bottom-0">
           {timeMarkers.map((time) => (
             <div
               key={time}
@@ -149,8 +149,8 @@ export const TextBlockTimeline = ({ blocks, slideDuration, onChange }: TextBlock
           ))}
         </div>
 
-        {/* Blocks */}
-        <div className="absolute top-8 left-0 right-0 bottom-0 px-2 py-3">
+        {/* Blocks - all on same horizontal line */}
+        <div className="absolute top-0 left-0 right-0 bottom-0 px-2 py-3">
           {blocks.map((block, index) => {
             const delay = block.delay || 0;
             const duration = block.duration || slideDuration;
@@ -166,15 +166,16 @@ export const TextBlockTimeline = ({ blocks, slideDuration, onChange }: TextBlock
                 className={cn(
                   "absolute rounded-md cursor-move transition-all hover:shadow-xl border-2",
                   dragState?.blockIndex === index 
-                    ? "shadow-2xl ring-4 ring-primary/50 z-10 scale-105" 
-                    : "hover:scale-102 border-transparent"
+                    ? "shadow-2xl ring-4 ring-primary/50 z-20 scale-105" 
+                    : "hover:scale-102 border-white/20"
                 )}
                 style={{
                   left: `${left}px`,
-                  width: `${Math.max(width, 40)}px`,
+                  width: `${Math.max(width, 50)}px`,
                   height: `${BLOCK_HEIGHT}px`,
                   backgroundColor: color,
-                  top: `${index * (BLOCK_HEIGHT + 8)}px`,
+                  top: "20px", // All blocks on same line
+                  zIndex: dragState?.blockIndex === index ? 20 : 10 + index,
                 }}
                 onMouseDown={(e) => handleMouseDown(e, index, "move")}
               >
@@ -183,15 +184,15 @@ export const TextBlockTimeline = ({ blocks, slideDuration, onChange }: TextBlock
                   className="absolute left-0 top-0 bottom-0 w-3 cursor-ew-resize hover:bg-white/40 transition-colors flex items-center justify-center"
                   onMouseDown={(e) => handleMouseDown(e, index, "resize-start")}
                 >
-                  <div className="w-1 h-6 bg-white/60 rounded-full" />
+                  <div className="w-1 h-8 bg-white/80 rounded-full" />
                 </div>
                 
                 {/* Block content */}
                 <div className="absolute inset-0 flex flex-col items-center justify-center px-4 pointer-events-none">
-                  <span className="text-sm font-bold text-white drop-shadow-lg">
+                  <span className="text-sm font-bold text-white drop-shadow-lg truncate max-w-full">
                     Блок {index + 1}
                   </span>
-                  <span className="text-xs text-white/90">
+                  <span className="text-[10px] text-white/90 whitespace-nowrap">
                     {delay.toFixed(1)}s → {endTime.toFixed(1)}s
                   </span>
                 </div>
@@ -201,7 +202,7 @@ export const TextBlockTimeline = ({ blocks, slideDuration, onChange }: TextBlock
                   className="absolute right-0 top-0 bottom-0 w-3 cursor-ew-resize hover:bg-white/40 transition-colors flex items-center justify-center"
                   onMouseDown={(e) => handleMouseDown(e, index, "resize-end")}
                 >
-                  <div className="w-1 h-6 bg-white/60 rounded-full" />
+                  <div className="w-1 h-8 bg-white/80 rounded-full" />
                 </div>
               </div>
             );
