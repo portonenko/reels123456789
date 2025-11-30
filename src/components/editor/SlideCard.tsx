@@ -1,10 +1,11 @@
 import { Slide, TextBlock } from "@/types";
 import { Button } from "@/components/ui/button";
-import { Copy, Trash2, GripVertical, Edit2, Plus, Minus } from "lucide-react";
+import { Copy, Trash2, GripVertical, Edit2, Plus, Minus, Palette } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 
 interface SlideCardProps {
   slide: Slide;
@@ -39,6 +40,51 @@ export const SlideCard = ({
   const [editTextBlocks, setEditTextBlocks] = useState<TextBlock[]>(
     slide.textBlocks || [{ title: slide.title, body: slide.body }]
   );
+  
+  const inputRefs = useRef<{ [key: string]: HTMLInputElement | HTMLTextAreaElement | null }>({});
+  const [activeField, setActiveField] = useState<string | null>(null);
+
+  const colorPalette = [
+    { name: "Красный", color: "#FF0000" },
+    { name: "Оранжевый", color: "#FF8800" },
+    { name: "Желтый", color: "#FFFF00" },
+    { name: "Зеленый", color: "#00FF00" },
+    { name: "Голубой", color: "#00FFFF" },
+    { name: "Синий", color: "#0000FF" },
+    { name: "Фиолетовый", color: "#FF00FF" },
+    { name: "Розовый", color: "#FF69B4" },
+    { name: "Белый", color: "#FFFFFF" },
+  ];
+
+  const applyColor = (color: string, blockIndex: number, field: "title" | "body") => {
+    const fieldKey = `${blockIndex}-${field}`;
+    const input = inputRefs.current[fieldKey];
+    
+    if (!input) return;
+    
+    const start = input.selectionStart || 0;
+    const end = input.selectionEnd || 0;
+    const value = field === "title" ? editTextBlocks[blockIndex].title : (editTextBlocks[blockIndex].body || "");
+    
+    if (start === end) {
+      // No selection, just insert color tag at cursor
+      const newValue = value.slice(0, start) + `[${color}]текст[]` + value.slice(end);
+      updateTextBlock(blockIndex, field, newValue);
+      setTimeout(() => {
+        input.focus();
+        input.setSelectionRange(start + color.length + 2, start + color.length + 2 + 5); // Select "текст"
+      }, 0);
+    } else {
+      // Wrap selected text with color tag
+      const selectedText = value.slice(start, end);
+      const newValue = value.slice(0, start) + `[${color}]${selectedText}[]` + value.slice(end);
+      updateTextBlock(blockIndex, field, newValue);
+      setTimeout(() => {
+        input.focus();
+        input.setSelectionRange(start, start + color.length + 2 + selectedText.length + 2);
+      }, 0);
+    }
+  };
 
   const handleSave = () => {
     // If using text blocks
@@ -143,18 +189,86 @@ export const SlideCard = ({
                       </Button>
                     )}
                   </div>
-                  <Input
-                    value={block.title}
-                    onChange={(e) => updateTextBlock(blockIndex, "title", e.target.value)}
-                    placeholder="Заголовок"
-                    className="h-8 text-sm"
-                  />
-                  <Textarea
-                    value={block.body || ""}
-                    onChange={(e) => updateTextBlock(blockIndex, "body", e.target.value)}
-                    placeholder="Описание (опционально)"
-                    className="min-h-[50px] text-xs resize-none"
-                  />
+                  <div className="flex gap-1">
+                    <Input
+                      ref={(el) => inputRefs.current[`${blockIndex}-title`] = el}
+                      value={block.title}
+                      onChange={(e) => updateTextBlock(blockIndex, "title", e.target.value)}
+                      onFocus={() => setActiveField(`${blockIndex}-title`)}
+                      placeholder="Заголовок"
+                      className="h-8 text-sm flex-1"
+                    />
+                    <Popover>
+                      <PopoverTrigger asChild>
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          className="h-8 w-8 p-0 shrink-0"
+                          type="button"
+                          onClick={(e) => e.stopPropagation()}
+                        >
+                          <Palette className="w-4 h-4" />
+                        </Button>
+                      </PopoverTrigger>
+                      <PopoverContent className="w-48 p-2" onClick={(e) => e.stopPropagation()}>
+                        <div className="text-xs font-medium mb-2">Выберите цвет:</div>
+                        <div className="grid grid-cols-3 gap-1">
+                          {colorPalette.map((c) => (
+                            <button
+                              key={c.color}
+                              onClick={() => applyColor(c.color, blockIndex, "title")}
+                              className="h-8 rounded border border-border hover:scale-110 transition-transform"
+                              style={{ backgroundColor: c.color }}
+                              title={c.name}
+                            />
+                          ))}
+                        </div>
+                        <div className="text-xs text-muted-foreground mt-2">
+                          Выделите текст перед выбором цвета
+                        </div>
+                      </PopoverContent>
+                    </Popover>
+                  </div>
+                  <div className="flex gap-1">
+                    <Textarea
+                      ref={(el) => inputRefs.current[`${blockIndex}-body`] = el}
+                      value={block.body || ""}
+                      onChange={(e) => updateTextBlock(blockIndex, "body", e.target.value)}
+                      onFocus={() => setActiveField(`${blockIndex}-body`)}
+                      placeholder="Описание (опционально)"
+                      className="min-h-[50px] text-xs resize-none flex-1"
+                    />
+                    <Popover>
+                      <PopoverTrigger asChild>
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          className="h-8 w-8 p-0 shrink-0"
+                          type="button"
+                          onClick={(e) => e.stopPropagation()}
+                        >
+                          <Palette className="w-4 h-4" />
+                        </Button>
+                      </PopoverTrigger>
+                      <PopoverContent className="w-48 p-2" onClick={(e) => e.stopPropagation()}>
+                        <div className="text-xs font-medium mb-2">Выберите цвет:</div>
+                        <div className="grid grid-cols-3 gap-1">
+                          {colorPalette.map((c) => (
+                            <button
+                              key={c.color}
+                              onClick={() => applyColor(c.color, blockIndex, "body")}
+                              className="h-8 rounded border border-border hover:scale-110 transition-transform"
+                              style={{ backgroundColor: c.color }}
+                              title={c.name}
+                            />
+                          ))}
+                        </div>
+                        <div className="text-xs text-muted-foreground mt-2">
+                          Выделите текст перед выбором цвета
+                        </div>
+                      </PopoverContent>
+                    </Popover>
+                  </div>
                 </div>
               ))}
               <Button
