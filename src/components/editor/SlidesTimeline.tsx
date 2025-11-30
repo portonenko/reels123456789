@@ -12,6 +12,7 @@ interface SlidesTimelineProps {
   onSlideDuplicate: (slideId: string) => void;
   onSlideDelete: (slideId: string) => void;
   onSlideAdd: () => void;
+  onSlideEdit: (slideId: string) => void;
   lang?: 'en' | 'ru';
 }
 
@@ -23,6 +24,7 @@ export const SlidesTimeline = ({
   onSlideDuplicate,
   onSlideDelete,
   onSlideAdd,
+  onSlideEdit,
   lang = 'ru',
 }: SlidesTimelineProps) => {
   const timelineRef = useRef<HTMLDivElement>(null);
@@ -222,6 +224,17 @@ export const SlidesTimeline = ({
 
                 {/* Action buttons */}
                 <div className="absolute top-2 right-2 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-auto">
+                  <Button
+                    size="sm"
+                    variant="secondary"
+                    className="h-6 w-6 p-0"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onSlideEdit(slide.id);
+                    }}
+                  >
+                    <Edit2 className="w-3 h-3" />
+                  </Button>
                   <Button
                     size="sm"
                     variant="secondary"
