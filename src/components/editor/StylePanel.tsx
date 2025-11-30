@@ -281,10 +281,16 @@ export const StylePanel = ({
                   <SelectItem value="lowercase">lowercase</SelectItem>
                   <SelectItem value="capitalize">Capitalize</SelectItem>
                 </SelectContent>
-              </Select>
-            </div>
+            </Select>
+          </div>
 
-            <Separator className="my-4" />
+          <div className="text-xs text-muted-foreground bg-blue-500/10 border border-blue-500/20 rounded p-3">
+            <p className="font-medium mb-1">💡 Цвет отдельных слов:</p>
+            <p>Используйте <code className="bg-background/50 px-1 rounded">[#FF0000]текст[]</code></p>
+            <p className="mt-1 text-[10px]">Пример: <code className="bg-background/50 px-1 rounded">Привет [#FF0000]красный[] мир</code></p>
+          </div>
+
+          <Separator className="my-4" />
             
             <div>
               <Label>Shadow Intensity: {slide.style.text.shadowIntensity || 10}</Label>

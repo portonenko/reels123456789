@@ -326,57 +326,44 @@ export const renderSlideText = (
       let shadowY = currentY;
       
       processedBlocks.forEach((block, blockIndex) => {
-        // Title shadow
+        // Title shadow - render each line as whole
         ctx.font = `${slide.style.text.fontWeight} ${slide.style.text.fontSize}px ${slide.style.text.fontFamily}`;
         block.titleLines.forEach((lineSegments) => {
-          lineSegments.forEach(segment => {
-            let displayText = segment.text;
-            if (slide.style.text.textTransform === 'uppercase') {
-              displayText = segment.text.toUpperCase();
-            } else if (slide.style.text.textTransform === 'lowercase') {
-              displayText = segment.text.toLowerCase();
-            } else if (slide.style.text.textTransform === 'capitalize') {
-              displayText = segment.text.replace(/\b\w/g, l => l.toUpperCase());
-            }
-            ctx.fillStyle = segment.color;
-            ctx.fillText(displayText, textX, shadowY);
-            const segmentWidth = measureSegment(displayText, slide.style.text.fontSize, slide.style.text.letterSpacing);
-            if (ctx.textAlign === 'center') {
-              // Keep centered, don't move X
-            } else if (ctx.textAlign === 'left') {
-              textX += segmentWidth;
-            }
-          });
+          // Combine all segments into one line for shadow
+          const fullLine = lineSegments.map(seg => seg.text).join('');
+          let displayLine = fullLine;
+          if (slide.style.text.textTransform === 'uppercase') {
+            displayLine = fullLine.toUpperCase();
+          } else if (slide.style.text.textTransform === 'lowercase') {
+            displayLine = fullLine.toLowerCase();
+          } else if (slide.style.text.textTransform === 'capitalize') {
+            displayLine = fullLine.replace(/\b\w/g, l => l.toUpperCase());
+          }
+          ctx.fillStyle = slide.style.text.color;
+          ctx.fillText(displayLine, textX, shadowY);
           shadowY += block.titleLineHeight;
-          textX = centerX; // Reset X for next line
         });
         
-        // Body shadow
+        // Body shadow - render each line as whole
         if (block.bodyLines.length > 0) {
           shadowY += 30;
           const bodyFontSize = slide.style.text.bodyFontSize || slide.style.text.fontSize * 0.5;
+          const bodyColor = slide.style.text.bodyColor || slide.style.text.color;
           ctx.font = `${slide.style.text.bodyFontWeight || slide.style.text.fontWeight - 200} ${bodyFontSize}px ${slide.style.text.bodyFontFamily || slide.style.text.fontFamily}`;
           block.bodyLines.forEach((lineSegments) => {
-            lineSegments.forEach(segment => {
-              let displayText = segment.text;
-              if (slide.style.text.textTransform === 'uppercase') {
-                displayText = segment.text.toUpperCase();
-              } else if (slide.style.text.textTransform === 'lowercase') {
-                displayText = segment.text.toLowerCase();
-              } else if (slide.style.text.textTransform === 'capitalize') {
-                displayText = segment.text.replace(/\b\w/g, l => l.toUpperCase());
-              }
-              ctx.fillStyle = segment.color;
-              ctx.fillText(displayText, textX, shadowY);
-              const segmentWidth = measureSegment(displayText, bodyFontSize, slide.style.text.letterSpacing);
-              if (ctx.textAlign === 'center') {
-                // Keep centered
-              } else if (ctx.textAlign === 'left') {
-                textX += segmentWidth;
-              }
-            });
+            // Combine all segments into one line for shadow
+            const fullLine = lineSegments.map(seg => seg.text).join('');
+            let displayLine = fullLine;
+            if (slide.style.text.textTransform === 'uppercase') {
+              displayLine = fullLine.toUpperCase();
+            } else if (slide.style.text.textTransform === 'lowercase') {
+              displayLine = fullLine.toLowerCase();
+            } else if (slide.style.text.textTransform === 'capitalize') {
+              displayLine = fullLine.replace(/\b\w/g, l => l.toUpperCase());
+            }
+            ctx.fillStyle = bodyColor;
+            ctx.fillText(displayLine, textX, shadowY);
             shadowY += block.bodyLineHeight;
-            textX = centerX; // Reset X for next line
           });
         }
         
