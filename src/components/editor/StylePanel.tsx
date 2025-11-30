@@ -259,6 +259,36 @@ export const StylePanel = ({
               </Select>
             </div>
 
+            <div>
+              <Label>Text Transform</Label>
+              <Select
+                value={slide.style.text.textTransform || "none"}
+                onValueChange={(value: any) =>
+                  onUpdateSlide({
+                    style: {
+                      ...slide.style,
+                      text: { ...slide.style.text, textTransform: value },
+                    },
+                  })
+                }
+              >
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">None</SelectItem>
+                  <SelectItem value="uppercase">UPPERCASE</SelectItem>
+                  <SelectItem value="lowercase">lowercase</SelectItem>
+                  <SelectItem value="capitalize">Capitalize</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="text-xs text-muted-foreground bg-blue-500/10 border border-blue-500/20 rounded p-3">
+              <p className="font-medium mb-1">💡 Inline Color Tip:</p>
+              <p>Use <code className="bg-background/50 px-1 rounded">[#FF0000]text[]</code> to color specific words. Example: <code className="bg-background/50 px-1 rounded">Hello [#FF0000]world[]</code></p>
+            </div>
+
             <Separator className="my-4" />
             
             <div>

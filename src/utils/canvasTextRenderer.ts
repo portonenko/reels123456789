@@ -306,6 +306,68 @@ export const renderSlideText = (
   ctx.shadowOffsetX = 0;
   ctx.shadowOffsetY = 0;
 
+  // Helper to parse and render text with inline colors
+  const renderTextWithColors = (line: string, x: number, y: number, defaultColor: string) => {
+    // Match pattern: [#hexcolor]text[]
+    const regex = /\[#([0-9a-fA-F]{6})\](.*?)\[\]/g;
+    let lastIndex = 0;
+    let currentX = x;
+    const parts: Array<{text: string, color: string}> = [];
+    
+    let match;
+    while ((match = regex.exec(line)) !== null) {
+      // Add text before match
+      if (match.index > lastIndex) {
+        parts.push({
+          text: line.substring(lastIndex, match.index),
+          color: defaultColor
+        });
+      }
+      // Add colored text
+      parts.push({
+        text: match[2],
+        color: `#${match[1]}`
+      });
+      lastIndex = regex.lastIndex;
+    }
+    // Add remaining text
+    if (lastIndex < line.length) {
+      parts.push({
+        text: line.substring(lastIndex),
+        color: defaultColor
+      });
+    }
+    
+    // If no matches, just use default
+    if (parts.length === 0) {
+      parts.push({ text: line, color: defaultColor });
+    }
+    
+    // Calculate total width for alignment
+    const totalWidth = parts.reduce((sum, part) => {
+      return sum + ctx.measureText(part.text).width + (part.text.length - 1) * slide.style.text.letterSpacing * slide.style.text.fontSize;
+    }, 0);
+    
+    // Adjust starting position based on alignment
+    if (ctx.textAlign === 'center') {
+      currentX = x - totalWidth / 2;
+      ctx.textAlign = 'left';
+    } else if (ctx.textAlign === 'right') {
+      currentX = x - totalWidth;
+      ctx.textAlign = 'left';
+    }
+    
+    // Render each part
+    parts.forEach(part => {
+      ctx.fillStyle = part.color;
+      ctx.fillText(part.text, currentX, y);
+      currentX += ctx.measureText(part.text).width + (part.text.length - 1) * slide.style.text.letterSpacing * slide.style.text.fontSize;
+    });
+    
+    // Restore alignment
+    ctx.textAlign = slide.style.text.alignment as CanvasTextAlign;
+  };
+
   // Draw all text blocks
   processedBlocks.forEach((block, blockIndex) => {
     // Draw title
@@ -321,8 +383,7 @@ export const renderSlideText = (
       } else if (slide.style.text.textTransform === 'capitalize') {
         displayLine = line.replace(/\b\w/g, l => l.toUpperCase());
       }
-      ctx.fillStyle = slide.style.text.color;
-      ctx.fillText(displayLine, textX, currentY);
+      renderTextWithColors(displayLine, textX, currentY, slide.style.text.color);
       currentY += block.titleLineHeight;
     });
 
@@ -345,8 +406,7 @@ export const renderSlideText = (
         } else if (slide.style.text.textTransform === 'capitalize') {
           displayLine = line.replace(/\b\w/g, l => l.toUpperCase());
         }
-        ctx.fillStyle = bodyColor;
-        ctx.fillText(displayLine, textX, currentY);
+        renderTextWithColors(displayLine, textX, currentY, bodyColor);
         currentY += block.bodyLineHeight;
       });
     }
