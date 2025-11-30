@@ -21,6 +21,8 @@ interface StylePanelProps {
   onUpdateGlobalOverlay: (value: number) => void;
   showTextBoxControls: boolean;
   onToggleTextBoxControls: (show: boolean) => void;
+  showPositionEditor?: boolean;
+  onTogglePositionEditor?: (show: boolean) => void;
   lang?: 'en' | 'ru';
 }
 
@@ -43,6 +45,8 @@ export const StylePanel = ({
   onUpdateGlobalOverlay,
   showTextBoxControls,
   onToggleTextBoxControls,
+  showPositionEditor = false,
+  onTogglePositionEditor,
   lang = 'en',
 }: StylePanelProps) => {
   const { applyStyleToAll, applyDurationToAll, slides, updateSlide } = useEditorStore();
@@ -346,6 +350,31 @@ export const StylePanel = ({
                 </div>
               </>
             )}
+
+            <Separator className="my-4" />
+
+            <div className="space-y-3">
+              <div className="flex items-center justify-between">
+                <Label>Visual Block Position Editor</Label>
+                {onTogglePositionEditor && (
+                  <Switch
+                    checked={showPositionEditor}
+                    onCheckedChange={onTogglePositionEditor}
+                  />
+                )}
+              </div>
+              
+              {showPositionEditor && (
+                <div className="text-xs text-muted-foreground bg-primary/10 border border-primary/20 rounded p-3">
+                  <p className="font-medium mb-1">{lang === 'ru' ? 'Как использовать:' : 'How to use:'}</p>
+                  <ul className="list-disc list-inside space-y-1">
+                    <li>{lang === 'ru' ? 'Перетаскивайте блоки на превью для изменения позиции' : 'Drag blocks on preview to change position'}</li>
+                    <li>{lang === 'ru' ? 'Нажмите X для сброса позиции блока в центр' : 'Click X to reset block position to center'}</li>
+                    <li>{lang === 'ru' ? 'Блоки с одинаковым delay появятся одновременно' : 'Blocks with same delay appear simultaneously'}</li>
+                  </ul>
+                </div>
+              )}
+            </div>
 
             {showTextBoxControls && (
               <Button 
