@@ -36,8 +36,8 @@ export const SlidesTimeline = ({
     startDuration: number;
   } | null>(null);
 
-  const SLIDE_HEIGHT = 60;
-  const SLIDE_VERTICAL_GAP = 10;
+  const SLIDE_HEIGHT = 80;
+  const SLIDE_VERTICAL_GAP = 15;
   const PIXELS_PER_SECOND = 100; // 100px = 1 секунда
   const TIMELINE_HEIGHT = Math.max(200, slides.length * (SLIDE_HEIGHT + SLIDE_VERTICAL_GAP) + 50);
 
@@ -210,18 +210,25 @@ export const SlidesTimeline = ({
               >
                 {/* Slide content */}
                 <div className="absolute inset-0 p-3 flex flex-col pointer-events-none">
-                  <div className="flex items-center gap-2 mb-1">
-                    <GripVertical className="w-4 h-4 text-muted-foreground" />
-                    <span className="text-xs font-mono text-muted-foreground">
+                  <div className="flex items-center gap-2 mb-2">
+                    <GripVertical className="w-4 h-4 text-muted-foreground flex-shrink-0" />
+                    <span className="text-xs font-mono text-muted-foreground flex-shrink-0">
                       #{index + 1}
                     </span>
-                    <span className="text-xs px-2 py-0.5 rounded-full bg-primary/20 text-primary">
+                    <span className="text-xs px-2 py-0.5 rounded-full bg-primary/20 text-primary flex-shrink-0">
                       {slide.durationSec}s
                     </span>
                   </div>
-                  <p className="text-sm font-medium line-clamp-2 flex-1">
-                    {slide.title}
-                  </p>
+                  <div className="flex-1 min-h-0 overflow-hidden">
+                    <p className="text-base font-semibold line-clamp-2 mb-1">
+                      {slide.title}
+                    </p>
+                    {slide.body && (
+                      <p className="text-xs text-muted-foreground line-clamp-1">
+                        {slide.body}
+                      </p>
+                    )}
+                  </div>
                 </div>
 
                 {/* Action buttons */}
