@@ -187,10 +187,11 @@ export const SlidesTimeline = ({
         <div
           ref={timelineRef}
           className="flex-1 relative bg-background border-2 border-border rounded-lg overflow-auto"
+          style={{ maxHeight: '400px' }}
         >
-          <div className="relative" style={{ width: `${timeToPixels(totalDuration + 2)}px`, height: `${CONTENT_HEIGHT}px` }}>
+          <div className="relative" style={{ width: `${timeToPixels(totalDuration + 2)}px`, minHeight: `${CONTENT_HEIGHT}px` }}>
         {/* Time markers */}
-        <div className="absolute top-0 left-0 h-8 flex items-center px-2" style={{ width: `${timeToPixels(totalDuration + 2)}px` }}>
+        <div className="absolute top-0 left-0 h-8 flex items-center px-2" style={{ width: '100%' }}>
           {timeMarkers.map((time) => (
             <div
               key={time}
