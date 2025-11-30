@@ -2,9 +2,10 @@ import { Slide, TextBlock } from "@/types";
 import { Button } from "@/components/ui/button";
 import { Copy, Trash2, GripVertical, Edit2, Plus, Minus } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
+import { ColorInsertButton } from "./ColorInsertButton";
 
 // Helper to remove color tags from text for display
 const stripColorTags = (text: string): string => {
@@ -44,6 +45,8 @@ export const SlideCard = ({
   const [editTextBlocks, setEditTextBlocks] = useState<TextBlock[]>(
     slide.textBlocks || [{ title: slide.title, body: slide.body }]
   );
+  
+  const blockInputRefs = useRef<Map<number, { title: HTMLInputElement | null; body: HTMLTextAreaElement | null }>>(new Map());
 
   const handleSave = () => {
     // If using text blocks
@@ -85,6 +88,31 @@ export const SlideCard = ({
     const updated = [...editTextBlocks];
     updated[index][field] = value;
     setEditTextBlocks(updated);
+  };
+
+  const insertColorTag = (
+    ref: React.RefObject<HTMLInputElement | HTMLTextAreaElement>,
+    setValue: (value: string) => void,
+    currentValue: string,
+    color: string
+  ) => {
+    const input = ref.current;
+    if (!input) return;
+
+    const start = input.selectionStart || 0;
+    const end = input.selectionEnd || 0;
+    const selectedText = currentValue.substring(start, end) || "текст";
+    
+    const colorTag = `[${color}]${selectedText}[]`;
+    const newValue = currentValue.substring(0, start) + colorTag + currentValue.substring(end);
+    
+    setValue(newValue);
+    
+    setTimeout(() => {
+      input.focus();
+      const newCursorPos = start + colorTag.length;
+      input.setSelectionRange(newCursorPos, newCursorPos);
+    }, 0);
   };
 
   return (
@@ -131,37 +159,80 @@ export const SlideCard = ({
 
           {isEditing ? (
             <div className="space-y-3" onClick={(e) => e.stopPropagation()}>
-              {editTextBlocks.map((block, blockIndex) => (
-                <div key={blockIndex} className="space-y-2 p-3 border border-border rounded-md bg-background/50">
-                  <div className="flex items-center justify-between mb-1">
-                    <span className="text-xs font-medium text-muted-foreground">
-                      Блок {blockIndex + 1}
-                    </span>
-                    {editTextBlocks.length > 1 && (
-                      <Button
-                        size="sm"
-                        variant="ghost"
-                        onClick={() => removeTextBlock(blockIndex)}
-                        className="h-6 w-6 p-0"
-                      >
-                        <Minus className="w-3 h-3" />
-                      </Button>
-                    )}
+              {editTextBlocks.map((block, blockIndex) => {
+                if (!blockInputRefs.current.has(blockIndex)) {
+                  blockInputRefs.current.set(blockIndex, { title: null, body: null });
+                }
+                return (
+                  <div key={blockIndex} className="space-y-2 p-3 border border-border rounded-md bg-background/50">
+                    <div className="flex items-center justify-between mb-1">
+                      <span className="text-xs font-medium text-muted-foreground">
+                        Блок {blockIndex + 1}
+                      </span>
+                      {editTextBlocks.length > 1 && (
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          onClick={() => removeTextBlock(blockIndex)}
+                          className="h-6 w-6 p-0"
+                        >
+                          <Minus className="w-3 h-3" />
+                        </Button>
+                      )}
+                    </div>
+                    <div className="flex gap-2">
+                      <Input
+                        ref={(el) => {
+                          const refs = blockInputRefs.current.get(blockIndex);
+                          if (refs) refs.title = el;
+                        }}
+                        value={block.title}
+                        onChange={(e) => updateTextBlock(blockIndex, "title", e.target.value)}
+                        placeholder="Заголовок"
+                        className="h-8 text-sm"
+                      />
+                      <ColorInsertButton
+                        onColorInsert={(color) => {
+                          const refs = blockInputRefs.current.get(blockIndex);
+                          if (refs?.title) {
+                            insertColorTag(
+                              { current: refs.title },
+                              (val) => updateTextBlock(blockIndex, "title", val),
+                              block.title,
+                              color
+                            );
+                          }
+                        }}
+                      />
+                    </div>
+                    <div className="flex gap-2">
+                      <Textarea
+                        ref={(el) => {
+                          const refs = blockInputRefs.current.get(blockIndex);
+                          if (refs) refs.body = el;
+                        }}
+                        value={block.body || ""}
+                        onChange={(e) => updateTextBlock(blockIndex, "body", e.target.value)}
+                        placeholder="Описание (опционально)"
+                        className="min-h-[50px] text-xs resize-none"
+                      />
+                      <ColorInsertButton
+                        onColorInsert={(color) => {
+                          const refs = blockInputRefs.current.get(blockIndex);
+                          if (refs?.body) {
+                            insertColorTag(
+                              { current: refs.body },
+                              (val) => updateTextBlock(blockIndex, "body", val),
+                              block.body || "",
+                              color
+                            );
+                          }
+                        }}
+                      />
+                    </div>
                   </div>
-                  <Input
-                    value={block.title}
-                    onChange={(e) => updateTextBlock(blockIndex, "title", e.target.value)}
-                    placeholder="Заголовок"
-                    className="h-8 text-sm"
-                  />
-                  <Textarea
-                    value={block.body || ""}
-                    onChange={(e) => updateTextBlock(blockIndex, "body", e.target.value)}
-                    placeholder="Описание (опционально)"
-                    className="min-h-[50px] text-xs resize-none"
-                  />
-                </div>
-              ))}
+                );
+              })}
               <Button
                 size="sm"
                 variant="outline"
