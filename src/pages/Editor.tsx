@@ -55,6 +55,7 @@ const Editor = () => {
   const [showRandomizeDialog, setShowRandomizeDialog] = useState(false);
   const [showCarouselDialog, setShowCarouselDialog] = useState(false);
   const [showTextBoxControls, setShowTextBoxControls] = useState(false);
+  const [showPositionEditor, setShowPositionEditor] = useState(false);
   const [showSlideEditDialog, setShowSlideEditDialog] = useState(false);
   const [editingSlideId, setEditingSlideId] = useState<string | null>(null);
   const [draggedSlideIndex, setDraggedSlideIndex] = useState<number | null>(null);
@@ -601,6 +602,12 @@ const Editor = () => {
               slide={selectedSlide} 
               globalOverlay={globalOverlay}
               showTextBoxControls={showTextBoxControls}
+              showPositionEditor={showPositionEditor}
+              onUpdateSlide={(updates) => {
+                if (selectedSlideId) {
+                  updateSlide(selectedSlideId, updates);
+                }
+              }}
               lang={language}
             />
           </div>
@@ -619,6 +626,8 @@ const Editor = () => {
             onUpdateGlobalOverlay={setGlobalOverlay}
             showTextBoxControls={showTextBoxControls}
             onToggleTextBoxControls={setShowTextBoxControls}
+            showPositionEditor={showPositionEditor}
+            onTogglePositionEditor={setShowPositionEditor}
             lang={language}
           />
         </div>
