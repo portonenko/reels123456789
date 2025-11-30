@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect } from "react";
-import { Slide, TextBlock } from "@/types";
+import { Slide } from "@/types";
 import { cn } from "@/lib/utils";
-import { Move, X } from "lucide-react";
+import { Button } from "@/components/ui/button";
 
 interface TextBlockPositionEditorProps {
   slide: Slide;
@@ -17,21 +17,13 @@ export const TextBlockPositionEditor = ({
   containerHeight,
 }: TextBlockPositionEditorProps) => {
   const [draggedBlockIndex, setDraggedBlockIndex] = useState<number | null>(null);
-  const [dragOffset, setDragOffset] = useState({ x: 0, y: 0 });
   const containerRef = useRef<HTMLDivElement>(null);
 
   const textBlocks = slide.textBlocks || [{ title: slide.title, body: slide.body }];
 
   const handleMouseDown = (e: React.MouseEvent, blockIndex: number) => {
     e.preventDefault();
-    const block = textBlocks[blockIndex];
-    const blockX = ((block.position?.x || 50) / 100) * containerWidth;
-    const blockY = ((block.position?.y || 50) / 100) * containerHeight;
-    
-    setDragOffset({
-      x: e.clientX - blockX,
-      y: e.clientY - blockY,
-    });
+    e.stopPropagation();
     setDraggedBlockIndex(blockIndex);
   };
 
@@ -40,22 +32,20 @@ export const TextBlockPositionEditor = ({
 
     const handleMouseMove = (e: MouseEvent) => {
       if (!containerRef.current) return;
-      
+
       const rect = containerRef.current.getBoundingClientRect();
-      const x = e.clientX - rect.left - dragOffset.x;
-      const y = e.clientY - rect.top - dragOffset.y;
-      
-      // Convert to percentage
-      const xPercent = Math.max(0, Math.min(100, (x / containerWidth) * 100));
-      const yPercent = Math.max(0, Math.min(100, (y / containerHeight) * 100));
-      
-      // Update block position
+      const x = ((e.clientX - rect.left) / rect.width) * 100;
+      const y = ((e.clientY - rect.top) / rect.height) * 100;
+
+      const clampedX = Math.max(0, Math.min(100, x));
+      const clampedY = Math.max(0, Math.min(100, y));
+
       const updatedBlocks = [...textBlocks];
       updatedBlocks[draggedBlockIndex] = {
         ...updatedBlocks[draggedBlockIndex],
-        position: { x: Math.round(xPercent), y: Math.round(yPercent) },
+        position: { x: Math.round(clampedX), y: Math.round(clampedY) },
       };
-      
+
       onUpdateSlide({ textBlocks: updatedBlocks });
     };
 
@@ -70,13 +60,36 @@ export const TextBlockPositionEditor = ({
       document.removeEventListener("mousemove", handleMouseMove);
       document.removeEventListener("mouseup", handleMouseUp);
     };
-  }, [draggedBlockIndex, dragOffset, containerWidth, containerHeight, textBlocks, onUpdateSlide]);
+  }, [draggedBlockIndex, textBlocks, onUpdateSlide, containerWidth, containerHeight]);
 
-  const resetPosition = (blockIndex: number) => {
+  const handleCenterX = (e: React.MouseEvent, blockIndex: number) => {
+    e.stopPropagation();
+    const updatedBlocks = [...textBlocks];
+    const currentY = updatedBlocks[blockIndex].position?.y || 50;
+    updatedBlocks[blockIndex] = {
+      ...updatedBlocks[blockIndex],
+      position: { x: 50, y: currentY },
+    };
+    onUpdateSlide({ textBlocks: updatedBlocks });
+  };
+
+  const handleCenterY = (e: React.MouseEvent, blockIndex: number) => {
+    e.stopPropagation();
+    const updatedBlocks = [...textBlocks];
+    const currentX = updatedBlocks[blockIndex].position?.x || 50;
+    updatedBlocks[blockIndex] = {
+      ...updatedBlocks[blockIndex],
+      position: { x: currentX, y: 50 },
+    };
+    onUpdateSlide({ textBlocks: updatedBlocks });
+  };
+
+  const handleCenterAll = (e: React.MouseEvent, blockIndex: number) => {
+    e.stopPropagation();
     const updatedBlocks = [...textBlocks];
     updatedBlocks[blockIndex] = {
       ...updatedBlocks[blockIndex],
-      position: undefined,
+      position: { x: 50, y: 50 },
     };
     onUpdateSlide({ textBlocks: updatedBlocks });
   };
@@ -88,48 +101,77 @@ export const TextBlockPositionEditor = ({
       style={{ width: containerWidth, height: containerHeight }}
     >
       {textBlocks.map((block, index) => {
-        const x = ((block.position?.x || 50) / 100) * containerWidth;
-        const y = ((block.position?.y || 50) / 100) * containerHeight;
+        const position = block.position || { x: 50, y: 50 };
+        const left = (position.x / 100) * containerWidth;
+        const top = (position.y / 100) * containerHeight;
         const isDragging = draggedBlockIndex === index;
+
+        // Clean text from color tags and formatting
+        const cleanTitle = block.title.replace(/^\[.*?\]\s*/, '').replace(/\[#[0-9a-fA-F]{6}\]/g, '').replace(/\[\]/g, '');
+        const cleanBody = block.body?.replace(/^\[.*?\]\s*/, '').replace(/\[#[0-9a-fA-F]{6}\]/g, '').replace(/\[\]/g, '');
 
         return (
           <div
             key={index}
-            className={cn(
-              "absolute pointer-events-auto cursor-move transition-all",
-              isDragging && "scale-110 z-50"
-            )}
+            className="absolute pointer-events-auto"
             style={{
-              left: `${x}px`,
-              top: `${y}px`,
+              left: `${left}px`,
+              top: `${top}px`,
               transform: "translate(-50%, -50%)",
             }}
-            onMouseDown={(e) => handleMouseDown(e, index)}
           >
+            {/* Draggable text preview */}
             <div
               className={cn(
-                "flex items-center gap-2 px-3 py-2 rounded-lg border-2",
-                "bg-primary/90 text-primary-foreground backdrop-blur-sm",
-                isDragging ? "border-primary-foreground shadow-2xl" : "border-primary-foreground/50 hover:border-primary-foreground"
+                "bg-primary/90 backdrop-blur-sm text-primary-foreground rounded-lg cursor-move shadow-xl border-2 transition-all",
+                "px-4 py-3 min-w-[140px] max-w-[280px]",
+                isDragging
+                  ? "scale-110 border-accent shadow-2xl"
+                  : "border-primary-foreground/30 hover:border-primary-foreground/60 hover:bg-primary"
               )}
+              onMouseDown={(e) => handleMouseDown(e, index)}
             >
-              <Move className="w-4 h-4 flex-shrink-0" />
-              <div className="text-xs font-semibold max-w-[200px] truncate">
-                {block.title || `Блок ${index + 1}`}
+              <div className="flex flex-col gap-1">
+                <span className="text-sm font-bold leading-tight line-clamp-2">
+                  {cleanTitle}
+                </span>
+                {cleanBody && (
+                  <span className="text-xs opacity-80 leading-tight line-clamp-1">
+                    {cleanBody}
+                  </span>
+                )}
+                <span className="text-[10px] opacity-60 mt-1 font-mono">
+                  {Math.round(position.x)}%, {Math.round(position.y)}%
+                </span>
               </div>
-              <button
-                onClick={(e) => {
-                  e.stopPropagation();
-                  resetPosition(index);
-                }}
-                className="ml-1 p-1 hover:bg-primary-foreground/20 rounded transition-colors"
-                title="Сбросить позицию"
-              >
-                <X className="w-3 h-3" />
-              </button>
             </div>
-            <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 text-[10px] font-mono text-primary-foreground/60 pointer-events-none mt-8">
-              {block.position?.x || 50}%, {block.position?.y || 50}%
+
+            {/* Center buttons */}
+            <div className="flex gap-1 mt-2 justify-center">
+              <Button
+                size="sm"
+                variant="secondary"
+                className="h-7 px-2 text-xs"
+                onClick={(e) => handleCenterX(e, index)}
+              >
+                Center X
+              </Button>
+              <Button
+                size="sm"
+                variant="secondary"
+                className="h-7 px-2 text-xs"
+                onClick={(e) => handleCenterY(e, index)}
+              >
+                Center Y
+              </Button>
+              <Button
+                size="sm"
+                variant="secondary"
+                className="h-7 px-2 text-xs"
+                onClick={(e) => handleCenterAll(e, index)}
+              >
+                Center All
+              </Button>
             </div>
           </div>
         );

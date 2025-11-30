@@ -355,7 +355,7 @@ export const StylePanel = ({
 
             <div className="space-y-3">
               <div className="flex items-center justify-between">
-                <Label>Visual Block Position Editor</Label>
+                <Label>{lang === 'ru' ? 'Перетаскивание текста' : 'Drag & Drop Text'}</Label>
                 {onTogglePositionEditor && (
                   <Switch
                     checked={showPositionEditor}
@@ -368,8 +368,8 @@ export const StylePanel = ({
                 <div className="text-xs text-muted-foreground bg-primary/10 border border-primary/20 rounded p-3">
                   <p className="font-medium mb-1">{lang === 'ru' ? 'Как использовать:' : 'How to use:'}</p>
                   <ul className="list-disc list-inside space-y-1">
-                    <li>{lang === 'ru' ? 'Перетаскивайте блоки на превью для изменения позиции' : 'Drag blocks on preview to change position'}</li>
-                    <li>{lang === 'ru' ? 'Нажмите X для сброса позиции блока в центр' : 'Click X to reset block position to center'}</li>
+                    <li>{lang === 'ru' ? 'Перетаскивайте текст на превью' : 'Drag text on preview to move'}</li>
+                    <li>{lang === 'ru' ? 'Используйте кнопки Center для выравнивания' : 'Use Center buttons to align text'}</li>
                     <li>{lang === 'ru' ? 'Блоки с одинаковым delay появятся одновременно' : 'Blocks with same delay appear simultaneously'}</li>
                   </ul>
                 </div>
