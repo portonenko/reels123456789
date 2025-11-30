@@ -14,9 +14,15 @@ const QUICK_COLORS = [
 
 export const ColorInsertButton = ({ onInsert }: ColorInsertButtonProps) => {
   const [open, setOpen] = useState(false);
+  const [customColor, setCustomColor] = useState("#FF1430");
 
   const handleColorClick = (color: string) => {
     onInsert(color);
+    setOpen(false);
+  };
+
+  const handleCustomColorClick = () => {
+    onInsert(customColor);
     setOpen(false);
   };
 
@@ -33,7 +39,7 @@ export const ColorInsertButton = ({ onInsert }: ColorInsertButtonProps) => {
         </Button>
       </PopoverTrigger>
       <PopoverContent className="w-auto p-2" align="start">
-        <div className="grid grid-cols-4 gap-2">
+        <div className="grid grid-cols-4 gap-2 mb-3">
           {QUICK_COLORS.map((color) => (
             <button
               key={color}
@@ -44,6 +50,26 @@ export const ColorInsertButton = ({ onInsert }: ColorInsertButtonProps) => {
               title={color}
             />
           ))}
+        </div>
+        <div className="border-t pt-2">
+          <div className="text-xs text-muted-foreground mb-2 px-1">
+            Свой цвет:
+          </div>
+          <div className="flex gap-2 items-center">
+            <input
+              type="color"
+              value={customColor}
+              onChange={(e) => setCustomColor(e.target.value)}
+              className="w-10 h-10 rounded border-2 border-border cursor-pointer"
+            />
+            <button
+              type="button"
+              onClick={handleCustomColorClick}
+              className="flex-1 px-3 py-2 text-xs bg-primary text-primary-foreground rounded hover:bg-primary/90 transition-colors"
+            >
+              Вставить {customColor}
+            </button>
+          </div>
         </div>
         <div className="text-xs text-muted-foreground mt-2 px-1">
           Выделите текст и нажмите цвет
