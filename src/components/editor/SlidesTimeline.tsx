@@ -143,14 +143,17 @@ export const SlidesTimeline = ({
         <div className="flex items-center gap-3">
           {/* Scroll indicator */}
           {slides.length > 0 && (
-            <div className="flex items-center gap-2">
-              <div className="w-24 h-2 bg-muted rounded-full overflow-hidden">
+            <div className="flex items-center gap-2 px-3 py-1.5 bg-muted/50 rounded-lg border border-border">
+              <span className="text-xs font-medium text-foreground">
+                {lang === 'ru' ? 'Прокрутка:' : 'Scroll:'}
+              </span>
+              <div className="w-32 h-3 bg-background rounded-full overflow-hidden border border-border">
                 <div 
                   className="h-full bg-primary transition-all duration-200"
                   style={{ width: `${Math.min(100, scrollProgress + 20)}%` }}
                 />
               </div>
-              <span className="text-xs text-muted-foreground whitespace-nowrap">
+              <span className="text-xs font-semibold text-primary min-w-[3ch] text-right">
                 {Math.round(scrollProgress)}%
               </span>
             </div>
