@@ -84,10 +84,19 @@ export const renderSlideText = (
     ? slide.textBlocks 
     : [{ title: slide.title, body: slide.body }];
 
-  // Filter text blocks based on delay and current time
+  // Filter text blocks based on delay, duration, and current time
   const textBlocks = allTextBlocks.filter(block => {
     const blockDelay = block.delay || 0;
-    return currentTime >= blockDelay;
+    const blockDuration = block.duration || 0;
+    
+    // Block hasn't appeared yet
+    if (currentTime < blockDelay) return false;
+    
+    // Block has duration and has expired
+    if (blockDuration > 0 && currentTime >= blockDelay + blockDuration) return false;
+    
+    // Block is visible
+    return true;
   });
 
   // Extract clean text
