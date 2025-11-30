@@ -322,15 +322,6 @@ export const SlidesTimeline = ({
         </div>
       </div>
       )}
-
-      <div className="flex items-start gap-2 text-xs text-muted-foreground bg-muted/50 p-3 rounded flex-shrink-0">
-        <span className="text-lg">💡</span>
-        <div className="space-y-1">
-          <p><strong>{lang === 'ru' ? 'Перетаскивайте слайды' : 'Drag slides'}</strong> {lang === 'ru' ? 'влево-вправо для изменения времени появления' : 'left-right to change start time'}</p>
-          <p><strong>{lang === 'ru' ? 'Тяните за правый край' : 'Drag right edge'}</strong> {lang === 'ru' ? 'для изменения длительности слайда' : 'to change slide duration'}</p>
-          <p><strong>{lang === 'ru' ? 'Каждый слайд на своей дорожке' : 'Each slide on its own track'}</strong> {lang === 'ru' ? 'для удобной работы' : 'for easy editing'}</p>
-        </div>
-      </div>
     </div>
   );
 };
