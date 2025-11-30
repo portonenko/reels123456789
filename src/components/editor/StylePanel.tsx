@@ -284,11 +284,6 @@ export const StylePanel = ({
               </Select>
             </div>
 
-            <div className="text-xs text-muted-foreground bg-blue-500/10 border border-blue-500/20 rounded p-3">
-              <p className="font-medium mb-1">💡 Inline Color Tip:</p>
-              <p>Use <code className="bg-background/50 px-1 rounded">[#FF0000]text[]</code> to color specific words. Example: <code className="bg-background/50 px-1 rounded">Hello [#FF0000]world[]</code></p>
-            </div>
-
             <Separator className="my-4" />
             
             <div>
