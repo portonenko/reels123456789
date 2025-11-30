@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect } from "react";
 import { TextBlock } from "@/types";
 import { cn } from "@/lib/utils";
+import { Play, Pause } from "lucide-react";
 
 interface TextBlockTimelineProps {
   blocks: TextBlock[];
@@ -18,8 +19,8 @@ export const TextBlockTimeline = ({ blocks, slideDuration, onChange }: TextBlock
     startDuration: number;
   } | null>(null);
 
-  const TIMELINE_HEIGHT = 60;
-  const BLOCK_HEIGHT = 40;
+  const TIMELINE_HEIGHT = 100;
+  const BLOCK_HEIGHT = 50;
   const COLORS = ["#3b82f6", "#10b981", "#f59e0b", "#ef4444", "#8b5cf6", "#ec4899"];
 
   const getTimelineWidth = () => {
@@ -65,30 +66,23 @@ export const TextBlockTimeline = ({ blocks, slideDuration, onChange }: TextBlock
       const block = newBlocks[dragState.blockIndex];
 
       if (dragState.type === "move") {
-        // Move the block (change delay)
         let newDelay = Math.max(0, dragState.startDelay + deltaTime);
         const blockDuration = block.duration || slideDuration;
         
-        // Don't allow moving beyond slide duration
         if (blockDuration > 0) {
           newDelay = Math.min(newDelay, slideDuration - blockDuration);
         }
         
         block.delay = Math.round(newDelay * 10) / 10;
       } else if (dragState.type === "resize-end") {
-        // Resize from the end (change duration)
         const newDuration = Math.max(0.1, dragState.startDuration + deltaTime);
         const blockStart = block.delay || 0;
-        
-        // Don't allow resizing beyond slide duration
         const maxDuration = slideDuration - blockStart;
         block.duration = Math.round(Math.min(newDuration, maxDuration) * 10) / 10;
       } else if (dragState.type === "resize-start") {
-        // Resize from the start (change both delay and duration)
         let newDelay = Math.max(0, dragState.startDelay + deltaTime);
         let newDuration = Math.max(0.1, dragState.startDuration - deltaTime);
         
-        // Don't allow resizing beyond slide duration
         if (newDelay + newDuration > slideDuration) {
           newDuration = slideDuration - newDelay;
         }
@@ -113,7 +107,6 @@ export const TextBlockTimeline = ({ blocks, slideDuration, onChange }: TextBlock
     };
   }, [dragState, blocks, slideDuration, onChange]);
 
-  // Generate time markers
   const timeMarkers = [];
   const markerInterval = slideDuration <= 5 ? 0.5 : slideDuration <= 10 ? 1 : 2;
   for (let t = 0; t <= slideDuration; t += markerInterval) {
@@ -121,23 +114,23 @@ export const TextBlockTimeline = ({ blocks, slideDuration, onChange }: TextBlock
   }
 
   return (
-    <div className="space-y-2">
-      <div className="flex items-center justify-between text-xs text-muted-foreground px-2">
-        <span>Временная шкала</span>
-        <span>{slideDuration}с</span>
+    <div className="space-y-3 p-4 bg-muted/30 rounded-lg border border-border">
+      <div className="flex items-center justify-between">
+        <span className="text-sm font-medium">Временная шкала</span>
+        <span className="text-sm text-muted-foreground">Длина: {slideDuration}с</span>
       </div>
       
       <div
         ref={timelineRef}
-        className="relative bg-background border border-border rounded-lg overflow-hidden"
-        style={{ height: TIMELINE_HEIGHT + 30 }}
+        className="relative bg-background border-2 border-border rounded-lg overflow-hidden"
+        style={{ height: TIMELINE_HEIGHT + 40 }}
       >
         {/* Time markers */}
-        <div className="absolute top-0 left-0 right-0 h-6 border-b border-border/50 flex items-end">
+        <div className="absolute top-0 left-0 right-0 h-8 border-b-2 border-border bg-muted/50 flex items-center px-2">
           {timeMarkers.map((time) => (
             <div
               key={time}
-              className="absolute text-[10px] text-muted-foreground"
+              className="absolute text-xs font-medium text-foreground"
               style={{ left: `${timeToPixels(time)}px`, transform: "translateX(-50%)" }}
             >
               {time}s
@@ -146,18 +139,18 @@ export const TextBlockTimeline = ({ blocks, slideDuration, onChange }: TextBlock
         </div>
 
         {/* Grid lines */}
-        <div className="absolute top-6 left-0 right-0 bottom-0">
+        <div className="absolute top-8 left-0 right-0 bottom-0">
           {timeMarkers.map((time) => (
             <div
               key={time}
-              className="absolute top-0 bottom-0 w-px bg-border/30"
+              className="absolute top-0 bottom-0 w-px bg-border"
               style={{ left: `${timeToPixels(time)}px` }}
             />
           ))}
         </div>
 
         {/* Blocks */}
-        <div className="absolute top-6 left-0 right-0 bottom-0 px-1 py-2">
+        <div className="absolute top-8 left-0 right-0 bottom-0 px-2 py-3">
           {blocks.map((block, index) => {
             const delay = block.delay || 0;
             const duration = block.duration || slideDuration;
@@ -171,54 +164,58 @@ export const TextBlockTimeline = ({ blocks, slideDuration, onChange }: TextBlock
               <div
                 key={index}
                 className={cn(
-                  "absolute rounded cursor-move transition-shadow hover:shadow-lg",
-                  dragState?.blockIndex === index && "shadow-xl ring-2 ring-primary"
+                  "absolute rounded-md cursor-move transition-all hover:shadow-xl border-2",
+                  dragState?.blockIndex === index 
+                    ? "shadow-2xl ring-4 ring-primary/50 z-10 scale-105" 
+                    : "hover:scale-102 border-transparent"
                 )}
                 style={{
                   left: `${left}px`,
-                  width: `${width}px`,
+                  width: `${Math.max(width, 40)}px`,
                   height: `${BLOCK_HEIGHT}px`,
                   backgroundColor: color,
-                  opacity: 0.8,
+                  top: `${index * (BLOCK_HEIGHT + 8)}px`,
                 }}
                 onMouseDown={(e) => handleMouseDown(e, index, "move")}
               >
                 {/* Resize handle - start */}
                 <div
-                  className="absolute left-0 top-0 bottom-0 w-2 cursor-ew-resize hover:bg-white/30 transition-colors"
+                  className="absolute left-0 top-0 bottom-0 w-3 cursor-ew-resize hover:bg-white/40 transition-colors flex items-center justify-center"
                   onMouseDown={(e) => handleMouseDown(e, index, "resize-start")}
-                />
+                >
+                  <div className="w-1 h-6 bg-white/60 rounded-full" />
+                </div>
                 
                 {/* Block content */}
-                <div className="absolute inset-0 flex items-center justify-center px-2 pointer-events-none">
-                  <span className="text-[10px] font-medium text-white truncate">
+                <div className="absolute inset-0 flex flex-col items-center justify-center px-4 pointer-events-none">
+                  <span className="text-sm font-bold text-white drop-shadow-lg">
                     Блок {index + 1}
+                  </span>
+                  <span className="text-xs text-white/90">
+                    {delay.toFixed(1)}s → {endTime.toFixed(1)}s
                   </span>
                 </div>
 
                 {/* Resize handle - end */}
                 <div
-                  className="absolute right-0 top-0 bottom-0 w-2 cursor-ew-resize hover:bg-white/30 transition-colors"
+                  className="absolute right-0 top-0 bottom-0 w-3 cursor-ew-resize hover:bg-white/40 transition-colors flex items-center justify-center"
                   onMouseDown={(e) => handleMouseDown(e, index, "resize-end")}
-                />
-
-                {/* Time labels */}
-                <div className="absolute -bottom-5 left-0 text-[9px] text-muted-foreground">
-                  {delay.toFixed(1)}s
+                >
+                  <div className="w-1 h-6 bg-white/60 rounded-full" />
                 </div>
-                {duration > 0 && (
-                  <div className="absolute -bottom-5 right-0 text-[9px] text-muted-foreground">
-                    {endTime.toFixed(1)}s
-                  </div>
-                )}
               </div>
             );
           })}
         </div>
       </div>
 
-      <div className="text-xs text-muted-foreground px-2">
-        💡 Перетаскивайте блоки для изменения времени появления, тяните за края для изменения длительности
+      <div className="flex items-start gap-2 text-xs text-muted-foreground bg-muted/50 p-3 rounded">
+        <span className="text-lg">💡</span>
+        <div className="space-y-1">
+          <p><strong>Перетаскивайте блоки</strong> для изменения времени появления</p>
+          <p><strong>Тяните за края</strong> (белые полоски) для изменения длительности</p>
+          <p><strong>Если длительность = 0</strong>, блок остается до конца слайда</p>
+        </div>
       </div>
     </div>
   );
