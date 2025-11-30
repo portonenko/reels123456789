@@ -94,17 +94,41 @@ export const TextBlockPositionEditor = ({
     onUpdateSlide({ textBlocks: updatedBlocks });
   };
 
+  const handleAutoCenterAll = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    const updatedBlocks = textBlocks.map((block) => ({
+      ...block,
+      position: { x: 50, y: 50 },
+    }));
+    onUpdateSlide({ textBlocks: updatedBlocks });
+  };
+
   return (
     <div
       ref={containerRef}
       className="absolute inset-0 pointer-events-none"
       style={{ width: containerWidth, height: containerHeight }}
     >
+      {/* Auto center all button */}
+      <div className="absolute top-4 left-1/2 transform -translate-x-1/2 pointer-events-auto z-10">
+        <Button
+          size="sm"
+          variant="default"
+          className="shadow-lg"
+          onClick={handleAutoCenterAll}
+        >
+          Auto Center All Blocks
+        </Button>
+      </div>
       {textBlocks.map((block, index) => {
         const position = block.position || { x: 50, y: 50 };
         const left = (position.x / 100) * containerWidth;
         const top = (position.y / 100) * containerHeight;
         const isDragging = draggedBlockIndex === index;
+        
+        // Check if block has timing (delay > 0 means it appears later)
+        const hasDelay = (block.delay || 0) > 0;
+        const blockDelay = block.delay || 0;
 
         // Clean text from color tags and formatting
         const cleanTitle = block.title.replace(/^\[.*?\]\s*/, '').replace(/\[#[0-9a-fA-F]{6}\]/g, '').replace(/\[\]/g, '');
@@ -123,15 +147,23 @@ export const TextBlockPositionEditor = ({
             {/* Draggable text preview */}
             <div
               className={cn(
-                "bg-primary/90 backdrop-blur-sm text-primary-foreground rounded-lg cursor-move shadow-xl border-2 transition-all",
+                "backdrop-blur-sm text-primary-foreground rounded-lg cursor-move shadow-xl border-2 transition-all",
                 "px-4 py-3 min-w-[140px] max-w-[280px]",
+                hasDelay 
+                  ? "bg-secondary/70 border-secondary" 
+                  : "bg-primary/90 border-primary-foreground/30",
                 isDragging
                   ? "scale-110 border-accent shadow-2xl"
-                  : "border-primary-foreground/30 hover:border-primary-foreground/60 hover:bg-primary"
+                  : "hover:border-primary-foreground/60 hover:brightness-110"
               )}
               onMouseDown={(e) => handleMouseDown(e, index)}
             >
               <div className="flex flex-col gap-1">
+                {hasDelay && (
+                  <span className="text-[10px] bg-secondary-foreground/20 px-1.5 py-0.5 rounded mb-1 font-mono">
+                    ⏱ Appears at {blockDelay}s
+                  </span>
+                )}
                 <span className="text-sm font-bold leading-tight line-clamp-2">
                   {cleanTitle}
                 </span>
