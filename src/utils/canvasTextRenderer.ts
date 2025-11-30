@@ -270,8 +270,16 @@ export const renderSlideText = (
         // Title shadow
         ctx.font = `${slide.style.text.fontWeight} ${slide.style.text.fontSize}px ${slide.style.text.fontFamily}`;
         block.titleLines.forEach((line) => {
+          let displayLine = line;
+          if (slide.style.text.textTransform === 'uppercase') {
+            displayLine = line.toUpperCase();
+          } else if (slide.style.text.textTransform === 'lowercase') {
+            displayLine = line.toLowerCase();
+          } else if (slide.style.text.textTransform === 'capitalize') {
+            displayLine = line.replace(/\b\w/g, l => l.toUpperCase());
+          }
           ctx.fillStyle = slide.style.text.color;
-          ctx.fillText(line, textX, shadowY);
+          ctx.fillText(displayLine, textX, shadowY);
           shadowY += block.titleLineHeight;
         });
         
@@ -281,9 +289,17 @@ export const renderSlideText = (
           const bodyFontSize = slide.style.text.bodyFontSize || slide.style.text.fontSize * 0.5;
           ctx.font = `${slide.style.text.bodyFontWeight || slide.style.text.fontWeight - 200} ${bodyFontSize}px ${slide.style.text.bodyFontFamily || slide.style.text.fontFamily}`;
           block.bodyLines.forEach((line) => {
+            let displayLine = line;
+            if (slide.style.text.textTransform === 'uppercase') {
+              displayLine = line.toUpperCase();
+            } else if (slide.style.text.textTransform === 'lowercase') {
+              displayLine = line.toLowerCase();
+            } else if (slide.style.text.textTransform === 'capitalize') {
+              displayLine = line.replace(/\b\w/g, l => l.toUpperCase());
+            }
             const bodyColor = slide.style.text.bodyColor || slide.style.text.color;
             ctx.fillStyle = bodyColor;
-            ctx.fillText(line, textX, shadowY);
+            ctx.fillText(displayLine, textX, shadowY);
             shadowY += block.bodyLineHeight;
           });
         }
