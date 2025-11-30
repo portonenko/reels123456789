@@ -79,6 +79,51 @@ export const renderSlideText = (
   const safeBottom = (slide.style.safeMarginBottom / 100) * canvasHeight;
   const contentHeight = canvasHeight - safeTop - safeBottom;
 
+  // Helper functions for text measurement and wrapping
+  const measureSegment = (text: string, fontSize: number, letterSpacing: number) => {
+    const baseWidth = ctx.measureText(text).width;
+    const spacingPx = letterSpacing * fontSize;
+    return baseWidth + (text.length - 1) * spacingPx;
+  };
+
+  const wrapSegments = (segments: TextSegment[], fontSize: number, letterSpacing: number, maxWidth: number) => {
+    const lines: TextSegment[][] = [];
+    let currentLine: TextSegment[] = [];
+    let currentWidth = 0;
+    
+    segments.forEach(segment => {
+      const words = segment.text.split(' ');
+      
+      words.forEach((word, wordIndex) => {
+        const wordWithSpace = wordIndex < words.length - 1 ? word + ' ' : word;
+        const wordWidth = measureSegment(wordWithSpace, fontSize, letterSpacing);
+        
+        if (currentWidth + wordWidth > maxWidth && currentLine.length > 0) {
+          lines.push(currentLine);
+          currentLine = [{ text: wordWithSpace, color: segment.color }];
+          currentWidth = wordWidth;
+        } else {
+          if (currentLine.length > 0 && currentLine[currentLine.length - 1].color === segment.color) {
+            currentLine[currentLine.length - 1].text += wordWithSpace;
+          } else {
+            currentLine.push({ text: wordWithSpace, color: segment.color });
+          }
+          currentWidth += wordWidth;
+        }
+      });
+    });
+    
+    if (currentLine.length > 0) {
+      lines.push(currentLine);
+    }
+    
+    return lines;
+  };
+
+  const measureLine = (segments: TextSegment[], fontSize: number, letterSpacing: number) => {
+    return segments.reduce((total, seg) => total + measureSegment(seg.text, fontSize, letterSpacing), 0);
+  };
+
   // Use text blocks if available, otherwise fall back to single title/body
   const allTextBlocks = slide.textBlocks && slide.textBlocks.length > 0 
     ? slide.textBlocks 
@@ -102,6 +147,9 @@ export const renderSlideText = (
   // Group blocks by having position or not
   const blocksWithPosition = visibleTextBlocks.filter(b => b.position);
   const blocksWithoutPosition = visibleTextBlocks.filter(b => !b.position);
+  
+  // Set text box width for helper functions
+  const textBoxWidth = canvasWidth * 0.80;
 
   // Process and render blocks with custom positions separately
   blocksWithPosition.forEach((block) => {
@@ -326,63 +374,13 @@ export const renderSlideText = (
 
   // Calculate position and width
   let textX = centerX;
-  let textBoxWidth = canvasWidth * 0.80; // Default 80% width
+  let textBoxWidthCentered = canvasWidth * 0.80; // Default 80% width
   
   if (slide.style.text.position) {
     textX = (slide.style.text.position.x / 100) * canvasWidth + (slide.style.text.position.width / 100 * canvasWidth) / 2;
-    textBoxWidth = (slide.style.text.position.width / 100) * canvasWidth;
+    textBoxWidthCentered = (slide.style.text.position.width / 100) * canvasWidth;
     textY = (slide.style.text.position.y / 100) * canvasHeight + (slide.style.text.position.height / 100 * canvasHeight) / 2;
   }
-
-  // Helper to measure segment width with letter spacing
-  const measureSegment = (text: string, fontSize: number, letterSpacing: number) => {
-    const baseWidth = ctx.measureText(text).width;
-    const spacingPx = letterSpacing * fontSize;
-    return baseWidth + (text.length - 1) * spacingPx;
-  };
-
-  // Helper to wrap text segments into lines
-  const wrapSegments = (segments: TextSegment[], fontSize: number, letterSpacing: number, maxWidth: number) => {
-    const lines: TextSegment[][] = [];
-    let currentLine: TextSegment[] = [];
-    let currentWidth = 0;
-    
-    segments.forEach(segment => {
-      const words = segment.text.split(' ');
-      
-      words.forEach((word, wordIndex) => {
-        const wordWithSpace = wordIndex < words.length - 1 ? word + ' ' : word;
-        const wordWidth = measureSegment(wordWithSpace, fontSize, letterSpacing);
-        
-        if (currentWidth + wordWidth > maxWidth && currentLine.length > 0) {
-          // Start new line
-          lines.push(currentLine);
-          currentLine = [{ text: wordWithSpace, color: segment.color }];
-          currentWidth = wordWidth;
-        } else {
-          // Add to current line
-          if (currentLine.length > 0 && currentLine[currentLine.length - 1].color === segment.color) {
-            // Merge with previous segment if same color
-            currentLine[currentLine.length - 1].text += wordWithSpace;
-          } else {
-            currentLine.push({ text: wordWithSpace, color: segment.color });
-          }
-          currentWidth += wordWidth;
-        }
-      });
-    });
-    
-    if (currentLine.length > 0) {
-      lines.push(currentLine);
-    }
-    
-    return lines;
-  };
-
-  // Helper to measure line width
-  const measureLine = (segments: TextSegment[], fontSize: number, letterSpacing: number) => {
-    return segments.reduce((total, seg) => total + measureSegment(seg.text, fontSize, letterSpacing), 0);
-  };
 
   // Process all text blocks
   const processedBlocks = textBlocks.map(block => {
@@ -392,7 +390,7 @@ export const renderSlideText = (
     // Parse and wrap title text with colors
     ctx.font = `${slide.style.text.fontWeight} ${slide.style.text.fontSize}px ${slide.style.text.fontFamily}`;
     const titleSegments = parseColoredText(cleanBlockTitle, slide.style.text.color);
-    const titleLines = wrapSegments(titleSegments, slide.style.text.fontSize, slide.style.text.letterSpacing, textBoxWidth);
+    const titleLines = wrapSegments(titleSegments, slide.style.text.fontSize, slide.style.text.letterSpacing, textBoxWidthCentered);
     
     const maxTitleWidth = Math.max(...titleLines.map(line => measureLine(line, slide.style.text.fontSize, slide.style.text.letterSpacing)));
     const titleLineHeight = slide.style.text.fontSize * slide.style.text.lineHeight;
@@ -408,7 +406,7 @@ export const renderSlideText = (
       const bodyColor = slide.style.text.bodyColor || slide.style.text.color;
       ctx.font = `${slide.style.text.bodyFontWeight || slide.style.text.fontWeight - 200} ${bodyFontSize}px ${slide.style.text.bodyFontFamily || slide.style.text.fontFamily}`;
       const bodySegments = parseColoredText(cleanBlockBody, bodyColor);
-      bodyLines = wrapSegments(bodySegments, bodyFontSize, slide.style.text.letterSpacing, textBoxWidth);
+      bodyLines = wrapSegments(bodySegments, bodyFontSize, slide.style.text.letterSpacing, textBoxWidthCentered);
       
       maxBodyWidth = Math.max(...bodyLines.map(line => measureLine(line, bodyFontSize, slide.style.text.letterSpacing)));
       const bodyLineHeight = bodyFontSize * slide.style.text.lineHeight * 1.2;
