@@ -7,6 +7,11 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 
+// Helper to remove color tags from text for display
+const stripColorTags = (text: string): string => {
+  return text.replace(/\[#[0-9a-fA-F]{6}\](.*?)\[\]/g, '$1');
+};
+
 interface SlideCardProps {
   slide: Slide;
   isSelected: boolean;
@@ -295,18 +300,18 @@ export const SlideCard = ({
                 <div className="space-y-2">
                   {slide.textBlocks.map((block, blockIndex) => (
                     <div key={blockIndex} className="border-l-2 border-primary/30 pl-2">
-                      <h4 className="font-medium text-sm mb-0.5 line-clamp-1">{block.title}</h4>
+                      <h4 className="font-medium text-sm mb-0.5 line-clamp-1">{stripColorTags(block.title)}</h4>
                       {block.body && (
-                        <p className="text-xs text-muted-foreground line-clamp-1">{block.body}</p>
+                        <p className="text-xs text-muted-foreground line-clamp-1">{stripColorTags(block.body)}</p>
                       )}
                     </div>
                   ))}
                 </div>
               ) : (
                 <>
-                  <h4 className="font-medium text-sm mb-1 line-clamp-1">{slide.title}</h4>
+                  <h4 className="font-medium text-sm mb-1 line-clamp-1">{stripColorTags(slide.title)}</h4>
                   {slide.body && (
-                    <p className="text-xs text-muted-foreground line-clamp-2">{slide.body}</p>
+                    <p className="text-xs text-muted-foreground line-clamp-2">{stripColorTags(slide.body)}</p>
                   )}
                 </>
               )}
