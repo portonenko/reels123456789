@@ -150,9 +150,10 @@ export const SlidesTimeline = ({
       ) : (
         <div
           ref={timelineRef}
-          className="flex-1 relative bg-background border-2 border-border rounded-lg overflow-x-auto overflow-y-hidden"
+          className="flex-1 relative bg-background border-2 border-border rounded-lg overflow-auto"
           style={{ 
-            minHeight: TIMELINE_HEIGHT + 50,
+            minHeight: TIMELINE_HEIGHT,
+            height: TIMELINE_HEIGHT,
           }}
         >
         {/* Time markers */}
