@@ -2,10 +2,9 @@ import { Slide, TextBlock } from "@/types";
 import { Button } from "@/components/ui/button";
 import { Copy, Trash2, GripVertical, Edit2, Plus, Minus } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { useState, useRef } from "react";
+import { useState } from "react";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { ColorToolbar } from "./ColorToolbar";
 
 // Helper to remove color tags from text for display
 const stripColorTags = (text: string): string => {
@@ -45,39 +44,6 @@ export const SlideCard = ({
   const [editTextBlocks, setEditTextBlocks] = useState<TextBlock[]>(
     slide.textBlocks || [{ title: slide.title, body: slide.body }]
   );
-  
-  const inputRefs = useRef<{ [key: string]: HTMLInputElement | HTMLTextAreaElement | null }>({});
-  const [activeInput, setActiveInput] = useState<{ ref: HTMLInputElement | HTMLTextAreaElement | null; blockIndex: number; field: "title" | "body" } | null>(null);
-  const isApplyingColor = useRef(false);
-
-  const applyColorToActiveInput = (color: string) => {
-    if (!activeInput || !activeInput.ref) return;
-    
-    isApplyingColor.current = true;
-    
-    const { blockIndex, field, ref } = activeInput;
-    const start = ref.selectionStart || 0;
-    const end = ref.selectionEnd || 0;
-    const value = field === "title" ? editTextBlocks[blockIndex].title : (editTextBlocks[blockIndex].body || "");
-    
-    if (start === end) {
-      isApplyingColor.current = false;
-      return; // No selection
-    }
-    
-    // Wrap selected text with color tag
-    const selectedText = value.slice(start, end);
-    const newValue = value.slice(0, start) + `[${color}]${selectedText}[]` + value.slice(end);
-    updateTextBlock(blockIndex, field, newValue);
-    
-    // Keep focus and restore cursor
-    setTimeout(() => {
-      ref.focus();
-      const newCursorPos = start + color.length + 2 + selectedText.length + 2;
-      ref.setSelectionRange(newCursorPos, newCursorPos);
-      isApplyingColor.current = false;
-    }, 10);
-  };
 
   const handleSave = () => {
     // If using text blocks
@@ -183,28 +149,14 @@ export const SlideCard = ({
                     )}
                   </div>
                   <Input
-                    ref={(el) => inputRefs.current[`${blockIndex}-title`] = el}
                     value={block.title}
                     onChange={(e) => updateTextBlock(blockIndex, "title", e.target.value)}
-                    onFocus={(e) => setActiveInput({ ref: e.target, blockIndex, field: "title" })}
-                    onBlur={() => {
-                      if (!isApplyingColor.current) {
-                        setTimeout(() => setActiveInput(null), 300);
-                      }
-                    }}
                     placeholder="Заголовок"
                     className="h-8 text-sm"
                   />
                   <Textarea
-                    ref={(el) => inputRefs.current[`${blockIndex}-body`] = el}
                     value={block.body || ""}
                     onChange={(e) => updateTextBlock(blockIndex, "body", e.target.value)}
-                    onFocus={(e) => setActiveInput({ ref: e.target, blockIndex, field: "body" })}
-                    onBlur={() => {
-                      if (!isApplyingColor.current) {
-                        setTimeout(() => setActiveInput(null), 300);
-                      }
-                    }}
                     placeholder="Описание (опционально)"
                     className="min-h-[50px] text-xs resize-none"
                   />
@@ -253,13 +205,6 @@ export const SlideCard = ({
           )}
         </div>
       </div>
-      
-      {isEditing && activeInput && (
-        <ColorToolbar 
-          targetRef={activeInput.ref} 
-          onColorApply={applyColorToActiveInput}
-        />
-      )}
 
       {!isEditing && (
         <div className="flex gap-2 mt-3 opacity-0 group-hover:opacity-100 transition-opacity">
