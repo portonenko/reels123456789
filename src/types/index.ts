@@ -45,6 +45,11 @@ export interface SlideStyle {
   safeMarginBottom: number;
 }
 
+export interface TextBlock {
+  title: string;
+  body?: string;
+}
+
 export interface Slide {
   id: string;
   projectId: string;
@@ -52,6 +57,7 @@ export interface Slide {
   type: SlideType;
   title: string;
   body?: string;
+  textBlocks?: TextBlock[]; // Multiple text blocks support
   durationSec: number;
   assetId?: string;
   style: SlideStyle;

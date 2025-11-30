@@ -30,6 +30,11 @@ export const renderSlideText = (
   const safeBottom = (slide.style.safeMarginBottom / 100) * canvasHeight;
   const contentHeight = canvasHeight - safeTop - safeBottom;
 
+  // Use text blocks if available, otherwise fall back to single title/body
+  const textBlocks = slide.textBlocks && slide.textBlocks.length > 0 
+    ? slide.textBlocks 
+    : [{ title: slide.title, body: slide.body }];
+
   // Extract clean text
   const cleanTitle = slide.title.replace(/^\[.*?\]\s*/, '');
   const cleanBody = slide.body?.replace(/^\[.*?\]\s*/, '');
@@ -58,68 +63,100 @@ export const renderSlideText = (
     return baseWidth + (text.length - 1) * spacingPx;
   };
 
-  // Wrap title text
-  ctx.font = `${slide.style.text.fontWeight} ${slide.style.text.fontSize}px ${slide.style.text.fontFamily}`;
-  const titleWords = cleanTitle.split(' ');
-  let titleLine = '';
-  const titleLines: string[] = [];
-  let maxTitleWidth = 0;
+  // Process all text blocks
+  const processedBlocks = textBlocks.map(block => {
+    const cleanBlockTitle = block.title.replace(/^\[.*?\]\s*/, '');
+    const cleanBlockBody = block.body?.replace(/^\[.*?\]\s*/, '');
 
-  for (const word of titleWords) {
-    const testLine = titleLine + word + ' ';
-    const testWidth = measureText(testLine, slide.style.text.fontSize, slide.style.text.letterSpacing);
-    if (testWidth > textBoxWidth && titleLine.length > 0) {
-      titleLines.push(titleLine.trim());
-      maxTitleWidth = Math.max(maxTitleWidth, measureText(titleLine.trim(), slide.style.text.fontSize, slide.style.text.letterSpacing));
-      titleLine = word + ' ';
-    } else {
-      titleLine = testLine;
-    }
-  }
-  if (titleLine.trim()) {
-    titleLines.push(titleLine.trim());
-    maxTitleWidth = Math.max(maxTitleWidth, measureText(titleLine.trim(), slide.style.text.fontSize, slide.style.text.letterSpacing));
-  }
+    // Wrap title text
+    ctx.font = `${slide.style.text.fontWeight} ${slide.style.text.fontSize}px ${slide.style.text.fontFamily}`;
+    const titleWords = cleanBlockTitle.split(' ');
+    let titleLine = '';
+    const titleLines: string[] = [];
+    let maxTitleWidth = 0;
 
-  const titleLineHeight = slide.style.text.fontSize * slide.style.text.lineHeight;
-  const titleBlockHeight = titleLines.length * titleLineHeight;
-
-  // Wrap body text
-  let bodyLines: string[] = [];
-  let maxBodyWidth = 0;
-  let bodyBlockHeight = 0;
-  
-  if (cleanBody) {
-    const bodyFontSize = slide.style.text.bodyFontSize || slide.style.text.fontSize * 0.5;
-    ctx.font = `${slide.style.text.bodyFontWeight || slide.style.text.fontWeight - 200} ${bodyFontSize}px ${slide.style.text.bodyFontFamily || slide.style.text.fontFamily}`;
-    const bodyWords = cleanBody.split(' ');
-    let bodyLine = '';
-
-    for (const word of bodyWords) {
-      const testLine = bodyLine + word + ' ';
-      const testWidth = measureText(testLine, bodyFontSize, slide.style.text.letterSpacing);
-      if (testWidth > textBoxWidth && bodyLine.length > 0) {
-        bodyLines.push(bodyLine.trim());
-        maxBodyWidth = Math.max(maxBodyWidth, measureText(bodyLine.trim(), bodyFontSize, slide.style.text.letterSpacing));
-        bodyLine = word + ' ';
+    for (const word of titleWords) {
+      const testLine = titleLine + word + ' ';
+      const testWidth = measureText(testLine, slide.style.text.fontSize, slide.style.text.letterSpacing);
+      if (testWidth > textBoxWidth && titleLine.length > 0) {
+        titleLines.push(titleLine.trim());
+        maxTitleWidth = Math.max(maxTitleWidth, measureText(titleLine.trim(), slide.style.text.fontSize, slide.style.text.letterSpacing));
+        titleLine = word + ' ';
       } else {
-        bodyLine = testLine;
+        titleLine = testLine;
       }
     }
-    if (bodyLine.trim()) {
-      bodyLines.push(bodyLine.trim());
-      maxBodyWidth = Math.max(maxBodyWidth, measureText(bodyLine.trim(), bodyFontSize, slide.style.text.letterSpacing));
+    if (titleLine.trim()) {
+      titleLines.push(titleLine.trim());
+      maxTitleWidth = Math.max(maxTitleWidth, measureText(titleLine.trim(), slide.style.text.fontSize, slide.style.text.letterSpacing));
     }
+
+    const titleLineHeight = slide.style.text.fontSize * slide.style.text.lineHeight;
+    const titleBlockHeight = titleLines.length * titleLineHeight;
+
+    // Wrap body text
+    let bodyLines: string[] = [];
+    let maxBodyWidth = 0;
+    let bodyBlockHeight = 0;
     
-    const bodyLineHeight = bodyFontSize * slide.style.text.lineHeight * 1.2;
-    bodyBlockHeight = bodyLines.length * bodyLineHeight;
-  }
+    if (cleanBlockBody) {
+      const bodyFontSize = slide.style.text.bodyFontSize || slide.style.text.fontSize * 0.5;
+      ctx.font = `${slide.style.text.bodyFontWeight || slide.style.text.fontWeight - 200} ${bodyFontSize}px ${slide.style.text.bodyFontFamily || slide.style.text.fontFamily}`;
+      const bodyWords = cleanBlockBody.split(' ');
+      let bodyLine = '';
+
+      for (const word of bodyWords) {
+        const testLine = bodyLine + word + ' ';
+        const testWidth = measureText(testLine, bodyFontSize, slide.style.text.letterSpacing);
+        if (testWidth > textBoxWidth && bodyLine.length > 0) {
+          bodyLines.push(bodyLine.trim());
+          maxBodyWidth = Math.max(maxBodyWidth, measureText(bodyLine.trim(), bodyFontSize, slide.style.text.letterSpacing));
+          bodyLine = word + ' ';
+        } else {
+          bodyLine = testLine;
+        }
+      }
+      if (bodyLine.trim()) {
+        bodyLines.push(bodyLine.trim());
+        maxBodyWidth = Math.max(maxBodyWidth, measureText(bodyLine.trim(), bodyFontSize, slide.style.text.letterSpacing));
+      }
+      
+      const bodyLineHeight = bodyFontSize * slide.style.text.lineHeight * 1.2;
+      bodyBlockHeight = bodyLines.length * bodyLineHeight;
+    }
+
+    return {
+      titleLines,
+      bodyLines,
+      maxTitleWidth,
+      maxBodyWidth,
+      titleBlockHeight,
+      bodyBlockHeight,
+      titleLineHeight,
+      bodyLineHeight: cleanBlockBody ? (slide.style.text.bodyFontSize || slide.style.text.fontSize * 0.5) * slide.style.text.lineHeight * 1.2 : 0,
+    };
+  });
+
+  // Calculate total dimensions
+  const blockSpacing = 40; // Space between blocks
+  let maxWidth = 0;
+  let totalHeight = 0;
+  
+  processedBlocks.forEach((block, index) => {
+    maxWidth = Math.max(maxWidth, block.maxTitleWidth, block.maxBodyWidth);
+    totalHeight += block.titleBlockHeight;
+    if (block.bodyBlockHeight > 0) {
+      totalHeight += 30 + block.bodyBlockHeight; // Space between title and body
+    }
+    if (index < processedBlocks.length - 1) {
+      totalHeight += blockSpacing; // Space between blocks
+    }
+  });
 
   // Draw background plate if enabled
   if (slide.style.plate.enabled) {
-    const plateWidth = Math.max(maxTitleWidth, maxBodyWidth) + slide.style.plate.padding * 2;
-    const totalContentHeight = titleBlockHeight + (cleanBody ? (30 + bodyBlockHeight) : 0);
-    const plateHeight = totalContentHeight + slide.style.plate.padding * 2;
+    const plateWidth = maxWidth + slide.style.plate.padding * 2;
+    const plateHeight = totalHeight + slide.style.plate.padding * 2;
 
     const bgColor = slide.style.plate.backgroundColor;
     const plateOpacity = slide.style.plate.opacity;
@@ -141,7 +178,7 @@ export const renderSlideText = (
     ctx.save();
     
     const plateX = textX - plateWidth / 2;
-    const plateY = textY - totalContentHeight / 2 - slide.style.plate.padding;
+    const plateY = textY - totalHeight / 2 - slide.style.plate.padding;
     const blurSize = slide.style.plate.blurSize || 30;
     
     // Main plate
@@ -203,17 +240,13 @@ export const renderSlideText = (
   // Calculate starting Y position
   let currentY;
   if (slide.style.plate.enabled) {
-    const plateTop = textY - (titleBlockHeight + (cleanBody ? (30 + bodyBlockHeight) : 0)) / 2 - slide.style.plate.padding;
-    currentY = plateTop + slide.style.plate.padding + titleLineHeight / 2;
+    const plateTop = textY - totalHeight / 2 - slide.style.plate.padding;
+    currentY = plateTop + slide.style.plate.padding + processedBlocks[0].titleLineHeight / 2;
   } else {
-    currentY = textY - (titleBlockHeight / 2);
-    if (cleanBody) {
-      const totalHeight = titleBlockHeight + 30 + bodyBlockHeight;
-      currentY = textY - (totalHeight / 2);
-    }
+    currentY = textY - (totalHeight / 2);
   }
 
-  // Draw text shadow
+  // Draw text shadow for all blocks
   const shadowIntensity = slide.style.text.shadowIntensity || 10;
   const shadowRadius = slide.style.text.shadowRadius || 20;
   
@@ -231,30 +264,37 @@ export const renderSlideText = (
       ctx.shadowOffsetY = layerOffset;
       ctx.globalAlpha = 0.3;
       
-      // Title shadow
       let shadowY = currentY;
-      ctx.font = `${slide.style.text.fontWeight} ${slide.style.text.fontSize}px ${slide.style.text.fontFamily}`;
-      ctx.letterSpacing = `${slide.style.text.letterSpacing}em`;
-      titleLines.forEach((line) => {
-        ctx.fillStyle = slide.style.text.color;
-        ctx.fillText(line, textX, shadowY);
-        shadowY += titleLineHeight;
-      });
       
-      // Body shadow
-      if (cleanBody) {
-        shadowY += 30;
-        const bodyFontSize = slide.style.text.bodyFontSize || slide.style.text.fontSize * 0.5;
-        ctx.font = `${slide.style.text.bodyFontWeight || slide.style.text.fontWeight - 200} ${bodyFontSize}px ${slide.style.text.bodyFontFamily || slide.style.text.fontFamily}`;
+      processedBlocks.forEach((block, blockIndex) => {
+        // Title shadow
+        ctx.font = `${slide.style.text.fontWeight} ${slide.style.text.fontSize}px ${slide.style.text.fontFamily}`;
         ctx.letterSpacing = `${slide.style.text.letterSpacing}em`;
-        const bodyLineHeight = bodyFontSize * slide.style.text.lineHeight * 1.2;
-        bodyLines.forEach((line) => {
-          const bodyColor = slide.style.text.bodyColor || slide.style.text.color;
-          ctx.fillStyle = bodyColor;
+        block.titleLines.forEach((line) => {
+          ctx.fillStyle = slide.style.text.color;
           ctx.fillText(line, textX, shadowY);
-          shadowY += bodyLineHeight;
+          shadowY += block.titleLineHeight;
         });
-      }
+        
+        // Body shadow
+        if (block.bodyLines.length > 0) {
+          shadowY += 30;
+          const bodyFontSize = slide.style.text.bodyFontSize || slide.style.text.fontSize * 0.5;
+          ctx.font = `${slide.style.text.bodyFontWeight || slide.style.text.fontWeight - 200} ${bodyFontSize}px ${slide.style.text.bodyFontFamily || slide.style.text.fontFamily}`;
+          ctx.letterSpacing = `${slide.style.text.letterSpacing}em`;
+          block.bodyLines.forEach((line) => {
+            const bodyColor = slide.style.text.bodyColor || slide.style.text.color;
+            ctx.fillStyle = bodyColor;
+            ctx.fillText(line, textX, shadowY);
+            shadowY += block.bodyLineHeight;
+          });
+        }
+        
+        // Block spacing
+        if (blockIndex < processedBlocks.length - 1) {
+          shadowY += blockSpacing;
+        }
+      });
       
       ctx.restore();
     }
@@ -266,37 +306,13 @@ export const renderSlideText = (
   ctx.shadowOffsetX = 0;
   ctx.shadowOffsetY = 0;
 
-  // Draw title
-  ctx.font = `${slide.style.text.fontWeight} ${slide.style.text.fontSize}px ${slide.style.text.fontFamily}`;
-  ctx.letterSpacing = `${slide.style.text.letterSpacing}em`;
-  
-  titleLines.forEach((line) => {
-    let displayLine = line;
-    if (slide.style.text.textTransform === 'uppercase') {
-      displayLine = line.toUpperCase();
-    } else if (slide.style.text.textTransform === 'lowercase') {
-      displayLine = line.toLowerCase();
-    } else if (slide.style.text.textTransform === 'capitalize') {
-      displayLine = line.replace(/\b\w/g, l => l.toUpperCase());
-    }
-    ctx.fillStyle = slide.style.text.color;
-    ctx.fillText(displayLine, textX, currentY);
-    currentY += titleLineHeight;
-  });
-
-  // Draw body
-  if (cleanBody) {
-    currentY += 30;
-    
-    const bodyColor = slide.style.text.bodyColor || slide.style.text.color;
-    const bodyFontSize = slide.style.text.bodyFontSize || slide.style.text.fontSize * 0.5;
-    
-    ctx.font = `${slide.style.text.bodyFontWeight || slide.style.text.fontWeight - 200} ${bodyFontSize}px ${slide.style.text.bodyFontFamily || slide.style.text.fontFamily}`;
+  // Draw all text blocks
+  processedBlocks.forEach((block, blockIndex) => {
+    // Draw title
+    ctx.font = `${slide.style.text.fontWeight} ${slide.style.text.fontSize}px ${slide.style.text.fontFamily}`;
     ctx.letterSpacing = `${slide.style.text.letterSpacing}em`;
-
-    const bodyLineHeight = bodyFontSize * slide.style.text.lineHeight * 1.2;
     
-    bodyLines.forEach((line) => {
+    block.titleLines.forEach((line) => {
       let displayLine = line;
       if (slide.style.text.textTransform === 'uppercase') {
         displayLine = line.toUpperCase();
@@ -305,11 +321,41 @@ export const renderSlideText = (
       } else if (slide.style.text.textTransform === 'capitalize') {
         displayLine = line.replace(/\b\w/g, l => l.toUpperCase());
       }
-      ctx.fillStyle = bodyColor;
+      ctx.fillStyle = slide.style.text.color;
       ctx.fillText(displayLine, textX, currentY);
-      currentY += bodyLineHeight;
+      currentY += block.titleLineHeight;
     });
-  }
+
+    // Draw body
+    if (block.bodyLines.length > 0) {
+      currentY += 30;
+      
+      const bodyColor = slide.style.text.bodyColor || slide.style.text.color;
+      const bodyFontSize = slide.style.text.bodyFontSize || slide.style.text.fontSize * 0.5;
+      
+      ctx.font = `${slide.style.text.bodyFontWeight || slide.style.text.fontWeight - 200} ${bodyFontSize}px ${slide.style.text.bodyFontFamily || slide.style.text.fontFamily}`;
+      ctx.letterSpacing = `${slide.style.text.letterSpacing}em`;
+      
+      block.bodyLines.forEach((line) => {
+        let displayLine = line;
+        if (slide.style.text.textTransform === 'uppercase') {
+          displayLine = line.toUpperCase();
+        } else if (slide.style.text.textTransform === 'lowercase') {
+          displayLine = line.toLowerCase();
+        } else if (slide.style.text.textTransform === 'capitalize') {
+          displayLine = line.replace(/\b\w/g, l => l.toUpperCase());
+        }
+        ctx.fillStyle = bodyColor;
+        ctx.fillText(displayLine, textX, currentY);
+        currentY += block.bodyLineHeight;
+      });
+    }
+
+    // Add spacing between blocks
+    if (blockIndex < processedBlocks.length - 1) {
+      currentY += blockSpacing;
+    }
+  });
 
   ctx.globalAlpha = 1;
 };
