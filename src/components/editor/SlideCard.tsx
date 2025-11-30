@@ -90,31 +90,6 @@ export const SlideCard = ({
     setEditTextBlocks(updated);
   };
 
-  const insertColorTag = (
-    ref: React.RefObject<HTMLInputElement | HTMLTextAreaElement>,
-    setValue: (value: string) => void,
-    currentValue: string,
-    color: string
-  ) => {
-    const input = ref.current;
-    if (!input) return;
-
-    const start = input.selectionStart || 0;
-    const end = input.selectionEnd || 0;
-    const selectedText = currentValue.substring(start, end) || "текст";
-    
-    const colorTag = `[${color}]${selectedText}[]`;
-    const newValue = currentValue.substring(0, start) + colorTag + currentValue.substring(end);
-    
-    setValue(newValue);
-    
-    setTimeout(() => {
-      input.focus();
-      const newCursorPos = start + colorTag.length;
-      input.setSelectionRange(newCursorPos, newCursorPos);
-    }, 0);
-  };
-
   return (
     <div
       onClick={onSelect}
@@ -192,17 +167,9 @@ export const SlideCard = ({
                         className="h-8 text-sm"
                       />
                       <ColorInsertButton
-                        onColorInsert={(color) => {
-                          const refs = blockInputRefs.current.get(blockIndex);
-                          if (refs?.title) {
-                            insertColorTag(
-                              { current: refs.title },
-                              (val) => updateTextBlock(blockIndex, "title", val),
-                              block.title,
-                              color
-                            );
-                          }
-                        }}
+                        inputRef={{ current: blockInputRefs.current.get(blockIndex)?.title || null }}
+                        currentValue={block.title}
+                        onValueChange={(val) => updateTextBlock(blockIndex, "title", val)}
                       />
                     </div>
                     <div className="flex gap-2">
@@ -217,17 +184,9 @@ export const SlideCard = ({
                         className="min-h-[50px] text-xs resize-none"
                       />
                       <ColorInsertButton
-                        onColorInsert={(color) => {
-                          const refs = blockInputRefs.current.get(blockIndex);
-                          if (refs?.body) {
-                            insertColorTag(
-                              { current: refs.body },
-                              (val) => updateTextBlock(blockIndex, "body", val),
-                              block.body || "",
-                              color
-                            );
-                          }
-                        }}
+                        inputRef={{ current: blockInputRefs.current.get(blockIndex)?.body || null }}
+                        currentValue={block.body || ""}
+                        onValueChange={(val) => updateTextBlock(blockIndex, "body", val)}
                       />
                     </div>
                   </div>
