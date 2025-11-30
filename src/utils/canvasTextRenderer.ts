@@ -8,6 +8,53 @@ export interface TextRenderConfig {
   transitionProgress?: number;
 }
 
+interface TextSegment {
+  text: string;
+  color: string;
+}
+
+/**
+ * Parse text with inline color tags [#HEXCOLOR]text[]
+ * Returns array of segments with their colors
+ */
+const parseColoredText = (text: string, defaultColor: string): TextSegment[] => {
+  const segments: TextSegment[] = [];
+  const regex = /\[#([0-9a-fA-F]{6})\](.*?)\[\]/g;
+  let lastIndex = 0;
+  let match;
+  
+  while ((match = regex.exec(text)) !== null) {
+    // Add text before colored segment
+    if (match.index > lastIndex) {
+      segments.push({
+        text: text.substring(lastIndex, match.index),
+        color: defaultColor
+      });
+    }
+    // Add colored segment
+    segments.push({
+      text: match[2],
+      color: `#${match[1]}`
+    });
+    lastIndex = regex.lastIndex;
+  }
+  
+  // Add remaining text
+  if (lastIndex < text.length) {
+    segments.push({
+      text: text.substring(lastIndex),
+      color: defaultColor
+    });
+  }
+  
+  // If no segments, return default
+  if (segments.length === 0) {
+    segments.push({ text, color: defaultColor });
+  }
+  
+  return segments;
+};
+
 /**
  * Unified text rendering function used by both preview and export
  * Ensures identical visual output
@@ -56,11 +103,54 @@ export const renderSlideText = (
     textY = (slide.style.text.position.y / 100) * canvasHeight + (slide.style.text.position.height / 100 * canvasHeight) / 2;
   }
 
-  // Helper to measure text with letter spacing
-  const measureText = (text: string, fontSize: number, letterSpacing: number) => {
+  // Helper to measure segment width with letter spacing
+  const measureSegment = (text: string, fontSize: number, letterSpacing: number) => {
     const baseWidth = ctx.measureText(text).width;
     const spacingPx = letterSpacing * fontSize;
     return baseWidth + (text.length - 1) * spacingPx;
+  };
+
+  // Helper to wrap text segments into lines
+  const wrapSegments = (segments: TextSegment[], fontSize: number, letterSpacing: number, maxWidth: number) => {
+    const lines: TextSegment[][] = [];
+    let currentLine: TextSegment[] = [];
+    let currentWidth = 0;
+    
+    segments.forEach(segment => {
+      const words = segment.text.split(' ');
+      
+      words.forEach((word, wordIndex) => {
+        const wordWithSpace = wordIndex < words.length - 1 ? word + ' ' : word;
+        const wordWidth = measureSegment(wordWithSpace, fontSize, letterSpacing);
+        
+        if (currentWidth + wordWidth > maxWidth && currentLine.length > 0) {
+          // Start new line
+          lines.push(currentLine);
+          currentLine = [{ text: wordWithSpace, color: segment.color }];
+          currentWidth = wordWidth;
+        } else {
+          // Add to current line
+          if (currentLine.length > 0 && currentLine[currentLine.length - 1].color === segment.color) {
+            // Merge with previous segment if same color
+            currentLine[currentLine.length - 1].text += wordWithSpace;
+          } else {
+            currentLine.push({ text: wordWithSpace, color: segment.color });
+          }
+          currentWidth += wordWidth;
+        }
+      });
+    });
+    
+    if (currentLine.length > 0) {
+      lines.push(currentLine);
+    }
+    
+    return lines;
+  };
+
+  // Helper to measure line width
+  const measureLine = (segments: TextSegment[], fontSize: number, letterSpacing: number) => {
+    return segments.reduce((total, seg) => total + measureSegment(seg.text, fontSize, letterSpacing), 0);
   };
 
   // Process all text blocks
@@ -68,59 +158,28 @@ export const renderSlideText = (
     const cleanBlockTitle = block.title.replace(/^\[.*?\]\s*/, '');
     const cleanBlockBody = block.body?.replace(/^\[.*?\]\s*/, '');
 
-    // Wrap title text
+    // Parse and wrap title text with colors
     ctx.font = `${slide.style.text.fontWeight} ${slide.style.text.fontSize}px ${slide.style.text.fontFamily}`;
-    const titleWords = cleanBlockTitle.split(' ');
-    let titleLine = '';
-    const titleLines: string[] = [];
-    let maxTitleWidth = 0;
-
-    for (const word of titleWords) {
-      const testLine = titleLine + word + ' ';
-      const testWidth = measureText(testLine, slide.style.text.fontSize, slide.style.text.letterSpacing);
-      if (testWidth > textBoxWidth && titleLine.length > 0) {
-        titleLines.push(titleLine.trim());
-        maxTitleWidth = Math.max(maxTitleWidth, measureText(titleLine.trim(), slide.style.text.fontSize, slide.style.text.letterSpacing));
-        titleLine = word + ' ';
-      } else {
-        titleLine = testLine;
-      }
-    }
-    if (titleLine.trim()) {
-      titleLines.push(titleLine.trim());
-      maxTitleWidth = Math.max(maxTitleWidth, measureText(titleLine.trim(), slide.style.text.fontSize, slide.style.text.letterSpacing));
-    }
-
+    const titleSegments = parseColoredText(cleanBlockTitle, slide.style.text.color);
+    const titleLines = wrapSegments(titleSegments, slide.style.text.fontSize, slide.style.text.letterSpacing, textBoxWidth);
+    
+    const maxTitleWidth = Math.max(...titleLines.map(line => measureLine(line, slide.style.text.fontSize, slide.style.text.letterSpacing)));
     const titleLineHeight = slide.style.text.fontSize * slide.style.text.lineHeight;
     const titleBlockHeight = titleLines.length * titleLineHeight;
 
-    // Wrap body text
-    let bodyLines: string[] = [];
+    // Parse and wrap body text with colors
+    let bodyLines: TextSegment[][] = [];
     let maxBodyWidth = 0;
     let bodyBlockHeight = 0;
     
     if (cleanBlockBody) {
       const bodyFontSize = slide.style.text.bodyFontSize || slide.style.text.fontSize * 0.5;
+      const bodyColor = slide.style.text.bodyColor || slide.style.text.color;
       ctx.font = `${slide.style.text.bodyFontWeight || slide.style.text.fontWeight - 200} ${bodyFontSize}px ${slide.style.text.bodyFontFamily || slide.style.text.fontFamily}`;
-      const bodyWords = cleanBlockBody.split(' ');
-      let bodyLine = '';
-
-      for (const word of bodyWords) {
-        const testLine = bodyLine + word + ' ';
-        const testWidth = measureText(testLine, bodyFontSize, slide.style.text.letterSpacing);
-        if (testWidth > textBoxWidth && bodyLine.length > 0) {
-          bodyLines.push(bodyLine.trim());
-          maxBodyWidth = Math.max(maxBodyWidth, measureText(bodyLine.trim(), bodyFontSize, slide.style.text.letterSpacing));
-          bodyLine = word + ' ';
-        } else {
-          bodyLine = testLine;
-        }
-      }
-      if (bodyLine.trim()) {
-        bodyLines.push(bodyLine.trim());
-        maxBodyWidth = Math.max(maxBodyWidth, measureText(bodyLine.trim(), bodyFontSize, slide.style.text.letterSpacing));
-      }
+      const bodySegments = parseColoredText(cleanBlockBody, bodyColor);
+      bodyLines = wrapSegments(bodySegments, bodyFontSize, slide.style.text.letterSpacing, textBoxWidth);
       
+      maxBodyWidth = Math.max(...bodyLines.map(line => measureLine(line, bodyFontSize, slide.style.text.letterSpacing)));
       const bodyLineHeight = bodyFontSize * slide.style.text.lineHeight * 1.2;
       bodyBlockHeight = bodyLines.length * bodyLineHeight;
     }
@@ -269,18 +328,27 @@ export const renderSlideText = (
       processedBlocks.forEach((block, blockIndex) => {
         // Title shadow
         ctx.font = `${slide.style.text.fontWeight} ${slide.style.text.fontSize}px ${slide.style.text.fontFamily}`;
-        block.titleLines.forEach((line) => {
-          let displayLine = line;
-          if (slide.style.text.textTransform === 'uppercase') {
-            displayLine = line.toUpperCase();
-          } else if (slide.style.text.textTransform === 'lowercase') {
-            displayLine = line.toLowerCase();
-          } else if (slide.style.text.textTransform === 'capitalize') {
-            displayLine = line.replace(/\b\w/g, l => l.toUpperCase());
-          }
-          ctx.fillStyle = slide.style.text.color;
-          ctx.fillText(displayLine, textX, shadowY);
+        block.titleLines.forEach((lineSegments) => {
+          lineSegments.forEach(segment => {
+            let displayText = segment.text;
+            if (slide.style.text.textTransform === 'uppercase') {
+              displayText = segment.text.toUpperCase();
+            } else if (slide.style.text.textTransform === 'lowercase') {
+              displayText = segment.text.toLowerCase();
+            } else if (slide.style.text.textTransform === 'capitalize') {
+              displayText = segment.text.replace(/\b\w/g, l => l.toUpperCase());
+            }
+            ctx.fillStyle = segment.color;
+            ctx.fillText(displayText, textX, shadowY);
+            const segmentWidth = measureSegment(displayText, slide.style.text.fontSize, slide.style.text.letterSpacing);
+            if (ctx.textAlign === 'center') {
+              // Keep centered, don't move X
+            } else if (ctx.textAlign === 'left') {
+              textX += segmentWidth;
+            }
+          });
           shadowY += block.titleLineHeight;
+          textX = centerX; // Reset X for next line
         });
         
         // Body shadow
@@ -288,19 +356,27 @@ export const renderSlideText = (
           shadowY += 30;
           const bodyFontSize = slide.style.text.bodyFontSize || slide.style.text.fontSize * 0.5;
           ctx.font = `${slide.style.text.bodyFontWeight || slide.style.text.fontWeight - 200} ${bodyFontSize}px ${slide.style.text.bodyFontFamily || slide.style.text.fontFamily}`;
-          block.bodyLines.forEach((line) => {
-            let displayLine = line;
-            if (slide.style.text.textTransform === 'uppercase') {
-              displayLine = line.toUpperCase();
-            } else if (slide.style.text.textTransform === 'lowercase') {
-              displayLine = line.toLowerCase();
-            } else if (slide.style.text.textTransform === 'capitalize') {
-              displayLine = line.replace(/\b\w/g, l => l.toUpperCase());
-            }
-            const bodyColor = slide.style.text.bodyColor || slide.style.text.color;
-            ctx.fillStyle = bodyColor;
-            ctx.fillText(displayLine, textX, shadowY);
+          block.bodyLines.forEach((lineSegments) => {
+            lineSegments.forEach(segment => {
+              let displayText = segment.text;
+              if (slide.style.text.textTransform === 'uppercase') {
+                displayText = segment.text.toUpperCase();
+              } else if (slide.style.text.textTransform === 'lowercase') {
+                displayText = segment.text.toLowerCase();
+              } else if (slide.style.text.textTransform === 'capitalize') {
+                displayText = segment.text.replace(/\b\w/g, l => l.toUpperCase());
+              }
+              ctx.fillStyle = segment.color;
+              ctx.fillText(displayText, textX, shadowY);
+              const segmentWidth = measureSegment(displayText, bodyFontSize, slide.style.text.letterSpacing);
+              if (ctx.textAlign === 'center') {
+                // Keep centered
+              } else if (ctx.textAlign === 'left') {
+                textX += segmentWidth;
+              }
+            });
             shadowY += block.bodyLineHeight;
+            textX = centerX; // Reset X for next line
           });
         }
         
@@ -325,17 +401,36 @@ export const renderSlideText = (
     // Draw title
     ctx.font = `${slide.style.text.fontWeight} ${slide.style.text.fontSize}px ${slide.style.text.fontFamily}`;
     
-    block.titleLines.forEach((line) => {
-      let displayLine = line;
-      if (slide.style.text.textTransform === 'uppercase') {
-        displayLine = line.toUpperCase();
-      } else if (slide.style.text.textTransform === 'lowercase') {
-        displayLine = line.toLowerCase();
-      } else if (slide.style.text.textTransform === 'capitalize') {
-        displayLine = line.replace(/\b\w/g, l => l.toUpperCase());
+    block.titleLines.forEach((lineSegments) => {
+      let lineX = textX;
+      
+      // Calculate total line width for alignment
+      const lineWidth = measureLine(lineSegments, slide.style.text.fontSize, slide.style.text.letterSpacing);
+      
+      if (ctx.textAlign === 'center') {
+        lineX = textX - lineWidth / 2;
+      } else if (ctx.textAlign === 'right') {
+        lineX = textX - lineWidth;
       }
-      ctx.fillStyle = slide.style.text.color;
-      ctx.fillText(displayLine, textX, currentY);
+      
+      const savedAlign = ctx.textAlign;
+      ctx.textAlign = 'left';
+      
+      lineSegments.forEach(segment => {
+        let displayText = segment.text;
+        if (slide.style.text.textTransform === 'uppercase') {
+          displayText = segment.text.toUpperCase();
+        } else if (slide.style.text.textTransform === 'lowercase') {
+          displayText = segment.text.toLowerCase();
+        } else if (slide.style.text.textTransform === 'capitalize') {
+          displayText = segment.text.replace(/\b\w/g, l => l.toUpperCase());
+        }
+        ctx.fillStyle = segment.color;
+        ctx.fillText(displayText, lineX, currentY);
+        lineX += measureSegment(displayText, slide.style.text.fontSize, slide.style.text.letterSpacing);
+      });
+      
+      ctx.textAlign = savedAlign;
       currentY += block.titleLineHeight;
     });
 
@@ -343,22 +438,40 @@ export const renderSlideText = (
     if (block.bodyLines.length > 0) {
       currentY += 30;
       
-      const bodyColor = slide.style.text.bodyColor || slide.style.text.color;
       const bodyFontSize = slide.style.text.bodyFontSize || slide.style.text.fontSize * 0.5;
       
       ctx.font = `${slide.style.text.bodyFontWeight || slide.style.text.fontWeight - 200} ${bodyFontSize}px ${slide.style.text.bodyFontFamily || slide.style.text.fontFamily}`;
       
-      block.bodyLines.forEach((line) => {
-        let displayLine = line;
-        if (slide.style.text.textTransform === 'uppercase') {
-          displayLine = line.toUpperCase();
-        } else if (slide.style.text.textTransform === 'lowercase') {
-          displayLine = line.toLowerCase();
-        } else if (slide.style.text.textTransform === 'capitalize') {
-          displayLine = line.replace(/\b\w/g, l => l.toUpperCase());
+      block.bodyLines.forEach((lineSegments) => {
+        let lineX = textX;
+        
+        // Calculate total line width for alignment
+        const lineWidth = measureLine(lineSegments, bodyFontSize, slide.style.text.letterSpacing);
+        
+        if (ctx.textAlign === 'center') {
+          lineX = textX - lineWidth / 2;
+        } else if (ctx.textAlign === 'right') {
+          lineX = textX - lineWidth;
         }
-        ctx.fillStyle = bodyColor;
-        ctx.fillText(displayLine, textX, currentY);
+        
+        const savedAlign = ctx.textAlign;
+        ctx.textAlign = 'left';
+        
+        lineSegments.forEach(segment => {
+          let displayText = segment.text;
+          if (slide.style.text.textTransform === 'uppercase') {
+            displayText = segment.text.toUpperCase();
+          } else if (slide.style.text.textTransform === 'lowercase') {
+            displayText = segment.text.toLowerCase();
+          } else if (slide.style.text.textTransform === 'capitalize') {
+            displayText = segment.text.replace(/\b\w/g, l => l.toUpperCase());
+          }
+          ctx.fillStyle = segment.color;
+          ctx.fillText(displayText, lineX, currentY);
+          lineX += measureSegment(displayText, bodyFontSize, slide.style.text.letterSpacing);
+        });
+        
+        ctx.textAlign = savedAlign;
         currentY += block.bodyLineHeight;
       });
     }
