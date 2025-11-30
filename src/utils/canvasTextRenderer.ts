@@ -269,7 +269,6 @@ export const renderSlideText = (
       processedBlocks.forEach((block, blockIndex) => {
         // Title shadow
         ctx.font = `${slide.style.text.fontWeight} ${slide.style.text.fontSize}px ${slide.style.text.fontFamily}`;
-        ctx.letterSpacing = `${slide.style.text.letterSpacing}em`;
         block.titleLines.forEach((line) => {
           ctx.fillStyle = slide.style.text.color;
           ctx.fillText(line, textX, shadowY);
@@ -281,7 +280,6 @@ export const renderSlideText = (
           shadowY += 30;
           const bodyFontSize = slide.style.text.bodyFontSize || slide.style.text.fontSize * 0.5;
           ctx.font = `${slide.style.text.bodyFontWeight || slide.style.text.fontWeight - 200} ${bodyFontSize}px ${slide.style.text.bodyFontFamily || slide.style.text.fontFamily}`;
-          ctx.letterSpacing = `${slide.style.text.letterSpacing}em`;
           block.bodyLines.forEach((line) => {
             const bodyColor = slide.style.text.bodyColor || slide.style.text.color;
             ctx.fillStyle = bodyColor;
@@ -310,7 +308,6 @@ export const renderSlideText = (
   processedBlocks.forEach((block, blockIndex) => {
     // Draw title
     ctx.font = `${slide.style.text.fontWeight} ${slide.style.text.fontSize}px ${slide.style.text.fontFamily}`;
-    ctx.letterSpacing = `${slide.style.text.letterSpacing}em`;
     
     block.titleLines.forEach((line) => {
       let displayLine = line;
@@ -334,7 +331,6 @@ export const renderSlideText = (
       const bodyFontSize = slide.style.text.bodyFontSize || slide.style.text.fontSize * 0.5;
       
       ctx.font = `${slide.style.text.bodyFontWeight || slide.style.text.fontWeight - 200} ${bodyFontSize}px ${slide.style.text.bodyFontFamily || slide.style.text.fontFamily}`;
-      ctx.letterSpacing = `${slide.style.text.letterSpacing}em`;
       
       block.bodyLines.forEach((line) => {
         let displayLine = line;
