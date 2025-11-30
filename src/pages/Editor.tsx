@@ -14,6 +14,7 @@ import { PresetManager } from "@/components/editor/PresetManager";
 import { SmartRandomVideoDialog } from "@/components/editor/SmartRandomVideoDialog";
 import { RandomizeBackgroundDialog } from "@/components/editor/RandomizeBackgroundDialog";
 import { CarouselCreatorDialog } from "@/components/editor/CarouselCreatorDialog";
+import { SlidesTimeline } from "@/components/editor/SlidesTimeline";
 import { Button } from "@/components/ui/button";
 import { Sparkles, Home, Download, Shuffle, Globe, FileText, Palette, Plus, Image } from "lucide-react";
 import {
@@ -577,103 +578,21 @@ const Editor = () => {
       </header>
 
       {/* Main content */}
-      <div className="flex-1 flex overflow-hidden">
-        {/* Left panel - Slides */}
-        <div className="w-80 border-r border-border bg-panel p-4 overflow-y-auto">
-          <h2 className="font-semibold mb-4 flex items-center justify-between">
-            <span>Slides ({slides.length})</span>
-            <Button
-              size="sm"
-              variant="outline"
-              onClick={addNewSlide}
-              className="h-8"
-            >
-              <Plus className="w-4 h-4 mr-1" />
-              {language === 'ru' ? 'Добавить' : 'Add'}
-            </Button>
-          </h2>
-
-          {slides.length === 0 ? (
-            <div className="text-center py-12">
-              <p className="text-sm text-muted-foreground mb-4">
-                No slides yet. Click "Parse Text" to get started.
-              </p>
-              <Button
-                variant="outline"
-                onClick={() => setShowTextDialog(true)}
-              >
-                <Sparkles className="w-4 h-4 mr-2" />
-                Parse Text
-              </Button>
-            </div>
-          ) : (
-            <>
-              <div className="space-y-2">
-                {slides.map((slide, index) => (
-                  <SlideCard
-                    key={slide.id}
-                    slide={slide}
-                    index={index}
-                    isSelected={slide.id === selectedSlideId}
-                    onSelect={() => setSelectedSlideId(slide.id)}
-                    onDuplicate={() => duplicateSlide(slide.id)}
-                    onDelete={() => deleteSlide(slide.id)}
-                    onUpdate={(updates) => updateSlide(slide.id, updates)}
-                    isDraggable={index > 0}
-                    onDragStart={index > 0 ? handleDragStart(index) : undefined}
-                    onDragOver={index > 0 ? handleDragOver(index) : undefined}
-                    onDrop={index > 0 ? handleDrop : undefined}
-                  />
-                ))}
-              </div>
-              
-              <div className="mt-6 pt-4 border-t border-border">
-                <p className="text-xs text-muted-foreground mb-2">
-                  {t('createFinalSlide', language)}
-                </p>
-                <div className="space-y-2">
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => createFinalSlide(t('moreInDescription', language))}
-                    className="w-full text-xs justify-start"
-                  >
-                    {t('moreInDescription', language)}
-                  </Button>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => createFinalSlide(t('birthdaysInDescription', language))}
-                    className="w-full text-xs justify-start"
-                  >
-                    {t('birthdaysInDescription', language)}
-                  </Button>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => createFinalSlide(t('zodiacInDescription', language))}
-                    className="w-full text-xs justify-start"
-                  >
-                    {t('zodiacInDescription', language)}
-                  </Button>
-                </div>
-              </div>
-            </>
-          )}
-        </div>
-
-        {/* Center - Canvas */}
-        <div className="flex-1 p-6 bg-canvas">
-          <CanvasPreview 
-            slide={selectedSlide} 
-            globalOverlay={globalOverlay}
-            showTextBoxControls={showTextBoxControls}
-            lang={language}
-          />
-        </div>
+      <div className="flex-1 flex flex-col overflow-hidden">
+        {/* Top section - Preview and Styles */}
+        <div className="flex-1 flex overflow-hidden">
+          {/* Center - Canvas */}
+          <div className="flex-1 p-6 bg-canvas">
+            <CanvasPreview 
+              slide={selectedSlide} 
+              globalOverlay={globalOverlay}
+              showTextBoxControls={showTextBoxControls}
+              lang={language}
+            />
+          </div>
 
         {/* Right panel - Styles */}
-        <div className="w-80 border-l border-border bg-panel p-4 overflow-hidden">
+        <div className="w-80 border-l border-border bg-panel p-4 overflow-y-auto">
           <h2 className="font-semibold mb-4">Style Controls</h2>
           <StylePanel
             slide={selectedSlide}
@@ -690,6 +609,36 @@ const Editor = () => {
           />
         </div>
       </div>
+
+      {/* Bottom section - Horizontal Timeline */}
+      <div className="h-64 border-t border-border bg-panel overflow-hidden">
+        {slides.length === 0 ? (
+          <div className="h-full flex items-center justify-center">
+            <div className="text-center">
+              <p className="text-sm text-muted-foreground mb-4">
+                {language === 'ru' ? 'Нет слайдов. Нажмите "Создать слайды" чтобы начать.' : 'No slides yet. Click "Parse Text" to get started.'}
+              </p>
+              <Button
+                variant="outline"
+                onClick={() => setShowTextDialog(true)}
+              >
+                <Sparkles className="w-4 h-4 mr-2" />
+                {language === 'ru' ? 'Создать слайды' : 'Parse Text'}
+              </Button>
+            </div>
+          </div>
+        ) : (
+          <SlidesTimeline
+            slides={slides}
+            selectedSlideId={selectedSlideId}
+            onSlideSelect={setSelectedSlideId}
+            onSlideUpdate={updateSlide}
+            onSlideDuplicate={duplicateSlide}
+            onSlideDelete={deleteSlide}
+          />
+        )}
+      </div>
+    </div>
 
       <TextInputDialog
         open={showTextDialog}
