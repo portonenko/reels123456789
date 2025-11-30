@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect } from "react";
 import { Slide } from "@/types";
 import { cn } from "@/lib/utils";
-import { GripVertical, Edit2, Copy, Trash2 } from "lucide-react";
+import { GripVertical, Edit2, Copy, Trash2, Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
 interface SlidesTimelineProps {
@@ -127,19 +127,31 @@ export const SlidesTimeline = ({
             onClick={onSlideAdd}
             className="bg-primary hover:bg-primary/90"
           >
-            <GripVertical className="w-4 h-4 mr-1" />
+            <Plus className="w-4 h-4 mr-1" />
             {lang === 'ru' ? 'Добавить слайд' : 'Add Slide'}
           </Button>
         </div>
       </div>
 
-      <div
-        ref={timelineRef}
-        className="flex-1 relative bg-background border-2 border-border rounded-lg overflow-x-auto overflow-y-hidden"
-        style={{ 
-          minHeight: TIMELINE_HEIGHT + 50,
-        }}
-      >
+      {slides.length === 0 ? (
+        <div className="flex-1 flex items-center justify-center border-2 border-dashed border-border rounded-lg">
+          <div className="text-center p-8">
+            <GripVertical className="w-12 h-12 mx-auto mb-4 text-muted-foreground opacity-50" />
+            <p className="text-sm text-muted-foreground mb-4">
+              {lang === 'ru' 
+                ? 'Пока нет слайдов. Добавьте первый слайд вручную или создайте из текста.' 
+                : 'No slides yet. Add your first slide manually or create from text.'}
+            </p>
+          </div>
+        </div>
+      ) : (
+        <div
+          ref={timelineRef}
+          className="flex-1 relative bg-background border-2 border-border rounded-lg overflow-x-auto overflow-y-hidden"
+          style={{ 
+            minHeight: TIMELINE_HEIGHT + 50,
+          }}
+        >
         {/* Time markers */}
         <div className="absolute top-0 left-0 h-8 flex items-center px-2" style={{ width: `${timeToPixels(totalDuration + 2)}px` }}>
           {timeMarkers.map((time) => (
@@ -251,6 +263,7 @@ export const SlidesTimeline = ({
           })}
         </div>
       </div>
+      )}
 
       <div className="flex items-start gap-2 text-xs text-muted-foreground bg-muted/50 p-3 rounded flex-shrink-0">
         <span className="text-lg">💡</span>
