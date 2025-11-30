@@ -29,12 +29,12 @@ export const SlideEditDialog = ({
   const blockTitleRefs = useRef<Map<number, HTMLInputElement>>(new Map());
   const blockBodyRefs = useRef<Map<number, HTMLTextAreaElement>>(new Map());
 
-  // Update editTextBlocks when slide changes
+  // Update editTextBlocks when slide changes or dialog opens
   useEffect(() => {
-    if (slide) {
+    if (slide && open) {
       setEditTextBlocks(slide.textBlocks || [{ title: slide.title, body: slide.body }]);
     }
-  }, [slide]);
+  }, [slide, open]);
 
   const handleSave = () => {
     if (!slide) return;
