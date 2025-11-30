@@ -612,33 +612,16 @@ const Editor = () => {
 
       {/* Bottom section - Horizontal Timeline */}
       <div className="h-64 border-t border-border bg-panel overflow-hidden">
-        {slides.length === 0 ? (
-          <div className="h-full flex items-center justify-center">
-            <div className="text-center">
-              <p className="text-sm text-muted-foreground mb-4">
-                {language === 'ru' ? 'Нет слайдов. Нажмите "Создать слайды" чтобы начать.' : 'No slides yet. Click "Parse Text" to get started.'}
-              </p>
-              <Button
-                variant="outline"
-                onClick={() => setShowTextDialog(true)}
-              >
-                <Sparkles className="w-4 h-4 mr-2" />
-                {language === 'ru' ? 'Создать слайды' : 'Parse Text'}
-              </Button>
-            </div>
-          </div>
-        ) : (
-          <SlidesTimeline
-            slides={slides}
-            selectedSlideId={selectedSlideId}
-            onSlideSelect={setSelectedSlideId}
-            onSlideUpdate={updateSlide}
-            onSlideDuplicate={duplicateSlide}
-            onSlideDelete={deleteSlide}
-            onSlideAdd={addNewSlide}
-            lang={language}
-          />
-        )}
+        <SlidesTimeline
+          slides={slides}
+          selectedSlideId={selectedSlideId}
+          onSlideSelect={setSelectedSlideId}
+          onSlideUpdate={updateSlide}
+          onSlideDuplicate={duplicateSlide}
+          onSlideDelete={deleteSlide}
+          onSlideAdd={addNewSlide}
+          lang={language}
+        />
       </div>
     </div>
 
