@@ -36,9 +36,10 @@ export const SlidesTimeline = ({
     startDuration: number;
   } | null>(null);
 
-  const TIMELINE_HEIGHT = 120;
-  const SLIDE_HEIGHT = 80;
+  const SLIDE_HEIGHT = 60;
+  const SLIDE_VERTICAL_GAP = 10;
   const PIXELS_PER_SECOND = 100; // 100px = 1 секунда
+  const TIMELINE_HEIGHT = Math.max(200, slides.length * (SLIDE_HEIGHT + SLIDE_VERTICAL_GAP) + 50);
 
   // Calculate total timeline duration
   const totalDuration = slides.reduce((acc, slide) => {
@@ -185,6 +186,7 @@ export const SlidesTimeline = ({
             const left = timeToPixels(startTime);
             const width = timeToPixels(slide.durationSec);
             const isSelected = slide.id === selectedSlideId;
+            const topPosition = 10 + index * (SLIDE_HEIGHT + SLIDE_VERTICAL_GAP);
 
             return (
               <div
@@ -200,7 +202,7 @@ export const SlidesTimeline = ({
                   left: `${left}px`,
                   width: `${Math.max(width, 100)}px`,
                   height: `${SLIDE_HEIGHT}px`,
-                  top: "10px",
+                  top: `${topPosition}px`,
                   backgroundColor: "hsl(var(--card))",
                 }}
                 onClick={() => onSlideSelect(slide.id)}
@@ -283,7 +285,7 @@ export const SlidesTimeline = ({
         <div className="space-y-1">
           <p><strong>{lang === 'ru' ? 'Перетаскивайте слайды' : 'Drag slides'}</strong> {lang === 'ru' ? 'влево-вправо для изменения времени появления' : 'left-right to change start time'}</p>
           <p><strong>{lang === 'ru' ? 'Тяните за правый край' : 'Drag right edge'}</strong> {lang === 'ru' ? 'для изменения длительности слайда' : 'to change slide duration'}</p>
-          <p><strong>{lang === 'ru' ? 'Слайды могут накладываться' : 'Slides can overlap'}</strong> {lang === 'ru' ? 'друг на друга по времени' : 'on the timeline'}</p>
+          <p><strong>{lang === 'ru' ? 'Каждый слайд на своей дорожке' : 'Each slide on its own track'}</strong> {lang === 'ru' ? 'для удобной работы' : 'for easy editing'}</p>
         </div>
       </div>
     </div>
