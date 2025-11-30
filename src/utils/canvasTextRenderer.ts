@@ -85,7 +85,7 @@ export const renderSlideText = (
     : [{ title: slide.title, body: slide.body }];
 
   // Filter text blocks based on delay, duration, and current time
-  const textBlocks = allTextBlocks.filter(block => {
+  const visibleTextBlocks = allTextBlocks.filter(block => {
     const blockDelay = block.delay || 0;
     const blockDuration = block.duration || 0;
     
@@ -99,9 +99,223 @@ export const renderSlideText = (
     return true;
   });
 
-  // Extract clean text
-  const cleanTitle = slide.title.replace(/^\[.*?\]\s*/, '');
-  const cleanBody = slide.body?.replace(/^\[.*?\]\s*/, '');
+  // Group blocks by having position or not
+  const blocksWithPosition = visibleTextBlocks.filter(b => b.position);
+  const blocksWithoutPosition = visibleTextBlocks.filter(b => !b.position);
+
+  // Process and render blocks with custom positions separately
+  blocksWithPosition.forEach((block) => {
+    const cleanBlockTitle = block.title.replace(/^\[.*?\]\s*/, '');
+    const cleanBlockBody = block.body?.replace(/^\[.*?\]\s*/, '');
+
+    // Calculate position
+    const blockX = (block.position!.x / 100) * canvasWidth;
+    const blockY = (block.position!.y / 100) * canvasHeight;
+
+    // Parse and wrap title text with colors
+    ctx.font = `${slide.style.text.fontWeight} ${slide.style.text.fontSize}px ${slide.style.text.fontFamily}`;
+    const titleSegments = parseColoredText(cleanBlockTitle, slide.style.text.color);
+    const titleLines = wrapSegments(titleSegments, slide.style.text.fontSize, slide.style.text.letterSpacing, textBoxWidth);
+    
+    const maxTitleWidth = Math.max(...titleLines.map(line => measureLine(line, slide.style.text.fontSize, slide.style.text.letterSpacing)));
+    const titleLineHeight = slide.style.text.fontSize * slide.style.text.lineHeight;
+    const titleBlockHeight = titleLines.length * titleLineHeight;
+
+    // Parse and wrap body text with colors
+    let bodyLines: TextSegment[][] = [];
+    let maxBodyWidth = 0;
+    let bodyBlockHeight = 0;
+    
+    if (cleanBlockBody) {
+      const bodyFontSize = slide.style.text.bodyFontSize || slide.style.text.fontSize * 0.5;
+      const bodyColor = slide.style.text.bodyColor || slide.style.text.color;
+      ctx.font = `${slide.style.text.bodyFontWeight || slide.style.text.fontWeight - 200} ${bodyFontSize}px ${slide.style.text.bodyFontFamily || slide.style.text.fontFamily}`;
+      const bodySegments = parseColoredText(cleanBlockBody, bodyColor);
+      bodyLines = wrapSegments(bodySegments, bodyFontSize, slide.style.text.letterSpacing, textBoxWidth * 0.8);
+      
+      maxBodyWidth = Math.max(...bodyLines.map(line => measureLine(line, bodyFontSize, slide.style.text.letterSpacing)));
+      const bodyLineHeight = bodyFontSize * slide.style.text.lineHeight * 1.2;
+      bodyBlockHeight = bodyLines.length * bodyLineHeight;
+    }
+
+    const totalBlockHeight = titleBlockHeight + (bodyBlockHeight > 0 ? 30 + bodyBlockHeight : 0);
+    const maxWidth = Math.max(maxTitleWidth, maxBodyWidth);
+
+    // Draw background plate if enabled
+    if (slide.style.plate.enabled) {
+      const plateWidth = maxWidth + slide.style.plate.padding * 2;
+      const plateHeight = totalBlockHeight + slide.style.plate.padding * 2;
+
+      const bgColor = slide.style.plate.backgroundColor;
+      const plateOpacity = slide.style.plate.opacity;
+      
+      let r = 0, g = 0, b = 0;
+      if (bgColor.startsWith('#')) {
+        r = parseInt(bgColor.slice(1, 3), 16);
+        g = parseInt(bgColor.slice(3, 5), 16);
+        b = parseInt(bgColor.slice(5, 7), 16);
+      }
+      
+      ctx.save();
+      
+      const plateX = blockX - plateWidth / 2;
+      const plateY = blockY - totalBlockHeight / 2 - slide.style.plate.padding;
+      
+      ctx.globalAlpha = 1;
+      ctx.fillStyle = `rgba(${r}, ${g}, ${b}, ${plateOpacity})`;
+      ctx.beginPath();
+      if (slide.style.plate.borderRadius > 0) {
+        const radius = slide.style.plate.borderRadius;
+        ctx.moveTo(plateX + radius, plateY);
+        ctx.lineTo(plateX + plateWidth - radius, plateY);
+        ctx.quadraticCurveTo(plateX + plateWidth, plateY, plateX + plateWidth, plateY + radius);
+        ctx.lineTo(plateX + plateWidth, plateY + plateHeight - radius);
+        ctx.quadraticCurveTo(plateX + plateWidth, plateY + plateHeight, plateX + plateWidth - radius, plateY + plateHeight);
+        ctx.lineTo(plateX + radius, plateY + plateHeight);
+        ctx.quadraticCurveTo(plateX, plateY + plateHeight, plateX, plateY + plateHeight - radius);
+        ctx.lineTo(plateX, plateY + radius);
+        ctx.quadraticCurveTo(plateX, plateY, plateX + radius, plateY);
+        ctx.closePath();
+      } else {
+        ctx.rect(plateX, plateY, plateWidth, plateHeight);
+      }
+      ctx.fill();
+      
+      ctx.restore();
+    }
+
+    // Draw text shadow
+    const shadowIntensity = slide.style.text.shadowIntensity || 10;
+    const shadowRadius = slide.style.text.shadowRadius || 20;
+    
+    if (shadowIntensity > 0 && shadowRadius > 0) {
+      const shadowLayers = 8;
+      for (let i = 0; i < shadowLayers; i++) {
+        const layerOpacity = (shadowIntensity / 10) * (1 - i / shadowLayers) / shadowLayers;
+        const layerOffset = (shadowRadius * 0.5) * (1 + i / shadowLayers);
+        const layerBlur = (shadowRadius * 3) / shadowLayers;
+        
+        ctx.save();
+        ctx.shadowColor = `rgba(0, 0, 0, ${layerOpacity})`;
+        ctx.shadowBlur = layerBlur;
+        ctx.shadowOffsetX = layerOffset;
+        ctx.shadowOffsetY = layerOffset;
+        ctx.globalAlpha = 0.3;
+        
+        let shadowY = blockY - totalBlockHeight / 2 + titleLineHeight / 2;
+        
+        // Title shadow
+        ctx.font = `${slide.style.text.fontWeight} ${slide.style.text.fontSize}px ${slide.style.text.fontFamily}`;
+        titleLines.forEach((lineSegments) => {
+          const lineWidth = measureLine(lineSegments, slide.style.text.fontSize, slide.style.text.letterSpacing);
+          let segmentX = blockX - lineWidth / 2;
+          
+          ctx.textAlign = 'left';
+          
+          lineSegments.forEach(segment => {
+            ctx.fillStyle = segment.color;
+            ctx.fillText(segment.text, segmentX, shadowY);
+            segmentX += measureSegment(segment.text, slide.style.text.fontSize, slide.style.text.letterSpacing);
+          });
+          
+          shadowY += titleLineHeight;
+        });
+        
+        // Body shadow
+        if (bodyLines.length > 0) {
+          shadowY += 30;
+          const bodyFontSize = slide.style.text.bodyFontSize || slide.style.text.fontSize * 0.5;
+          ctx.font = `${slide.style.text.bodyFontWeight || slide.style.text.fontWeight - 200} ${bodyFontSize}px ${slide.style.text.bodyFontFamily || slide.style.text.fontFamily}`;
+          const bodyLineHeight = bodyFontSize * slide.style.text.lineHeight * 1.2;
+          
+          bodyLines.forEach((lineSegments) => {
+            const lineWidth = measureLine(lineSegments, bodyFontSize, slide.style.text.letterSpacing);
+            let segmentX = blockX - lineWidth / 2;
+            
+            lineSegments.forEach(segment => {
+              ctx.fillStyle = segment.color;
+              ctx.fillText(segment.text, segmentX, shadowY);
+              segmentX += measureSegment(segment.text, bodyFontSize, slide.style.text.letterSpacing);
+            });
+            
+            shadowY += bodyLineHeight;
+          });
+        }
+        
+        ctx.restore();
+      }
+    }
+
+    // Draw actual text
+    let currentBlockY = blockY - totalBlockHeight / 2 + titleLineHeight / 2;
+    
+    // Draw title
+    ctx.font = `${slide.style.text.fontWeight} ${slide.style.text.fontSize}px ${slide.style.text.fontFamily}`;
+    ctx.shadowColor = 'transparent';
+    
+    titleLines.forEach((lineSegments) => {
+      const lineWidth = measureLine(lineSegments, slide.style.text.fontSize, slide.style.text.letterSpacing);
+      let lineX = blockX - lineWidth / 2;
+      
+      ctx.textAlign = 'left';
+      
+      lineSegments.forEach(segment => {
+        let displayText = segment.text;
+        if (slide.style.text.textTransform === 'uppercase') {
+          displayText = segment.text.toUpperCase();
+        } else if (slide.style.text.textTransform === 'lowercase') {
+          displayText = segment.text.toLowerCase();
+        } else if (slide.style.text.textTransform === 'capitalize') {
+          displayText = segment.text.replace(/\b\w/g, l => l.toUpperCase());
+        }
+        ctx.fillStyle = segment.color;
+        ctx.fillText(displayText, lineX, currentBlockY);
+        lineX += measureSegment(displayText, slide.style.text.fontSize, slide.style.text.letterSpacing);
+      });
+      
+      currentBlockY += titleLineHeight;
+    });
+
+    // Draw body
+    if (bodyLines.length > 0) {
+      currentBlockY += 30;
+      
+      const bodyFontSize = slide.style.text.bodyFontSize || slide.style.text.fontSize * 0.5;
+      const bodyLineHeight = bodyFontSize * slide.style.text.lineHeight * 1.2;
+      
+      ctx.font = `${slide.style.text.bodyFontWeight || slide.style.text.fontWeight - 200} ${bodyFontSize}px ${slide.style.text.bodyFontFamily || slide.style.text.fontFamily}`;
+      
+      bodyLines.forEach((lineSegments) => {
+        const lineWidth = measureLine(lineSegments, bodyFontSize, slide.style.text.letterSpacing);
+        let lineX = blockX - lineWidth / 2;
+        
+        ctx.textAlign = 'left';
+        
+        lineSegments.forEach(segment => {
+          let displayText = segment.text;
+          if (slide.style.text.textTransform === 'uppercase') {
+            displayText = segment.text.toUpperCase();
+          } else if (slide.style.text.textTransform === 'lowercase') {
+            displayText = segment.text.toLowerCase();
+          } else if (slide.style.text.textTransform === 'capitalize') {
+            displayText = segment.text.replace(/\b\w/g, l => l.toUpperCase());
+          }
+          ctx.fillStyle = segment.color;
+          ctx.fillText(displayText, lineX, currentBlockY);
+          lineX += measureSegment(displayText, bodyFontSize, slide.style.text.letterSpacing);
+        });
+        
+        currentBlockY += bodyLineHeight;
+      });
+    }
+  });
+
+  // If there are blocks without position, render them in the center using the old logic
+  if (blocksWithoutPosition.length === 0) {
+    return;
+  }
+  
+  const textBlocks = blocksWithoutPosition;
 
   // Set text properties
   ctx.textAlign = slide.style.text.alignment as CanvasTextAlign;
