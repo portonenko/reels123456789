@@ -167,7 +167,11 @@ export const SlideCard = ({
                         className="h-8 text-sm"
                       />
                       <ColorInsertButton
-                        inputRef={{ current: blockInputRefs.current.get(blockIndex)?.title || null }}
+                        inputRef={{
+                          get current() {
+                            return blockInputRefs.current.get(blockIndex)?.title || null;
+                          }
+                        }}
                         currentValue={block.title}
                         onValueChange={(val) => updateTextBlock(blockIndex, "title", val)}
                       />
@@ -184,7 +188,11 @@ export const SlideCard = ({
                         className="min-h-[50px] text-xs resize-none"
                       />
                       <ColorInsertButton
-                        inputRef={{ current: blockInputRefs.current.get(blockIndex)?.body || null }}
+                        inputRef={{
+                          get current() {
+                            return blockInputRefs.current.get(blockIndex)?.body || null;
+                          }
+                        }}
                         currentValue={block.body || ""}
                         onValueChange={(val) => updateTextBlock(blockIndex, "body", val)}
                       />
