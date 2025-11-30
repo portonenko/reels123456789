@@ -4,9 +4,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Palette } from "lucide-react";
 
 interface ColorInsertButtonProps {
-  inputRef: React.RefObject<HTMLInputElement | HTMLTextAreaElement>;
-  currentValue: string;
-  onValueChange: (value: string) => void;
+  onInsert: (color: string) => void;
 }
 
 const QUICK_COLORS = [
@@ -14,46 +12,16 @@ const QUICK_COLORS = [
   "#00BFFF", "#9370DB", "#FF69B4", "#FFFFFF"
 ];
 
-export const ColorInsertButton = ({ inputRef, currentValue, onValueChange }: ColorInsertButtonProps) => {
+export const ColorInsertButton = ({ onInsert }: ColorInsertButtonProps) => {
   const [open, setOpen] = useState(false);
-  const [savedSelection, setSavedSelection] = useState<{ start: number; end: number } | null>(null);
-
-  const handleOpenChange = (isOpen: boolean) => {
-    if (isOpen && inputRef.current) {
-      // Save selection before opening
-      const start = inputRef.current.selectionStart || 0;
-      const end = inputRef.current.selectionEnd || 0;
-      setSavedSelection({ start, end });
-    }
-    setOpen(isOpen);
-  };
 
   const handleColorClick = (color: string) => {
-    if (!savedSelection) {
-      setOpen(false);
-      return;
-    }
-
-    const { start, end } = savedSelection;
-    const selectedText = currentValue.substring(start, end) || "текст";
-    const colorTag = `[${color}]${selectedText}[]`;
-    const newValue = currentValue.substring(0, start) + colorTag + currentValue.substring(end);
-    
-    onValueChange(newValue);
+    onInsert(color);
     setOpen(false);
-    
-    // Restore focus and cursor position
-    setTimeout(() => {
-      if (inputRef.current) {
-        inputRef.current.focus();
-        const newCursorPos = start + colorTag.length;
-        inputRef.current.setSelectionRange(newCursorPos, newCursorPos);
-      }
-    }, 0);
   };
 
   return (
-    <Popover open={open} onOpenChange={handleOpenChange}>
+    <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>
         <Button
           type="button"
