@@ -46,7 +46,8 @@ export const SlideCard = ({
     slide.textBlocks || [{ title: slide.title, body: slide.body }]
   );
   
-  const blockInputRefs = useRef<Map<number, { title: HTMLInputElement | null; body: HTMLTextAreaElement | null }>>(new Map());
+  const blockTitleRefs = useRef<Map<number, HTMLInputElement>>(new Map());
+  const blockBodyRefs = useRef<Map<number, HTMLTextAreaElement>>(new Map());
 
   const handleSave = () => {
     // If using text blocks
@@ -88,6 +89,30 @@ export const SlideCard = ({
     const updated = [...editTextBlocks];
     updated[index][field] = value;
     setEditTextBlocks(updated);
+  };
+
+  const insertColorIntoBlock = (blockIndex: number, field: "title" | "body", color: string) => {
+    const inputEl = field === "title" 
+      ? blockTitleRefs.current.get(blockIndex)
+      : blockBodyRefs.current.get(blockIndex);
+    
+    if (!inputEl) return;
+
+    const start = inputEl.selectionStart || 0;
+    const end = inputEl.selectionEnd || 0;
+    const currentValue = editTextBlocks[blockIndex][field] || "";
+    const selectedText = currentValue.substring(start, end) || "текст";
+    
+    const colorTag = `[${color}]${selectedText}[]`;
+    const newValue = currentValue.substring(0, start) + colorTag + currentValue.substring(end);
+    
+    updateTextBlock(blockIndex, field, newValue);
+    
+    setTimeout(() => {
+      inputEl.focus();
+      const newCursorPos = start + colorTag.length;
+      inputEl.setSelectionRange(newCursorPos, newCursorPos);
+    }, 0);
   };
 
   return (
@@ -134,12 +159,8 @@ export const SlideCard = ({
 
           {isEditing ? (
             <div className="space-y-3" onClick={(e) => e.stopPropagation()}>
-              {editTextBlocks.map((block, blockIndex) => {
-                if (!blockInputRefs.current.has(blockIndex)) {
-                  blockInputRefs.current.set(blockIndex, { title: null, body: null });
-                }
-                return (
-                  <div key={blockIndex} className="space-y-2 p-3 border border-border rounded-md bg-background/50">
+              {editTextBlocks.map((block, blockIndex) => (
+                <div key={blockIndex} className="space-y-2 p-3 border border-border rounded-md bg-background/50">
                     <div className="flex items-center justify-between mb-1">
                       <span className="text-xs font-medium text-muted-foreground">
                         Блок {blockIndex + 1}
@@ -158,8 +179,7 @@ export const SlideCard = ({
                     <div className="flex gap-2">
                       <Input
                         ref={(el) => {
-                          const refs = blockInputRefs.current.get(blockIndex);
-                          if (refs) refs.title = el;
+                          if (el) blockTitleRefs.current.set(blockIndex, el);
                         }}
                         value={block.title}
                         onChange={(e) => updateTextBlock(blockIndex, "title", e.target.value)}
@@ -167,20 +187,13 @@ export const SlideCard = ({
                         className="h-8 text-sm"
                       />
                       <ColorInsertButton
-                        inputRef={{
-                          get current() {
-                            return blockInputRefs.current.get(blockIndex)?.title || null;
-                          }
-                        }}
-                        currentValue={block.title}
-                        onValueChange={(val) => updateTextBlock(blockIndex, "title", val)}
+                        onInsert={(color) => insertColorIntoBlock(blockIndex, "title", color)}
                       />
                     </div>
                     <div className="flex gap-2">
                       <Textarea
                         ref={(el) => {
-                          const refs = blockInputRefs.current.get(blockIndex);
-                          if (refs) refs.body = el;
+                          if (el) blockBodyRefs.current.set(blockIndex, el);
                         }}
                         value={block.body || ""}
                         onChange={(e) => updateTextBlock(blockIndex, "body", e.target.value)}
@@ -188,18 +201,11 @@ export const SlideCard = ({
                         className="min-h-[50px] text-xs resize-none"
                       />
                       <ColorInsertButton
-                        inputRef={{
-                          get current() {
-                            return blockInputRefs.current.get(blockIndex)?.body || null;
-                          }
-                        }}
-                        currentValue={block.body || ""}
-                        onValueChange={(val) => updateTextBlock(blockIndex, "body", val)}
+                        onInsert={(color) => insertColorIntoBlock(blockIndex, "body", color)}
                       />
                     </div>
                   </div>
-                );
-              })}
+                ))}
               <Button
                 size="sm"
                 variant="outline"
