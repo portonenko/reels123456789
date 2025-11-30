@@ -58,7 +58,7 @@ export const SlidesTimeline = ({
   const SLIDE_HEIGHT = 80;
   const SLIDE_VERTICAL_GAP = 15;
   const PIXELS_PER_SECOND = 100; // 100px = 1 секунда
-  const TIMELINE_HEIGHT = Math.max(200, slides.length * (SLIDE_HEIGHT + SLIDE_VERTICAL_GAP) + 50);
+  const CONTENT_HEIGHT = slides.length * (SLIDE_HEIGHT + SLIDE_VERTICAL_GAP) + 100; // Height of all slides
 
   // Calculate total timeline duration
   const totalDuration = slides.reduce((acc, slide) => {
@@ -187,11 +187,8 @@ export const SlidesTimeline = ({
         <div
           ref={timelineRef}
           className="flex-1 relative bg-background border-2 border-border rounded-lg overflow-auto"
-          style={{ 
-            minHeight: TIMELINE_HEIGHT,
-            height: TIMELINE_HEIGHT,
-          }}
         >
+          <div className="relative" style={{ width: `${timeToPixels(totalDuration + 2)}px`, height: `${CONTENT_HEIGHT}px` }}>
         {/* Time markers */}
         <div className="absolute top-0 left-0 h-8 flex items-center px-2" style={{ width: `${timeToPixels(totalDuration + 2)}px` }}>
           {timeMarkers.map((time) => (
@@ -320,6 +317,7 @@ export const SlidesTimeline = ({
               </div>
             );
           })}
+        </div>
         </div>
       </div>
       )}
