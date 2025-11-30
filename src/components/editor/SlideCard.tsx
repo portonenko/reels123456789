@@ -64,9 +64,11 @@ export const SlideCard = ({
     const newValue = value.slice(0, start) + `[${color}]${selectedText}[]` + value.slice(end);
     updateTextBlock(blockIndex, field, newValue);
     
+    // Keep focus and restore selection
     setTimeout(() => {
       ref.focus();
-      ref.setSelectionRange(start + color.length + 2, start + color.length + 2 + selectedText.length);
+      const newCursorPos = start + color.length + 2 + selectedText.length + 2;
+      ref.setSelectionRange(newCursorPos, newCursorPos);
     }, 10);
   };
 

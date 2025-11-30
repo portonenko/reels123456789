@@ -1,5 +1,4 @@
 import { useState, useEffect, useRef } from 'react';
-import { Button } from '@/components/ui/button';
 
 interface ColorToolbarProps {
   targetRef: HTMLInputElement | HTMLTextAreaElement | null;
@@ -26,35 +25,40 @@ export const ColorToolbar = ({ targetRef, onColorApply }: ColorToolbarProps) => 
   useEffect(() => {
     if (!targetRef) return;
 
-    const handleSelectionChange = () => {
-      const selection = window.getSelection();
-      const selectedText = selection?.toString() || '';
+    const checkSelection = () => {
+      const start = targetRef.selectionStart || 0;
+      const end = targetRef.selectionEnd || 0;
+      const hasSelection = end > start;
 
-      if (selectedText.length > 0 && document.activeElement === targetRef) {
-        const range = selection?.getRangeAt(0);
-        if (range) {
-          const rect = range.getBoundingClientRect();
-          setPosition({
-            top: rect.top - 50,
-            left: rect.left + rect.width / 2,
-          });
-          setIsVisible(true);
-        }
+      if (hasSelection && document.activeElement === targetRef) {
+        const rect = targetRef.getBoundingClientRect();
+        // Position toolbar above the input
+        setPosition({
+          top: rect.top + window.scrollY - 45,
+          left: rect.left + window.scrollX + rect.width / 2,
+        });
+        setIsVisible(true);
       } else {
         setIsVisible(false);
       }
     };
 
     const handleMouseUp = () => {
-      setTimeout(handleSelectionChange, 10);
+      setTimeout(checkSelection, 10);
     };
 
-    document.addEventListener('selectionchange', handleSelectionChange);
+    const handleKeyUp = () => {
+      setTimeout(checkSelection, 10);
+    };
+
     targetRef.addEventListener('mouseup', handleMouseUp);
+    targetRef.addEventListener('keyup', handleKeyUp);
+    targetRef.addEventListener('select', checkSelection);
 
     return () => {
-      document.removeEventListener('selectionchange', handleSelectionChange);
       targetRef.removeEventListener('mouseup', handleMouseUp);
+      targetRef.removeEventListener('keyup', handleKeyUp);
+      targetRef.removeEventListener('select', checkSelection);
     };
   }, [targetRef]);
 
@@ -63,21 +67,22 @@ export const ColorToolbar = ({ targetRef, onColorApply }: ColorToolbarProps) => 
   return (
     <div
       ref={toolbarRef}
-      className="fixed z-50 flex gap-1 p-2 bg-popover border border-border rounded-lg shadow-lg"
+      className="fixed z-[9999] flex gap-1 p-1.5 bg-popover border border-border rounded-lg shadow-xl"
       style={{
         top: `${position.top}px`,
         left: `${position.left}px`,
         transform: 'translateX(-50%)',
       }}
+      onMouseDown={(e) => e.preventDefault()} // Prevent losing focus
     >
       {colors.map((c) => (
         <button
           key={c.color}
-          onClick={() => {
+          onMouseDown={(e) => {
+            e.preventDefault();
             onColorApply(c.color);
-            setIsVisible(false);
           }}
-          className="w-6 h-6 rounded border border-border hover:scale-110 transition-transform"
+          className="w-7 h-7 rounded border-2 border-border hover:scale-110 hover:border-foreground transition-all"
           style={{ backgroundColor: c.color }}
           title={c.name}
         />
