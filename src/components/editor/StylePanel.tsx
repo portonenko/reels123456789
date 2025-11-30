@@ -284,12 +284,6 @@ export const StylePanel = ({
               </Select>
             </div>
 
-            <div className="text-xs text-muted-foreground bg-blue-500/10 border border-blue-500/20 rounded p-3">
-              <p className="font-medium mb-1">💡 Совет:</p>
-              <p>Используйте <code className="bg-background/50 px-1 rounded">[#FF0000]текст[]</code> чтобы покрасить отдельные слова.</p>
-              <p className="mt-1">Пример: <code className="bg-background/50 px-1 rounded">Привет [#FF0000]мир[]</code></p>
-            </div>
-
             <Separator className="my-4" />
             
             <div>
