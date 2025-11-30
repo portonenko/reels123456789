@@ -48,27 +48,34 @@ export const SlideCard = ({
   
   const inputRefs = useRef<{ [key: string]: HTMLInputElement | HTMLTextAreaElement | null }>({});
   const [activeInput, setActiveInput] = useState<{ ref: HTMLInputElement | HTMLTextAreaElement | null; blockIndex: number; field: "title" | "body" } | null>(null);
+  const isApplyingColor = useRef(false);
 
   const applyColorToActiveInput = (color: string) => {
     if (!activeInput || !activeInput.ref) return;
+    
+    isApplyingColor.current = true;
     
     const { blockIndex, field, ref } = activeInput;
     const start = ref.selectionStart || 0;
     const end = ref.selectionEnd || 0;
     const value = field === "title" ? editTextBlocks[blockIndex].title : (editTextBlocks[blockIndex].body || "");
     
-    if (start === end) return; // No selection
+    if (start === end) {
+      isApplyingColor.current = false;
+      return; // No selection
+    }
     
     // Wrap selected text with color tag
     const selectedText = value.slice(start, end);
     const newValue = value.slice(0, start) + `[${color}]${selectedText}[]` + value.slice(end);
     updateTextBlock(blockIndex, field, newValue);
     
-    // Keep focus and restore selection
+    // Keep focus and restore cursor
     setTimeout(() => {
       ref.focus();
       const newCursorPos = start + color.length + 2 + selectedText.length + 2;
       ref.setSelectionRange(newCursorPos, newCursorPos);
+      isApplyingColor.current = false;
     }, 10);
   };
 
@@ -180,7 +187,11 @@ export const SlideCard = ({
                     value={block.title}
                     onChange={(e) => updateTextBlock(blockIndex, "title", e.target.value)}
                     onFocus={(e) => setActiveInput({ ref: e.target, blockIndex, field: "title" })}
-                    onBlur={() => setTimeout(() => setActiveInput(null), 200)}
+                    onBlur={() => {
+                      if (!isApplyingColor.current) {
+                        setTimeout(() => setActiveInput(null), 300);
+                      }
+                    }}
                     placeholder="Заголовок"
                     className="h-8 text-sm"
                   />
@@ -189,7 +200,11 @@ export const SlideCard = ({
                     value={block.body || ""}
                     onChange={(e) => updateTextBlock(blockIndex, "body", e.target.value)}
                     onFocus={(e) => setActiveInput({ ref: e.target, blockIndex, field: "body" })}
-                    onBlur={() => setTimeout(() => setActiveInput(null), 200)}
+                    onBlur={() => {
+                      if (!isApplyingColor.current) {
+                        setTimeout(() => setActiveInput(null), 300);
+                      }
+                    }}
                     placeholder="Описание (опционально)"
                     className="min-h-[50px] text-xs resize-none"
                   />
