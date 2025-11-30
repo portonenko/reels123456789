@@ -48,6 +48,7 @@ export interface SlideStyle {
 export interface TextBlock {
   title: string;
   body?: string;
+  delay?: number; // Delay in seconds before this block appears
 }
 
 export interface Slide {

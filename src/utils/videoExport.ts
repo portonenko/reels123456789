@@ -7,7 +7,8 @@ const renderSlideToCanvas = (
   canvas: HTMLCanvasElement,
   backgroundMedia?: HTMLVideoElement | HTMLImageElement,
   transitionProgress?: number,
-  globalOverlay?: number
+  globalOverlay?: number,
+  currentTime?: number
 ): void => {
   const ctx = canvas.getContext("2d", { 
     alpha: false,
@@ -91,7 +92,9 @@ const renderSlideToCanvas = (
   ctx.fillRect(0, 0, canvas.width, canvas.height);
 
   // Use unified text rendering
-  renderSlideText(ctx, slide, canvas);
+  renderSlideText(ctx, slide, canvas, { 
+    currentTime: currentTime || 0 
+  });
 
   // Restore context after transitions
   ctx.restore();
@@ -336,7 +339,8 @@ export const exportVideo = async (
       canvas, 
       backgroundVideo, 
       transitionProgress,
-      globalOverlay
+      globalOverlay,
+      slideElapsed // Pass current time within slide for progressive text
     );
     
     // Schedule next frame

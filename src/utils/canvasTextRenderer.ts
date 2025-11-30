@@ -66,11 +66,13 @@ export const renderSlideText = (
   options: {
     transitionProgress?: number;
     isPreview?: boolean; // If true, render at 1/3 scale
+    currentTime?: number; // Current time within the slide for progressive text display
   } = {}
 ) => {
   const scale = options.isPreview ? 3 : 1;
   const canvasWidth = canvas.width;
   const canvasHeight = canvas.height;
+  const currentTime = options.currentTime || 0;
 
   // Calculate safe margins
   const safeTop = (slide.style.safeMarginTop / 100) * canvasHeight;
@@ -78,9 +80,15 @@ export const renderSlideText = (
   const contentHeight = canvasHeight - safeTop - safeBottom;
 
   // Use text blocks if available, otherwise fall back to single title/body
-  const textBlocks = slide.textBlocks && slide.textBlocks.length > 0 
+  const allTextBlocks = slide.textBlocks && slide.textBlocks.length > 0 
     ? slide.textBlocks 
     : [{ title: slide.title, body: slide.body }];
+
+  // Filter text blocks based on delay and current time
+  const textBlocks = allTextBlocks.filter(block => {
+    const blockDelay = block.delay || 0;
+    return currentTime >= blockDelay;
+  });
 
   // Extract clean text
   const cleanTitle = slide.title.replace(/^\[.*?\]\s*/, '');

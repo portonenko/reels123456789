@@ -85,9 +85,13 @@ export const SlideCard = ({
     }
   };
 
-  const updateTextBlock = (index: number, field: "title" | "body", value: string) => {
+  const updateTextBlock = (index: number, field: "title" | "body" | "delay", value: string | number) => {
     const updated = [...editTextBlocks];
-    updated[index][field] = value;
+    if (field === "delay") {
+      updated[index][field] = value as number;
+    } else {
+      updated[index][field] = value as string;
+    }
     setEditTextBlocks(updated);
   };
 
@@ -162,9 +166,21 @@ export const SlideCard = ({
               {editTextBlocks.map((block, blockIndex) => (
                 <div key={blockIndex} className="space-y-2 p-3 border border-border rounded-md bg-background/50">
                     <div className="flex items-center justify-between mb-1">
-                      <span className="text-xs font-medium text-muted-foreground">
-                        Блок {blockIndex + 1}
-                      </span>
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs font-medium text-muted-foreground">
+                          Блок {blockIndex + 1}
+                        </span>
+                        <input
+                          type="number"
+                          min="0"
+                          step="0.1"
+                          value={block.delay || 0}
+                          onChange={(e) => updateTextBlock(blockIndex, "delay", parseFloat(e.target.value) || 0)}
+                          className="w-16 h-6 px-2 text-xs border rounded bg-background"
+                          placeholder="0"
+                        />
+                        <span className="text-xs text-muted-foreground">сек</span>
+                      </div>
                       {editTextBlocks.length > 1 && (
                         <Button
                           size="sm"

@@ -140,7 +140,10 @@ export const CanvasPreview = ({ slide, globalOverlay, showTextBoxControls = fals
     }
 
     // Render text using unified function
-    renderSlideText(ctx, currentSlide, canvas, { isPreview: true });
+    renderSlideText(ctx, currentSlide, canvas, { 
+      isPreview: true,
+      currentTime: slideTime 
+    });
     
     ctx.restore();
   }, [currentSlide, slideTime, isPlaying]);
