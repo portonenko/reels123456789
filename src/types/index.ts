@@ -65,6 +65,7 @@ export interface Slide {
   style: SlideStyle;
   language?: string; // Language code for translated slides
   transition?: "none" | "fade" | "flash" | "glow" | "slide-left" | "slide-right" | "sunlight";
+  startTime?: number; // When the slide starts in the timeline (seconds)
 }
 
 export interface Asset {
