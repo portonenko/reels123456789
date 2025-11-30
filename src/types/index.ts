@@ -49,6 +49,7 @@ export interface TextBlock {
   title: string;
   body?: string;
   delay?: number; // Delay in seconds before this block appears
+  duration?: number; // How long the block stays visible (0 = until slide ends)
 }
 
 export interface Slide {
