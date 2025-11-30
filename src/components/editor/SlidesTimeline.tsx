@@ -35,6 +35,25 @@ export const SlidesTimeline = ({
     startTime: number;
     startDuration: number;
   } | null>(null);
+  const [scrollProgress, setScrollProgress] = useState(0);
+
+  // Track scroll position
+  useEffect(() => {
+    const timelineEl = timelineRef.current;
+    if (!timelineEl) return;
+
+    const handleScroll = () => {
+      const scrollTop = timelineEl.scrollTop;
+      const scrollHeight = timelineEl.scrollHeight - timelineEl.clientHeight;
+      const progress = scrollHeight > 0 ? (scrollTop / scrollHeight) * 100 : 0;
+      setScrollProgress(progress);
+    };
+
+    timelineEl.addEventListener('scroll', handleScroll);
+    handleScroll(); // Initial calculation
+
+    return () => timelineEl.removeEventListener('scroll', handleScroll);
+  }, [slides.length]);
 
   const SLIDE_HEIGHT = 80;
   const SLIDE_VERTICAL_GAP = 15;
@@ -121,7 +140,21 @@ export const SlidesTimeline = ({
         <h3 className="text-sm font-semibold">
           {lang === 'ru' ? 'Временная шкала слайдов' : 'Slides Timeline'}
         </h3>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-3">
+          {/* Scroll indicator */}
+          {slides.length > 0 && (
+            <div className="flex items-center gap-2">
+              <div className="w-24 h-2 bg-muted rounded-full overflow-hidden">
+                <div 
+                  className="h-full bg-primary transition-all duration-200"
+                  style={{ width: `${Math.min(100, scrollProgress + 20)}%` }}
+                />
+              </div>
+              <span className="text-xs text-muted-foreground whitespace-nowrap">
+                {Math.round(scrollProgress)}%
+              </span>
+            </div>
+          )}
           <span className="text-xs text-muted-foreground">
             {lang === 'ru' ? `Всего: ${slides.length} слайдов` : `Total: ${slides.length} slides`}
           </span>
