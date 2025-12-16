@@ -245,10 +245,18 @@ export const exportVideo = async (
 
   const recordingPromise = new Promise<Blob>((resolve, reject) => {
     mediaRecorder.onstop = () => {
+      try {
+        // Stop any remaining media tracks to avoid leaking resources between exports
+        combinedStream.getTracks().forEach((t) => t.stop());
+      } catch {
+        // ignore
+      }
+
       // Clean up audio context
       if (audioContext) {
         audioContext.close();
       }
+
       const blob = new Blob(chunks, { type: mimeType });
       console.log(`Final video size: ${(blob.size / 1024 / 1024).toFixed(2)} MB`);
       console.log(`Video format: ${mimeType}`);
@@ -256,7 +264,7 @@ export const exportVideo = async (
       resolve(blob);
     };
     mediaRecorder.onerror = (e) => {
-      console.error('MediaRecorder error:', e);
+      console.error("MediaRecorder error:", e);
       reject(e);
     };
   });
@@ -266,51 +274,42 @@ export const exportVideo = async (
     backgroundVideo.currentTime = 0;
     await backgroundVideo.play();
     // Wait for video to actually start playing
-    await new Promise(resolve => setTimeout(resolve, 100));
+    await new Promise((resolve) => setTimeout(resolve, 100));
     console.log("Background video playing at:", backgroundVideo.currentTime);
   }
   if (backgroundAudio) {
     backgroundAudio.currentTime = 0;
     await backgroundAudio.play();
-    await new Promise(resolve => setTimeout(resolve, 100));
+    await new Promise((resolve) => setTimeout(resolve, 100));
     console.log("Background audio playing at:", backgroundAudio.currentTime);
   }
 
   // Now start recording after media is playing
   // IMPORTANT: do not use timeslice/chunking here — some players stutter on fragmented recordings.
   mediaRecorder.start();
-  console.log('MediaRecorder started with format:', mimeType, 'bitrate:', videoBitrate);
+  console.log("MediaRecorder started with format:", mimeType, "bitrate:", videoBitrate);
 
   // Render slides at fixed 30 FPS
   const fps = 30;
   const frameDuration = 1000 / fps;
   const startTime = performance.now();
-  let lastFrameTime = startTime;
   let currentSlideIndex = 0;
   let slideStartTime = 0;
 
-  const animate = () => {
+  // Use a fixed-timestep timer (instead of rAF + frame-skipping) to reduce uneven frame pacing
+  const tick = () => {
     const now = performance.now();
-    const timeSinceLastFrame = now - lastFrameTime;
-    
-    // Only render if enough time has passed for next frame (30 FPS = ~33ms per frame)
-    if (timeSinceLastFrame < frameDuration) {
-      requestAnimationFrame(animate);
-      return;
-    }
-    
-    lastFrameTime = now - (timeSinceLastFrame % frameDuration);
     const elapsed = (now - startTime) / 1000;
-    
+
     // Check if recording is complete
     if (elapsed >= totalDuration) {
       if (backgroundVideo) backgroundVideo.pause();
       if (backgroundAudio) backgroundAudio.pause();
       mediaRecorder.stop();
-      console.log('Recording completed at:', elapsed.toFixed(2), 'seconds');
+      console.log("Recording completed at:", elapsed.toFixed(2), "seconds");
       return;
     }
-    
+
     // Update progress
     const progressPercent = (elapsed / totalDuration) * 100;
     onProgress(10 + progressPercent * 0.85, `Recording slide ${currentSlideIndex + 1}/${slides.length}...`);
@@ -330,21 +329,15 @@ export const exportVideo = async (
     const slideElapsed = elapsed - slideStartTime;
     const transitionDuration = 0.5;
     const transitionProgress = Math.min(slideElapsed / transitionDuration, 1);
-    
-    renderSlideToCanvas(
-      slides[currentSlideIndex], 
-      canvas, 
-      backgroundVideo, 
-      transitionProgress,
-      globalOverlay
-    );
-    
+
+    renderSlideToCanvas(slides[currentSlideIndex], canvas, backgroundVideo, transitionProgress, globalOverlay);
+
     // Schedule next frame
-    requestAnimationFrame(animate);
+    setTimeout(tick, frameDuration);
   };
 
-  // Start animation loop
-  animate();
+  // Start render loop
+  tick();
 
   onProgress(95, "Finalizing video...");
   const videoBlob = await recordingPromise;
