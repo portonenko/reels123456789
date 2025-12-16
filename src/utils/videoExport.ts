@@ -223,11 +223,10 @@ export const exportVideo = async (
   
   // Calculate total duration for adaptive settings
   const totalDuration = slides.reduce((sum, s) => sum + s.durationSec, 0);
-  
+
   // Adaptive bitrate based on video duration
   const videoBitrate = totalDuration > 30 ? 4000000 : totalDuration > 15 ? 6000000 : 8000000;
-  const chunkInterval = totalDuration > 30 ? 2000 : 1000; // Larger chunks for long videos
-  
+
   const recorderOptions: any = {
     mimeType,
     videoBitsPerSecond: videoBitrate,
@@ -250,7 +249,7 @@ export const exportVideo = async (
       if (audioContext) {
         audioContext.close();
       }
-      const blob = new Blob(chunks, { type: mimeType.split(';')[0] });
+      const blob = new Blob(chunks, { type: mimeType });
       console.log(`Final video size: ${(blob.size / 1024 / 1024).toFixed(2)} MB`);
       console.log(`Video format: ${mimeType}`);
       console.log(`Total chunks: ${chunks.length}`);
@@ -278,8 +277,9 @@ export const exportVideo = async (
   }
 
   // Now start recording after media is playing
-  mediaRecorder.start(chunkInterval);
-  console.log('MediaRecorder started with format:', mimeType, 'bitrate:', videoBitrate, 'chunk interval:', chunkInterval);
+  // IMPORTANT: do not use timeslice/chunking here — some players stutter on fragmented recordings.
+  mediaRecorder.start();
+  console.log('MediaRecorder started with format:', mimeType, 'bitrate:', videoBitrate);
 
   // Render slides at fixed 30 FPS
   const fps = 30;
