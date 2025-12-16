@@ -21,8 +21,6 @@ interface StylePanelProps {
   onUpdateGlobalOverlay: (value: number) => void;
   showTextBoxControls: boolean;
   onToggleTextBoxControls: (show: boolean) => void;
-  showPositionEditor?: boolean;
-  onTogglePositionEditor?: (show: boolean) => void;
   lang?: 'en' | 'ru';
 }
 
@@ -45,8 +43,6 @@ export const StylePanel = ({
   onUpdateGlobalOverlay,
   showTextBoxControls,
   onToggleTextBoxControls,
-  showPositionEditor = false,
-  onTogglePositionEditor,
   lang = 'en',
 }: StylePanelProps) => {
   const { applyStyleToAll, applyDurationToAll, slides, updateSlide } = useEditorStore();
@@ -263,38 +259,7 @@ export const StylePanel = ({
               </Select>
             </div>
 
-            <div>
-              <Label>Text Transform</Label>
-              <Select
-                value={slide.style.text.textTransform || "none"}
-                onValueChange={(value: any) =>
-                  onUpdateSlide({
-                    style: {
-                      ...slide.style,
-                      text: { ...slide.style.text, textTransform: value },
-                    },
-                  })
-                }
-              >
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="none">None</SelectItem>
-                  <SelectItem value="uppercase">UPPERCASE</SelectItem>
-                  <SelectItem value="lowercase">lowercase</SelectItem>
-                  <SelectItem value="capitalize">Capitalize</SelectItem>
-                </SelectContent>
-            </Select>
-          </div>
-
-          <div className="text-xs text-muted-foreground bg-blue-500/10 border border-blue-500/20 rounded p-3">
-            <p className="font-medium mb-1">💡 Цвет отдельных слов:</p>
-            <p>Используйте <code className="bg-background/50 px-1 rounded">[#FF0000]текст[]</code></p>
-            <p className="mt-1 text-[10px]">Пример: <code className="bg-background/50 px-1 rounded">Привет [#FF0000]красный[] мир</code></p>
-          </div>
-
-          <Separator className="my-4" />
+            <Separator className="my-4" />
             
             <div>
               <Label>Shadow Intensity: {slide.style.text.shadowIntensity || 10}</Label>
@@ -350,31 +315,6 @@ export const StylePanel = ({
                 </div>
               </>
             )}
-
-            <Separator className="my-4" />
-
-            <div className="space-y-3">
-              <div className="flex items-center justify-between">
-                <Label>{lang === 'ru' ? 'Перетаскивание текста' : 'Drag & Drop Text'}</Label>
-                {onTogglePositionEditor && (
-                  <Switch
-                    checked={showPositionEditor}
-                    onCheckedChange={onTogglePositionEditor}
-                  />
-                )}
-              </div>
-              
-              {showPositionEditor && (
-                <div className="text-xs text-muted-foreground bg-primary/10 border border-primary/20 rounded p-3">
-                  <p className="font-medium mb-1">{lang === 'ru' ? 'Как использовать:' : 'How to use:'}</p>
-                  <ul className="list-disc list-inside space-y-1">
-                    <li>{lang === 'ru' ? 'Перетаскивайте текст на превью' : 'Drag text on preview to move'}</li>
-                    <li>{lang === 'ru' ? 'Используйте кнопки Center для выравнивания' : 'Use Center buttons to align text'}</li>
-                    <li>{lang === 'ru' ? 'Блоки с одинаковым delay появятся одновременно' : 'Blocks with same delay appear simultaneously'}</li>
-                  </ul>
-                </div>
-              )}
-            </div>
 
             {showTextBoxControls && (
               <Button 

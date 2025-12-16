@@ -5,19 +5,16 @@ import { useEditorStore } from "@/store/useEditorStore";
 import { Button } from "@/components/ui/button";
 import { Play, Pause, RotateCcw } from "lucide-react";
 import { DraggableTextBox } from "./DraggableTextBox";
-import { TextBlockPositionEditor } from "./TextBlockPositionEditor";
 import { renderSlideText } from "@/utils/canvasTextRenderer";
 
 interface CanvasPreviewProps {
   slide: Slide | null;
   globalOverlay: number;
   showTextBoxControls?: boolean;
-  showPositionEditor?: boolean;
-  onUpdateSlide?: (updates: Partial<Slide>) => void;
   lang?: 'en' | 'ru';
 }
 
-export const CanvasPreview = ({ slide, globalOverlay, showTextBoxControls = false, showPositionEditor = false, onUpdateSlide, lang = 'en' }: CanvasPreviewProps) => {
+export const CanvasPreview = ({ slide, globalOverlay, showTextBoxControls = false, lang = 'en' }: CanvasPreviewProps) => {
   const { assets, slides, updateSlide, backgroundMusicUrl } = useEditorStore();
   const [isPlaying, setIsPlaying] = useState(false);
   const [currentSlideIndex, setCurrentSlideIndex] = useState(0);
@@ -143,10 +140,7 @@ export const CanvasPreview = ({ slide, globalOverlay, showTextBoxControls = fals
     }
 
     // Render text using unified function
-    renderSlideText(ctx, currentSlide, canvas, { 
-      isPreview: true,
-      currentTime: slideTime 
-    });
+    renderSlideText(ctx, currentSlide, canvas, { isPreview: true });
     
     ctx.restore();
   }, [currentSlide, slideTime, isPlaying]);
@@ -362,16 +356,6 @@ export const CanvasPreview = ({ slide, globalOverlay, showTextBoxControls = fals
               containerHeight={640}
               onUpdate={handleTextBoxUpdate}
               lang={lang}
-            />
-          )}
-
-          {/* Text block position editor */}
-          {showPositionEditor && slide && !isPlaying && onUpdateSlide && (
-            <TextBlockPositionEditor
-              slide={slide}
-              onUpdateSlide={onUpdateSlide}
-              containerWidth={360}
-              containerHeight={640}
             />
           )}
       </div>

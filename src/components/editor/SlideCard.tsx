@@ -1,17 +1,10 @@
-import { Slide, TextBlock } from "@/types";
+import { Slide } from "@/types";
 import { Button } from "@/components/ui/button";
-import { Copy, Trash2, GripVertical, Edit2, Plus, Minus } from "lucide-react";
+import { Copy, Trash2, GripVertical, Edit2 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { useState, useRef } from "react";
+import { useState } from "react";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { ColorInsertButton } from "./ColorInsertButton";
-import { TextBlockTimeline } from "./TextBlockTimeline";
-
-// Helper to remove color tags from text for display
-const stripColorTags = (text: string): string => {
-  return text.replace(/\[#[0-9a-fA-F]{6}\](.*?)\[\]/g, '$1');
-};
 
 interface SlideCardProps {
   slide: Slide;
@@ -43,81 +36,19 @@ export const SlideCard = ({
   const [isEditing, setIsEditing] = useState(false);
   const [editTitle, setEditTitle] = useState(slide.title);
   const [editBody, setEditBody] = useState(slide.body || "");
-  const [editTextBlocks, setEditTextBlocks] = useState<TextBlock[]>(
-    slide.textBlocks || [{ title: slide.title, body: slide.body }]
-  );
-  
-  const blockTitleRefs = useRef<Map<number, HTMLInputElement>>(new Map());
-  const blockBodyRefs = useRef<Map<number, HTMLTextAreaElement>>(new Map());
 
   const handleSave = () => {
-    // If using text blocks
-    if (editTextBlocks.length > 1 || (editTextBlocks.length === 1 && editTextBlocks[0].title !== editTitle)) {
-      onUpdate({
-        textBlocks: editTextBlocks.filter(block => block.title.trim()),
-        title: editTextBlocks[0]?.title || editTitle, // Keep first block title for backward compatibility
-        body: editTextBlocks[0]?.body,
-      });
-    } else {
-      // Single block, use original structure
-      onUpdate({
-        title: editTitle,
-        body: editBody || undefined,
-        textBlocks: undefined,
-      });
-    }
+    onUpdate({
+      title: editTitle,
+      body: editBody || undefined,
+    });
     setIsEditing(false);
   };
 
   const handleCancel = () => {
     setEditTitle(slide.title);
     setEditBody(slide.body || "");
-    setEditTextBlocks(slide.textBlocks || [{ title: slide.title, body: slide.body }]);
     setIsEditing(false);
-  };
-
-  const addTextBlock = () => {
-    setEditTextBlocks([...editTextBlocks, { title: "", body: "" }]);
-  };
-
-  const removeTextBlock = (index: number) => {
-    if (editTextBlocks.length > 1) {
-      setEditTextBlocks(editTextBlocks.filter((_, i) => i !== index));
-    }
-  };
-
-  const updateTextBlock = (index: number, field: "title" | "body" | "delay" | "duration", value: string | number) => {
-    const updated = [...editTextBlocks];
-    if (field === "delay" || field === "duration") {
-      updated[index][field] = value as number;
-    } else {
-      updated[index][field] = value as string;
-    }
-    setEditTextBlocks(updated);
-  };
-
-  const insertColorIntoBlock = (blockIndex: number, field: "title" | "body", color: string) => {
-    const inputEl = field === "title" 
-      ? blockTitleRefs.current.get(blockIndex)
-      : blockBodyRefs.current.get(blockIndex);
-    
-    if (!inputEl) return;
-
-    const start = inputEl.selectionStart || 0;
-    const end = inputEl.selectionEnd || 0;
-    const currentValue = editTextBlocks[blockIndex][field] || "";
-    const selectedText = currentValue.substring(start, end) || "текст";
-    
-    const colorTag = `[${color}]${selectedText}[]`;
-    const newValue = currentValue.substring(0, start) + colorTag + currentValue.substring(end);
-    
-    updateTextBlock(blockIndex, field, newValue);
-    
-    setTimeout(() => {
-      inputEl.focus();
-      const newCursorPos = start + colorTag.length;
-      inputEl.setSelectionRange(newCursorPos, newCursorPos);
-    }, 0);
   };
 
   return (
@@ -163,129 +94,33 @@ export const SlideCard = ({
           </div>
 
           {isEditing ? (
-            <div className="space-y-3" onClick={(e) => e.stopPropagation()}>
-              {/* Timeline editor - always show if multiple blocks */}
-              {editTextBlocks.length > 0 && (
-                <TextBlockTimeline
-                  blocks={editTextBlocks}
-                  slideDuration={slide.durationSec}
-                  onChange={setEditTextBlocks}
-                />
-              )}
-              
-              {editTextBlocks.map((block, blockIndex) => (
-                <div key={blockIndex} className="space-y-2 p-3 border border-border rounded-md bg-background/50">
-                    <div className="flex items-center justify-between mb-1">
-                      <div className="flex items-center gap-2 flex-wrap">
-                        <span className="text-xs font-medium text-muted-foreground">
-                          Блок {blockIndex + 1}
-                        </span>
-                        <div className="flex items-center gap-1">
-                          <span className="text-xs text-muted-foreground">Появится:</span>
-                          <input
-                            type="number"
-                            min="0"
-                            step="0.1"
-                            value={block.delay || 0}
-                            onChange={(e) => updateTextBlock(blockIndex, "delay", parseFloat(e.target.value) || 0)}
-                            className="w-14 h-6 px-2 text-xs border rounded bg-background"
-                            placeholder="0"
-                          />
-                          <span className="text-xs text-muted-foreground">с</span>
-                        </div>
-                        <div className="flex items-center gap-1">
-                          <span className="text-xs text-muted-foreground">Показать:</span>
-                          <input
-                            type="number"
-                            min="0"
-                            step="0.1"
-                            value={block.duration || 0}
-                            onChange={(e) => updateTextBlock(blockIndex, "duration", parseFloat(e.target.value) || 0)}
-                            className="w-14 h-6 px-2 text-xs border rounded bg-background"
-                            placeholder="0"
-                          />
-                          <span className="text-xs text-muted-foreground">с (0=всегда)</span>
-                        </div>
-                      </div>
-                      {editTextBlocks.length > 1 && (
-                        <Button
-                          size="sm"
-                          variant="ghost"
-                          onClick={() => removeTextBlock(blockIndex)}
-                          className="h-6 w-6 p-0"
-                        >
-                          <Minus className="w-3 h-3" />
-                        </Button>
-                      )}
-                    </div>
-                    <div className="flex gap-2">
-                      <Input
-                        ref={(el) => {
-                          if (el) blockTitleRefs.current.set(blockIndex, el);
-                        }}
-                        value={block.title}
-                        onChange={(e) => updateTextBlock(blockIndex, "title", e.target.value)}
-                        placeholder="Заголовок"
-                        className="h-8 text-sm"
-                      />
-                      <ColorInsertButton
-                        onInsert={(color) => insertColorIntoBlock(blockIndex, "title", color)}
-                      />
-                    </div>
-                    <div className="flex gap-2">
-                      <Textarea
-                        ref={(el) => {
-                          if (el) blockBodyRefs.current.set(blockIndex, el);
-                        }}
-                        value={block.body || ""}
-                        onChange={(e) => updateTextBlock(blockIndex, "body", e.target.value)}
-                        placeholder="Описание (опционально)"
-                        className="min-h-[50px] text-xs resize-none"
-                      />
-                      <ColorInsertButton
-                        onInsert={(color) => insertColorIntoBlock(blockIndex, "body", color)}
-                      />
-                    </div>
-                  </div>
-                ))}
-              <Button
-                size="sm"
-                variant="outline"
-                onClick={addTextBlock}
-                className="w-full h-7 text-xs"
-              >
-                <Plus className="w-3 h-3 mr-1" />
-                Добавить блок
-              </Button>
+            <div className="space-y-2" onClick={(e) => e.stopPropagation()}>
+              <Input
+                value={editTitle}
+                onChange={(e) => setEditTitle(e.target.value)}
+                placeholder="Title"
+                className="h-8 text-sm"
+              />
+              <Textarea
+                value={editBody}
+                onChange={(e) => setEditBody(e.target.value)}
+                placeholder="Body (optional)"
+                className="min-h-[60px] text-xs resize-none"
+              />
               <div className="flex gap-2">
                 <Button size="sm" onClick={handleSave} className="h-7 text-xs">
-                  Сохранить
+                  Save
                 </Button>
                 <Button size="sm" variant="outline" onClick={handleCancel} className="h-7 text-xs">
-                  Отмена
+                  Cancel
                 </Button>
               </div>
             </div>
           ) : (
             <>
-              {slide.textBlocks && slide.textBlocks.length > 0 ? (
-                <div className="space-y-2">
-                  {slide.textBlocks.map((block, blockIndex) => (
-                    <div key={blockIndex} className="border-l-2 border-primary/30 pl-2">
-                      <h4 className="font-medium text-sm mb-0.5 line-clamp-1">{stripColorTags(block.title)}</h4>
-                      {block.body && (
-                        <p className="text-xs text-muted-foreground line-clamp-1">{stripColorTags(block.body)}</p>
-                      )}
-                    </div>
-                  ))}
-                </div>
-              ) : (
-                <>
-                  <h4 className="font-medium text-sm mb-1 line-clamp-1">{stripColorTags(slide.title)}</h4>
-                  {slide.body && (
-                    <p className="text-xs text-muted-foreground line-clamp-2">{stripColorTags(slide.body)}</p>
-                  )}
-                </>
+              <h4 className="font-medium text-sm mb-1 line-clamp-1">{slide.title}</h4>
+              {slide.body && (
+                <p className="text-xs text-muted-foreground line-clamp-2">{slide.body}</p>
               )}
             </>
           )}

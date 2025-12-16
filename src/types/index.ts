@@ -45,17 +45,6 @@ export interface SlideStyle {
   safeMarginBottom: number;
 }
 
-export interface TextBlock {
-  title: string;
-  body?: string;
-  delay?: number; // Delay in seconds before this block appears
-  duration?: number; // How long the block stays visible (0 = until slide ends)
-  position?: {
-    x: number; // percentage from left (0-100)
-    y: number; // percentage from top (0-100)
-  };
-}
-
 export interface Slide {
   id: string;
   projectId: string;
@@ -63,13 +52,11 @@ export interface Slide {
   type: SlideType;
   title: string;
   body?: string;
-  textBlocks?: TextBlock[]; // Multiple text blocks support
   durationSec: number;
   assetId?: string;
   style: SlideStyle;
   language?: string; // Language code for translated slides
   transition?: "none" | "fade" | "flash" | "glow" | "slide-left" | "slide-right" | "sunlight";
-  startTime?: number; // When the slide starts in the timeline (seconds)
 }
 
 export interface Asset {
