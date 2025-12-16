@@ -289,15 +289,13 @@ export const exportVideo = async (
   mediaRecorder.start();
   console.log("MediaRecorder started with format:", mimeType, "bitrate:", videoBitrate);
 
-  // Render slides at fixed 30 FPS
-  const fps = 30;
-  const frameDuration = 1000 / fps;
   const startTime = performance.now();
   let currentSlideIndex = 0;
   let slideStartTime = 0;
 
-  // Use a fixed-timestep timer (instead of rAF + frame-skipping) to reduce uneven frame pacing
-  const tick = () => {
+  // Render loop: render on every animation frame and let captureStream(30) sample at 30fps.
+  // This avoids timer throttling (setTimeout) that can create uneven frame timestamps.
+  const animate = () => {
     const now = performance.now();
     const elapsed = (now - startTime) / 1000;
 
@@ -332,12 +330,11 @@ export const exportVideo = async (
 
     renderSlideToCanvas(slides[currentSlideIndex], canvas, backgroundVideo, transitionProgress, globalOverlay);
 
-    // Schedule next frame
-    setTimeout(tick, frameDuration);
+    requestAnimationFrame(animate);
   };
 
   // Start render loop
-  tick();
+  requestAnimationFrame(animate);
 
   onProgress(95, "Finalizing video...");
   const videoBlob = await recordingPromise;
