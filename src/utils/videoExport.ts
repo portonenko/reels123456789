@@ -2,35 +2,37 @@ import { Slide, Asset } from "@/types";
 import { renderSlideText } from "./canvasTextRenderer";
 import JSZip from "jszip";
 
+const prepareCanvasContext = (canvas: HTMLCanvasElement): CanvasRenderingContext2D | null => {
+  const ctx = canvas.getContext("2d", {
+    alpha: false,
+    // Hint to browser this canvas is used for realtime capture
+    desynchronized: true,
+    willReadFrequently: false,
+  });
+  if (!ctx) return null;
+
+  // Enable high-quality rendering once
+  ctx.imageSmoothingEnabled = true;
+  ctx.imageSmoothingQuality = "high";
+  (ctx as any).textRendering = "geometricPrecision";
+
+  return ctx;
+};
+
 const renderSlideToCanvas = (
+  ctx: CanvasRenderingContext2D,
   slide: Slide,
   canvas: HTMLCanvasElement,
   backgroundMedia?: HTMLVideoElement | HTMLImageElement,
   transitionProgress?: number,
   globalOverlay?: number
 ): void => {
-  const ctx = canvas.getContext("2d", { 
-    alpha: false,
-    desynchronized: false,
-    willReadFrequently: false
-  });
-  if (!ctx) return;
-
-  // Set canvas size to 1080x1920 (9:16 vertical)
-  canvas.width = 1080;
-  canvas.height = 1920;
-
-  // Enable high-quality rendering
-  ctx.imageSmoothingEnabled = true;
-  ctx.imageSmoothingQuality = 'high';
-  ctx.textRendering = 'geometricPrecision' as any;
-
   // Calculate transition effects
   const progress = transitionProgress ?? 1;
   let opacity = 1;
   let offsetX = 0;
-  let filterValue = 'none';
-  
+  let filterValue = "none";
+
   if (progress < 1 && slide.transition) {
     switch (slide.transition) {
       case "fade":
@@ -38,7 +40,7 @@ const renderSlideToCanvas = (
         break;
       case "flash":
         if (progress < 0.3) {
-          filterValue = `brightness(${1 + (3 - progress / 0.3 * 3)})`;
+          filterValue = `brightness(${1 + (3 - (progress / 0.3) * 3)})`;
           opacity = progress / 0.3;
         }
         break;
@@ -49,10 +51,10 @@ const renderSlideToCanvas = (
       case "sunlight":
         // Sunlight flash: intense white flash at start, then fade in
         if (progress < 0.2) {
-          filterValue = `brightness(${1 + (5 - progress / 0.2 * 5)})`;
+          filterValue = `brightness(${1 + (5 - (progress / 0.2) * 5)})`;
           opacity = progress / 0.2;
         } else {
-          opacity = 0.2 + (progress - 0.2) * 1.25; // fade in after flash
+          opacity = 0.2 + (progress - 0.2) * 1.25;
         }
         break;
       case "slide-left":
@@ -64,13 +66,15 @@ const renderSlideToCanvas = (
     }
   }
 
+  // Clear once per frame
+  ctx.setTransform(1, 0, 0, 1, 0, 0);
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+
   // Save context for transitions
   ctx.save();
   ctx.globalAlpha = opacity;
   ctx.translate(offsetX, 0);
-  if (filterValue !== 'none') {
-    ctx.filter = filterValue;
-  }
+  ctx.filter = filterValue;
 
   // Draw background (video or image)
   if (backgroundMedia) {
@@ -78,9 +82,9 @@ const renderSlideToCanvas = (
   } else {
     // Gradient fallback
     const gradient = ctx.createLinearGradient(0, 0, canvas.width, canvas.height);
-    gradient.addColorStop(0, "#581c87"); // purple-900
-    gradient.addColorStop(0.5, "#1e3a8a"); // blue-900
-    gradient.addColorStop(1, "#155e75"); // cyan-900
+    gradient.addColorStop(0, "#581c87");
+    gradient.addColorStop(0.5, "#1e3a8a");
+    gradient.addColorStop(1, "#155e75");
     ctx.fillStyle = gradient;
     ctx.fillRect(0, 0, canvas.width, canvas.height);
   }
@@ -109,6 +113,11 @@ export const exportVideo = async (
   const canvas = document.createElement("canvas");
   canvas.width = 1080;
   canvas.height = 1920;
+
+  const ctx = prepareCanvasContext(canvas);
+  if (!ctx) {
+    throw new Error("Failed to initialize canvas context");
+  }
 
   let backgroundVideo: HTMLVideoElement | undefined;
   let backgroundAudio: HTMLAudioElement | undefined;
@@ -328,7 +337,7 @@ export const exportVideo = async (
     const transitionDuration = 0.5;
     const transitionProgress = Math.min(slideElapsed / transitionDuration, 1);
 
-    renderSlideToCanvas(slides[currentSlideIndex], canvas, backgroundVideo, transitionProgress, globalOverlay);
+    renderSlideToCanvas(ctx, slides[currentSlideIndex], canvas, backgroundVideo, transitionProgress, globalOverlay);
 
     requestAnimationFrame(animate);
   };
@@ -354,6 +363,11 @@ export const exportPhotos = async (
   const canvas = document.createElement("canvas");
   canvas.width = 1080;
   canvas.height = 1920;
+
+  const ctx = prepareCanvasContext(canvas);
+  if (!ctx) {
+    throw new Error("Failed to initialize canvas context");
+  }
 
   let backgroundImage: HTMLImageElement | undefined;
   
@@ -385,7 +399,7 @@ export const exportPhotos = async (
     onProgress(progressPercent, `Rendering slide ${i + 1}/${totalSlides}...`);
 
     // Render slide to canvas
-    renderSlideToCanvas(slide, canvas, backgroundImage, 1, globalOverlay);
+    renderSlideToCanvas(ctx, slide, canvas, backgroundImage, 1, globalOverlay);
 
     // Convert canvas to blob
     const blob = await new Promise<Blob>((resolve, reject) => {
