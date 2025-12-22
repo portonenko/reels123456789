@@ -85,7 +85,7 @@ export function parseTextToSlides(
         i++;
       }
       
-      const body = bodyLines.join(" ").trim();
+      const body = bodyLines.join("\n").trim();
       const type: SlideType = body.length === 0 ? "title-only" : "title-body";
       const duration = type === "title-only" ? 2 : calculateDuration(body || title);
       

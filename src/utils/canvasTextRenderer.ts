@@ -84,7 +84,7 @@ export const renderSlideText = (
   const titleLineHeight = slide.style.text.fontSize * slide.style.text.lineHeight;
   const titleBlockHeight = titleLines.length * titleLineHeight;
 
-  // Wrap body text
+  // Wrap body text (preserving line breaks)
   let bodyLines: string[] = [];
   let maxBodyWidth = 0;
   let bodyBlockHeight = 0;
@@ -92,23 +92,35 @@ export const renderSlideText = (
   if (cleanBody) {
     const bodyFontSize = slide.style.text.bodyFontSize || slide.style.text.fontSize * 0.5;
     ctx.font = `${slide.style.text.bodyFontWeight || slide.style.text.fontWeight - 200} ${bodyFontSize}px ${slide.style.text.bodyFontFamily || slide.style.text.fontFamily}`;
-    const bodyWords = cleanBody.split(' ');
-    let bodyLine = '';
-
-    for (const word of bodyWords) {
-      const testLine = bodyLine + word + ' ';
-      const testWidth = measureText(testLine, bodyFontSize, slide.style.text.letterSpacing);
-      if (testWidth > textBoxWidth && bodyLine.length > 0) {
-        bodyLines.push(bodyLine.trim());
-        maxBodyWidth = Math.max(maxBodyWidth, measureText(bodyLine.trim(), bodyFontSize, slide.style.text.letterSpacing));
-        bodyLine = word + ' ';
-      } else {
-        bodyLine = testLine;
+    
+    // Split by line breaks first, then wrap each paragraph
+    const paragraphs = cleanBody.split(/\n+/);
+    
+    for (const paragraph of paragraphs) {
+      if (!paragraph.trim()) {
+        // Empty line = paragraph break (add spacing)
+        bodyLines.push('');
+        continue;
       }
-    }
-    if (bodyLine.trim()) {
-      bodyLines.push(bodyLine.trim());
-      maxBodyWidth = Math.max(maxBodyWidth, measureText(bodyLine.trim(), bodyFontSize, slide.style.text.letterSpacing));
+      
+      const words = paragraph.split(' ');
+      let currentLine = '';
+      
+      for (const word of words) {
+        const testLine = currentLine + word + ' ';
+        const testWidth = measureText(testLine, bodyFontSize, slide.style.text.letterSpacing);
+        if (testWidth > textBoxWidth && currentLine.length > 0) {
+          bodyLines.push(currentLine.trim());
+          maxBodyWidth = Math.max(maxBodyWidth, measureText(currentLine.trim(), bodyFontSize, slide.style.text.letterSpacing));
+          currentLine = word + ' ';
+        } else {
+          currentLine = testLine;
+        }
+      }
+      if (currentLine.trim()) {
+        bodyLines.push(currentLine.trim());
+        maxBodyWidth = Math.max(maxBodyWidth, measureText(currentLine.trim(), bodyFontSize, slide.style.text.letterSpacing));
+      }
     }
     
     const bodyLineHeight = bodyFontSize * slide.style.text.lineHeight * 1.2;
