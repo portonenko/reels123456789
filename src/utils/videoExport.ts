@@ -302,48 +302,69 @@ export const exportVideo = async (
   let currentSlideIndex = 0;
   let slideStartTime = 0;
 
-  // Render loop: render on every animation frame and let captureStream(30) sample at 30fps.
-  // This avoids timer throttling (setTimeout) that can create uneven frame timestamps.
-  const animate = () => {
-    const now = performance.now();
-    const elapsed = (now - startTime) / 1000;
+  const fps = 30;
+  const frameMs = 1000 / fps;
 
-    // Check if recording is complete
-    if (elapsed >= totalDuration) {
-      if (backgroundVideo) backgroundVideo.pause();
-      if (backgroundAudio) backgroundAudio.pause();
-      mediaRecorder.stop();
-      console.log("Recording completed at:", elapsed.toFixed(2), "seconds");
-      return;
-    }
+  // Render loop:
+  // Use a fixed-timestep scheduler (instead of requestAnimationFrame) to produce
+  // more uniform frame timestamps in the captured stream. Some players show
+  // micro-stutter when the recording ends up variable-frame-rate.
+  const runFixedFpsRenderLoop = async () => {
+    let nextFrameAt = performance.now();
 
-    // Update progress
-    const progressPercent = (elapsed / totalDuration) * 100;
-    onProgress(10 + progressPercent * 0.85, `Recording slide ${currentSlideIndex + 1}/${slides.length}...`);
+    while (true) {
+      const now = performance.now();
+      const elapsed = (now - startTime) / 1000;
 
-    // Find current slide
-    let accumulatedTime = 0;
-    for (let i = 0; i < slides.length; i++) {
-      if (elapsed < accumulatedTime + slides[i].durationSec) {
-        currentSlideIndex = i;
-        slideStartTime = accumulatedTime;
+      if (elapsed >= totalDuration) {
         break;
       }
-      accumulatedTime += slides[i].durationSec;
+
+      // Update progress
+      const progressPercent = (elapsed / totalDuration) * 100;
+      onProgress(10 + progressPercent * 0.85, `Recording slide ${currentSlideIndex + 1}/${slides.length}...`);
+
+      // Find current slide
+      let accumulatedTime = 0;
+      for (let i = 0; i < slides.length; i++) {
+        if (elapsed < accumulatedTime + slides[i].durationSec) {
+          currentSlideIndex = i;
+          slideStartTime = accumulatedTime;
+          break;
+        }
+        accumulatedTime += slides[i].durationSec;
+      }
+
+      // Render slide with transition
+      const slideElapsed = elapsed - slideStartTime;
+      const transitionDuration = 0.5;
+      const transitionProgress = Math.min(slideElapsed / transitionDuration, 1);
+
+      renderSlideToCanvas(ctx, slides[currentSlideIndex], canvas, backgroundVideo, transitionProgress, globalOverlay);
+
+      // Schedule next frame
+      nextFrameAt += frameMs;
+      const waitMs = Math.max(0, nextFrameAt - performance.now());
+      if (waitMs > 0) {
+        await new Promise((r) => setTimeout(r, waitMs));
+      } else {
+        // If we're behind, yield to avoid blocking the main thread.
+        await new Promise((r) => setTimeout(r, 0));
+      }
     }
 
-    // Render slide with transition
-    const slideElapsed = elapsed - slideStartTime;
-    const transitionDuration = 0.5;
-    const transitionProgress = Math.min(slideElapsed / transitionDuration, 1);
+    if (backgroundVideo) backgroundVideo.pause();
+    if (backgroundAudio) backgroundAudio.pause();
 
-    renderSlideToCanvas(ctx, slides[currentSlideIndex], canvas, backgroundVideo, transitionProgress, globalOverlay);
+    // Give the recorder a tiny moment to flush the last painted frame
+    await new Promise((r) => setTimeout(r, 100));
+    mediaRecorder.stop();
 
-    requestAnimationFrame(animate);
+    console.log("Recording completed at:", ((performance.now() - startTime) / 1000).toFixed(2), "seconds");
   };
 
   // Start render loop
-  requestAnimationFrame(animate);
+  void runFixedFpsRenderLoop();
 
   onProgress(95, "Finalizing video...");
   const videoBlob = await recordingPromise;
