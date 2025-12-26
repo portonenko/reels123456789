@@ -1,8 +1,14 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Progress } from "@/components/ui/progress";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import {
   Download,
   Save,
@@ -12,6 +18,8 @@ import {
   CheckCircle2,
   Loader2,
   Music,
+  Eye,
+  X,
 } from "lucide-react";
 import { toast } from "sonner";
 import { 
@@ -23,7 +31,8 @@ import {
 import { supabase } from "@/integrations/supabase/client";
 import JSZip from "jszip";
 import { exportVideo, exportPhotos } from "@/utils/videoExport";
-import { Asset } from "@/types";
+import { Asset, Slide } from "@/types";
+import { renderSlideText } from "@/utils/canvasTextRenderer";
 
 interface StepReviewProps {
   generatedContent: GeneratedContent[];
@@ -38,11 +47,60 @@ interface ExportProgress {
   stage: string;
 }
 
+interface SingleExportState {
+  id: string;
+  progress: number;
+  stage: string;
+}
+
 const FORMAT_ICONS: Record<ContentFormat, React.ReactNode> = {
   video: <Video className="w-4 h-4" />,
   carousel: <LayoutGrid className="w-4 h-4" />,
   "static-single": <Image className="w-4 h-4" />,
   "static-multi": <Image className="w-4 h-4" />,
+};
+
+// Simple slide preview renderer
+const SlidePreviewCanvas = ({ slide, size = 120 }: { slide: Slide; size?: number }) => {
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return;
+
+    // Clear
+    ctx.fillStyle = "#1a1a2e";
+    ctx.fillRect(0, 0, size, size);
+
+    // Draw simple text preview
+    const style = (slide.style || {}) as Record<string, any>;
+    ctx.fillStyle = (style.textColor as string) || "#ffffff";
+    ctx.font = `bold ${Math.max(10, size / 10)}px sans-serif`;
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+
+    const text = slide.title || "";
+    const lines = text.split("\n").slice(0, 3);
+    const lineHeight = size / 8;
+    const startY = size / 2 - ((lines.length - 1) * lineHeight) / 2;
+
+    lines.forEach((line, i) => {
+      const truncated = line.length > 15 ? line.slice(0, 15) + "…" : line;
+      ctx.fillText(truncated, size / 2, startY + i * lineHeight);
+    });
+  }, [slide, size]);
+
+  return (
+    <canvas
+      ref={canvasRef}
+      width={size}
+      height={size}
+      className="rounded border border-border"
+    />
+  );
 };
 
 export const StepReview = ({ generatedContent, assets }: StepReviewProps) => {
@@ -52,6 +110,12 @@ export const StepReview = ({ generatedContent, assets }: StepReviewProps) => {
   const [exportProgress, setExportProgress] = useState<ExportProgress | null>(null);
   const [downloadUrl, setDownloadUrl] = useState<string | null>(null);
   const [downloadName, setDownloadName] = useState<string | null>(null);
+  
+  // Single item export
+  const [singleExport, setSingleExport] = useState<SingleExportState | null>(null);
+  
+  // Preview dialog
+  const [previewContent, setPreviewContent] = useState<GeneratedContent | null>(null);
 
   useEffect(() => {
     return () => {
@@ -91,6 +155,88 @@ export const StepReview = ({ generatedContent, assets }: StepReviewProps) => {
       toast.error(`Failed to save: ${error.message}`);
     } finally {
       setIsSaving(false);
+    }
+  };
+
+  // Export single item
+  const handleExportSingle = async (content: GeneratedContent) => {
+    const langName = FACTORY_LANGUAGES.find(l => l.code === content.language)?.name || content.language;
+    const formatName = CONTENT_FORMATS.find(f => f.code === content.format)?.name?.replace(/\s+/g, '_') || content.format;
+    const folderName = `${langName}_${formatName}`;
+
+    setSingleExport({ id: content.id, progress: 0, stage: "Подготовка..." });
+
+    try {
+      const zip = new JSZip();
+
+      if (content.format === "video") {
+        const videoAsset = assets.find(a => a.type === 'video' || !a.type);
+        setSingleExport({ id: content.id, progress: 10, stage: "Рендеринг видео..." });
+
+        const videoBlob = await exportVideo(
+          content.slides,
+          videoAsset || null,
+          (progress, message) => {
+            setSingleExport({ id: content.id, progress: 10 + progress * 0.8, stage: message });
+          },
+          content.musicUrl,
+          30
+        );
+        zip.file("video.webm", videoBlob);
+
+        if (content.musicUrl) {
+          zip.file("music_url.txt", content.musicUrl);
+        }
+      } else {
+        const imageAsset = assets.find(a => a.type === 'image');
+        setSingleExport({ id: content.id, progress: 10, stage: "Рендеринг изображений..." });
+
+        const photosZipBlob = await exportPhotos(
+          content.slides,
+          imageAsset || null,
+          (progress, message) => {
+            setSingleExport({ id: content.id, progress: 10 + progress * 0.8, stage: message });
+          },
+          30
+        );
+
+        const innerZip = await JSZip.loadAsync(photosZipBlob);
+        for (const [fileName, file] of Object.entries(innerZip.files)) {
+          if (!file.dir) {
+            const fileData = await file.async("blob");
+            zip.file(fileName, fileData);
+          }
+        }
+      }
+
+      if (content.captionText) {
+        zip.file("caption.txt", content.captionText);
+      }
+
+      setSingleExport({ id: content.id, progress: 95, stage: "Создание ZIP..." });
+
+      const blob = await zip.generateAsync({ type: "blob" });
+      const filename = `${folderName}_${Date.now()}.zip`;
+
+      // Download
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      
+      // Fallback
+      window.open(url, "_blank");
+      setTimeout(() => URL.revokeObjectURL(url), 60000);
+
+      toast.success(`Экспорт "${folderName}" завершён!`);
+    } catch (error: any) {
+      console.error("Single export error:", error);
+      toast.error(`Ошибка экспорта: ${error.message}`);
+    } finally {
+      setSingleExport(null);
     }
   };
 
@@ -223,6 +369,62 @@ export const StepReview = ({ generatedContent, assets }: StepReviewProps) => {
 
   return (
     <div className="space-y-6">
+      {/* Preview Dialog */}
+      <Dialog open={!!previewContent} onOpenChange={() => setPreviewContent(null)}>
+        <DialogContent className="max-w-3xl max-h-[80vh] overflow-hidden">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              {previewContent && FORMAT_ICONS[previewContent.format]}
+              {previewContent && FACTORY_LANGUAGES.find(l => l.code === previewContent.language)?.name}
+              {" — "}
+              {previewContent && CONTENT_FORMATS.find(f => f.code === previewContent.format)?.name}
+            </DialogTitle>
+          </DialogHeader>
+          
+          {previewContent && (
+            <div className="space-y-4">
+              <ScrollArea className="h-[50vh]">
+                <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 gap-3 p-2">
+                  {previewContent.slides.map((slide, idx) => (
+                    <div key={idx} className="flex flex-col items-center gap-1">
+                      <SlidePreviewCanvas slide={slide} size={100} />
+                      <span className="text-xs text-muted-foreground">#{idx + 1}</span>
+                    </div>
+                  ))}
+                </div>
+              </ScrollArea>
+
+              {previewContent.captionText && (
+                <div className="p-3 bg-muted rounded-lg">
+                  <div className="text-xs font-medium mb-1">Caption:</div>
+                  <p className="text-sm whitespace-pre-wrap">{previewContent.captionText}</p>
+                </div>
+              )}
+
+              <div className="flex justify-end gap-2">
+                <Button
+                  variant="outline"
+                  onClick={() => setPreviewContent(null)}
+                >
+                  <X className="w-4 h-4 mr-2" />
+                  Закрыть
+                </Button>
+                <Button
+                  onClick={() => {
+                    setPreviewContent(null);
+                    handleExportSingle(previewContent);
+                  }}
+                  disabled={!!singleExport}
+                >
+                  <Download className="w-4 h-4 mr-2" />
+                  Скачать
+                </Button>
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
+
       {/* Download ready */}
       {downloadUrl && downloadName && (
         <div className="bg-card border border-border rounded-lg p-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
@@ -334,6 +536,7 @@ export const StepReview = ({ generatedContent, assets }: StepReviewProps) => {
             const langInfo = FACTORY_LANGUAGES.find(l => l.code === content.language);
             const formatInfo = CONTENT_FORMATS.find(f => f.code === content.format);
             const isSaved = savedItems.has(content.id);
+            const isExporting = singleExport?.id === content.id;
 
             return (
               <div 
@@ -359,6 +562,18 @@ export const StepReview = ({ generatedContent, assets }: StepReviewProps) => {
                   )}
                 </div>
 
+                {/* Slide previews */}
+                <div className="flex gap-1 mb-3 overflow-x-auto pb-1">
+                  {content.slides.slice(0, 4).map((slide, idx) => (
+                    <SlidePreviewCanvas key={idx} slide={slide} size={50} />
+                  ))}
+                  {content.slides.length > 4 && (
+                    <div className="w-[50px] h-[50px] rounded border border-border bg-muted flex items-center justify-center text-xs text-muted-foreground">
+                      +{content.slides.length - 4}
+                    </div>
+                  )}
+                </div>
+
                 <div className="space-y-2 text-sm">
                   <div className="flex items-center justify-between text-muted-foreground">
                     <span>Slides:</span>
@@ -371,12 +586,44 @@ export const StepReview = ({ generatedContent, assets }: StepReviewProps) => {
                       <span className="text-xs">Music attached</span>
                     </div>
                   )}
+                </div>
 
-                  {content.slides.length > 0 && (
-                    <div className="mt-2 p-2 bg-muted rounded text-xs truncate">
-                      {content.slides[0]?.title}
+                {/* Single export progress */}
+                {isExporting && singleExport && (
+                  <div className="mt-3 space-y-1">
+                    <div className="flex justify-between text-xs text-muted-foreground">
+                      <span>{singleExport.stage}</span>
+                      <span>{Math.round(singleExport.progress)}%</span>
                     </div>
-                  )}
+                    <Progress value={singleExport.progress} className="h-1.5" />
+                  </div>
+                )}
+
+                {/* Card actions */}
+                <div className="flex gap-2 mt-3">
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="flex-1"
+                    onClick={() => setPreviewContent(content)}
+                  >
+                    <Eye className="w-4 h-4 mr-1" />
+                    Просмотр
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="secondary"
+                    className="flex-1"
+                    onClick={() => handleExportSingle(content)}
+                    disabled={!!singleExport || isDownloading}
+                  >
+                    {isExporting ? (
+                      <Loader2 className="w-4 h-4 mr-1 animate-spin" />
+                    ) : (
+                      <Download className="w-4 h-4 mr-1" />
+                    )}
+                    Скачать
+                  </Button>
                 </div>
               </div>
             );
