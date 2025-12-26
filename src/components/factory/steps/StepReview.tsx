@@ -2,6 +2,7 @@ import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { Progress } from "@/components/ui/progress";
 import { 
   Download, 
   Save, 
@@ -27,7 +28,14 @@ import { Asset } from "@/types";
 interface StepReviewProps {
   generatedContent: GeneratedContent[];
   assets: Asset[];
-  
+}
+
+interface ExportProgress {
+  currentItem: number;
+  totalItems: number;
+  itemName: string;
+  itemProgress: number;
+  stage: string;
 }
 
 const FORMAT_ICONS: Record<ContentFormat, React.ReactNode> = {
@@ -41,6 +49,7 @@ export const StepReview = ({ generatedContent, assets }: StepReviewProps) => {
   const [isSaving, setIsSaving] = useState(false);
   const [isDownloading, setIsDownloading] = useState(false);
   const [savedItems, setSavedItems] = useState<Set<string>>(new Set());
+  const [exportProgress, setExportProgress] = useState<ExportProgress | null>(null);
 
   const handleSaveAll = async () => {
     setIsSaving(true);
@@ -79,6 +88,14 @@ export const StepReview = ({ generatedContent, assets }: StepReviewProps) => {
 
   const handleDownloadAll = async () => {
     setIsDownloading(true);
+    setExportProgress({
+      currentItem: 0,
+      totalItems: generatedContent.length,
+      itemName: "Подготовка...",
+      itemProgress: 0,
+      stage: "Инициализация"
+    });
+
     try {
       const mainZip = new JSZip();
 
@@ -91,11 +108,16 @@ export const StepReview = ({ generatedContent, assets }: StepReviewProps) => {
         
         if (!folder) continue;
 
-        toast.info(`Экспортируем ${folderName}...`, { duration: 2000 });
+        setExportProgress({
+          currentItem: i + 1,
+          totalItems: generatedContent.length,
+          itemName: folderName,
+          itemProgress: 0,
+          stage: content.format === "video" ? "Рендеринг видео" : "Рендеринг изображений"
+        });
 
         // Export based on format
         if (content.format === "video") {
-          // For video format - find an asset and export video
           const videoAsset = assets.find(a => a.type === 'video' || !a.type);
           
           try {
@@ -103,7 +125,11 @@ export const StepReview = ({ generatedContent, assets }: StepReviewProps) => {
               content.slides,
               videoAsset || null,
               (progress, message) => {
-                console.log(`Video export ${folderName}: ${progress}% - ${message}`);
+                setExportProgress(prev => prev ? {
+                  ...prev,
+                  itemProgress: progress,
+                  stage: message
+                } : null);
               },
               content.musicUrl,
               30
@@ -111,7 +137,6 @@ export const StepReview = ({ generatedContent, assets }: StepReviewProps) => {
             folder.file("video.webm", videoBlob);
           } catch (videoError: any) {
             console.error("Video export failed:", videoError);
-            // Fallback to JSON if video export fails
             folder.file("slides.json", JSON.stringify(content.slides, null, 2));
             folder.file("export_error.txt", `Video export failed: ${videoError.message}`);
           }
@@ -120,7 +145,6 @@ export const StepReview = ({ generatedContent, assets }: StepReviewProps) => {
             folder.file("music_url.txt", content.musicUrl);
           }
         } else {
-          // For carousel/static formats - export as images
           const imageAsset = assets.find(a => a.type === 'image');
           
           try {
@@ -128,12 +152,15 @@ export const StepReview = ({ generatedContent, assets }: StepReviewProps) => {
               content.slides,
               imageAsset || null,
               (progress, message) => {
-                console.log(`Photos export ${folderName}: ${progress}% - ${message}`);
+                setExportProgress(prev => prev ? {
+                  ...prev,
+                  itemProgress: progress,
+                  stage: message
+                } : null);
               },
               30
             );
             
-            // Extract images from the inner zip and add to the main folder
             const innerZip = await JSZip.loadAsync(photosZipBlob);
             
             for (const [fileName, file] of Object.entries(innerZip.files)) {
@@ -144,17 +171,23 @@ export const StepReview = ({ generatedContent, assets }: StepReviewProps) => {
             }
           } catch (photoError: any) {
             console.error("Photo export failed:", photoError);
-            // Fallback to JSON if photo export fails
             folder.file("slides.json", JSON.stringify(content.slides, null, 2));
             folder.file("export_error.txt", `Photo export failed: ${photoError.message}`);
           }
         }
 
-        // Add caption text if available
         if (content.captionText) {
           folder.file("caption.txt", content.captionText);
         }
       }
+
+      setExportProgress({
+        currentItem: generatedContent.length,
+        totalItems: generatedContent.length,
+        itemName: "Финализация",
+        itemProgress: 100,
+        stage: "Создание ZIP архива..."
+      });
 
       const blob = await mainZip.generateAsync({ type: "blob" });
       const url = URL.createObjectURL(blob);
@@ -172,11 +205,51 @@ export const StepReview = ({ generatedContent, assets }: StepReviewProps) => {
       toast.error(`Ошибка экспорта: ${error.message}`);
     } finally {
       setIsDownloading(false);
+      setExportProgress(null);
     }
   };
 
   return (
     <div className="space-y-6">
+      {/* Export Progress Bar */}
+      {exportProgress && (
+        <div className="bg-card border border-border rounded-lg p-4 space-y-3">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <Loader2 className="w-5 h-5 animate-spin text-primary" />
+              <span className="font-medium">
+                Экспорт {exportProgress.currentItem}/{exportProgress.totalItems}
+              </span>
+            </div>
+            <Badge variant="secondary">{exportProgress.itemName}</Badge>
+          </div>
+          
+          {/* Overall progress */}
+          <div className="space-y-1">
+            <div className="flex justify-between text-xs text-muted-foreground">
+              <span>Общий прогресс</span>
+              <span>{Math.round((exportProgress.currentItem / exportProgress.totalItems) * 100)}%</span>
+            </div>
+            <Progress 
+              value={(exportProgress.currentItem / exportProgress.totalItems) * 100} 
+              className="h-2"
+            />
+          </div>
+
+          {/* Current item progress */}
+          <div className="space-y-1">
+            <div className="flex justify-between text-xs text-muted-foreground">
+              <span>{exportProgress.stage}</span>
+              <span>{Math.round(exportProgress.itemProgress)}%</span>
+            </div>
+            <Progress 
+              value={exportProgress.itemProgress} 
+              className="h-1.5"
+            />
+          </div>
+        </div>
+      )}
+
       {/* Actions */}
       <div className="flex flex-wrap gap-4 justify-center">
         <Button
