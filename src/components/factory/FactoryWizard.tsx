@@ -6,15 +6,11 @@ import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { 
   FactoryState, 
-  ContentMatrixSelection, 
   GeneratedContent,
   FactoryLanguage,
-  ContentFormat,
   FACTORY_LANGUAGES,
-  VisualPreset
 } from "@/types/contentFactory";
 import { useEditorStore } from "@/store/useEditorStore";
-import { parseTextToSlides } from "@/utils/textParser";
 import { Slide } from "@/types";
 
 import { StepSourceText } from "./steps/StepSourceText";
@@ -37,7 +33,7 @@ export const FactoryWizard = () => {
   
   const [state, setState] = useState<FactoryState>({
     step: 1,
-    sourceText: "",
+    slides: [{ id: crypto.randomUUID(), title: "", body: "" }],
     captionText: "",
     selectedTemplateId: undefined,
     selectedPreset: undefined,
@@ -66,7 +62,8 @@ export const FactoryWizard = () => {
   const canProceed = (): boolean => {
     switch (state.step) {
       case 1:
-        return state.sourceText.trim().length > 0;
+        // At least one slide with a title
+        return state.slides.some(s => s.title.trim().length > 0);
       case 2:
         return state.selectedPreset !== undefined;
       case 3:
@@ -120,18 +117,21 @@ export const FactoryWizard = () => {
       const totalCombinations = languages.length * formats.length;
       let completed = 0;
 
-      // Parse source text into slides
-      const baseSlides = parseTextToSlides(state.sourceText, "factory-project", getDefaultStyle());
-      
-      // Apply preset styles if selected
-      if (state.selectedPreset) {
-        baseSlides.forEach((slide, idx) => {
-          slide.style = state.selectedPreset!.style;
-          slide.durationSec = idx === 0 
-            ? state.selectedPreset!.titleDuration 
-            : state.selectedPreset!.otherDuration;
-        });
-      }
+      // Convert slide inputs to Slide objects
+      const baseSlides: Slide[] = state.slides
+        .filter(s => s.title.trim()) // Only slides with content
+        .map((slideInput, idx) => ({
+          id: crypto.randomUUID(),
+          projectId: "factory-project",
+          index: idx,
+          type: slideInput.body.trim() ? "title-body" as const : "title-only" as const,
+          title: slideInput.title,
+          body: slideInput.body.trim() || undefined,
+          durationSec: state.selectedPreset 
+            ? (idx === 0 ? state.selectedPreset.titleDuration : state.selectedPreset.otherDuration)
+            : 3,
+          style: state.selectedPreset?.style || getDefaultStyle(),
+        }));
 
       const generatedContent: GeneratedContent[] = [];
 
@@ -330,15 +330,14 @@ export const FactoryWizard = () => {
       case 1:
         return (
           <StepSourceText
-            sourceText={state.sourceText}
+            slides={state.slides}
             captionText={state.captionText}
             selectedTemplateId={state.selectedTemplateId}
-            onSourceTextChange={(text) => updateState({ sourceText: text })}
+            onSlidesChange={(slides) => updateState({ slides })}
             onCaptionTextChange={(text) => updateState({ captionText: text })}
-            onTemplateSelect={(id, content) =>
+            onTemplateSelect={(id, _content) =>
               updateState({
                 selectedTemplateId: id,
-                sourceText: content,
               })
             }
           />
