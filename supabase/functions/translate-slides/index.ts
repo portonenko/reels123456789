@@ -31,6 +31,28 @@ serve(async (req) => {
       ja: "Japanese",
     };
 
+    // ENERGIA replacement rules per language
+    const energiaReplacements: Record<string, string> = {
+      en: "energy",
+      de: "energie",
+      pl: "Energia",
+      es: "energía",
+      fr: "énergie",
+      it: "energia",
+      pt: "energia",
+      uk: "енергія",
+      zh: "能量",
+      ja: "エネルギー",
+    };
+
+    // Helper function to apply ENERGIA replacement
+    const applyEnergiaRule = (text: string, langCode: string): string => {
+      const replacement = energiaReplacements[langCode];
+      if (!replacement) return text;
+      // Case-insensitive replacement of ENERGIA
+      return text.replace(/ENERGIA/gi, replacement);
+    };
+
     const translatedResults = [];
     const translatedUnusedText: Record<string, string> = {};
 
@@ -137,10 +159,16 @@ serve(async (req) => {
           translatedTitle = translatedText;
         }
 
+        // Apply ENERGIA replacement rules to translated text
+        translatedTitle = applyEnergiaRule(translatedTitle, langCode);
+        if (translatedBody) {
+          translatedBody = applyEnergiaRule(translatedBody, langCode);
+        }
+
         translatedResults.push({
           ...slide,
           id: crypto.randomUUID(),
-          title: `[${langName}] ${translatedTitle}`,
+          title: translatedTitle,
           body: translatedBody || undefined,
           language: langCode,
         });
