@@ -26,9 +26,15 @@ export interface GeneratedContent {
   captionText?: string; // Text that stays in the post description/caption
 }
 
+export interface SlideInput {
+  id: string;
+  title: string;
+  body: string;
+}
+
 export interface FactoryState {
   step: 1 | 2 | 3 | 4 | 5;
-  sourceText: string;
+  slides: SlideInput[];
   captionText: string;
   selectedTemplateId?: string;
   selectedPreset?: VisualPreset;

@@ -4,10 +4,31 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Slider } from "@/components/ui/slider";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Palette, Check, Settings } from "lucide-react";
+import { Palette, Check, Settings, Type } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { VisualPreset } from "@/types/contentFactory";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+
+// Available fonts
+const FONTS = [
+  { value: "Inter", label: "Inter" },
+  { value: "Roboto", label: "Roboto" },
+  { value: "Montserrat", label: "Montserrat" },
+  { value: "Playfair Display", label: "Playfair Display" },
+  { value: "Oswald", label: "Oswald" },
+  { value: "Lato", label: "Lato" },
+  { value: "Open Sans", label: "Open Sans" },
+  { value: "Raleway", label: "Raleway" },
+  { value: "Poppins", label: "Poppins" },
+  { value: "Merriweather", label: "Merriweather" },
+];
 
 interface StepVisualPresetsProps {
   selectedPreset?: VisualPreset;
@@ -22,12 +43,16 @@ export const StepVisualPresets = ({
 }: StepVisualPresetsProps) => {
   const [presets, setPresets] = useState<VisualPreset[]>([]);
   const [isLoading, setIsLoading] = useState(false);
-  const [showCustom, setShowCustom] = useState(false);
   
   // Custom preset settings
   const [customName, setCustomName] = useState("Custom Preset");
   const [titleDuration, setTitleDuration] = useState(2);
   const [otherDuration, setOtherDuration] = useState(3);
+  
+  // Font & color settings
+  const [fontFamily, setFontFamily] = useState("Inter");
+  const [textColor, setTextColor] = useState("#FFFFFF");
+  const [backgroundColor, setBackgroundColor] = useState("#000000");
 
   useEffect(() => {
     loadPresets();
@@ -54,24 +79,37 @@ export const StepVisualPresets = ({
       setPresets(formattedPresets);
     } catch (error) {
       console.error("Error loading presets:", error);
-      toast.error("Failed to load presets");
+      toast.error("Ошибка загрузки пресетов");
     } finally {
       setIsLoading(false);
     }
   };
 
   const handleSelectPreset = (preset: VisualPreset) => {
-    setShowCustom(false);
     onPresetSelect(preset);
   };
 
   const handleUseCustom = () => {
+    const baseStyle = getDefaultStyle();
+    const customStyle = {
+      ...baseStyle,
+      text: {
+        ...baseStyle.text,
+        fontFamily,
+        color: textColor,
+      },
+      plate: {
+        ...baseStyle.plate,
+        backgroundColor,
+      },
+    };
+    
     const customPreset: VisualPreset = {
       id: "custom",
       name: customName,
       titleDuration,
       otherDuration,
-      style: getDefaultStyle(),
+      style: customStyle,
     };
     onPresetSelect(customPreset);
   };
@@ -82,18 +120,18 @@ export const StepVisualPresets = ({
       <div className="bg-card border border-border rounded-lg p-4">
         <h3 className="font-semibold mb-4 flex items-center gap-2">
           <Palette className="w-4 h-4" />
-          Saved Presets
+          Сохранённые пресеты
         </h3>
 
-        <ScrollArea className="h-[350px]">
+        <ScrollArea className="h-[400px]">
           {isLoading ? (
             <div className="text-center text-muted-foreground py-8">
-              Loading presets...
+              Загрузка пресетов...
             </div>
           ) : presets.length === 0 ? (
             <div className="text-center text-muted-foreground py-8">
-              <p>No presets saved yet.</p>
-              <p className="text-sm mt-2">Use custom settings on the right.</p>
+              <p>Пресеты ещё не сохранены.</p>
+              <p className="text-sm mt-2">Используйте настройки справа.</p>
             </div>
           ) : (
             <div className="space-y-2">
@@ -107,7 +145,7 @@ export const StepVisualPresets = ({
                   <div className="text-left">
                     <div className="font-medium">{preset.name}</div>
                     <div className="text-xs text-muted-foreground">
-                      Title: {preset.titleDuration}s • Other: {preset.otherDuration}s
+                      Титульный: {preset.titleDuration}с • Другие: {preset.otherDuration}с
                     </div>
                   </div>
                   {selectedPreset?.id === preset.id && (
@@ -124,47 +162,128 @@ export const StepVisualPresets = ({
       <div className="bg-card border border-border rounded-lg p-4">
         <h3 className="font-semibold mb-4 flex items-center gap-2">
           <Settings className="w-4 h-4" />
-          Custom Settings
+          Кастомные настройки
         </h3>
 
-        <div className="space-y-6">
-          <div className="space-y-2">
-            <Label>Preset Name</Label>
-            <Input
-              value={customName}
-              onChange={(e) => setCustomName(e.target.value)}
-              placeholder="My Custom Preset"
-            />
-          </div>
+        <ScrollArea className="h-[400px] pr-2">
+          <div className="space-y-5">
+            {/* Preset Name */}
+            <div className="space-y-2">
+              <Label>Название пресета</Label>
+              <Input
+                value={customName}
+                onChange={(e) => setCustomName(e.target.value)}
+                placeholder="Мой пресет"
+              />
+            </div>
 
-          <div className="space-y-2">
-            <Label>Title Slide Duration: {titleDuration}s</Label>
-            <Slider
-              value={[titleDuration]}
-              onValueChange={([v]) => setTitleDuration(v)}
-              min={1}
-              max={10}
-              step={0.5}
-            />
-          </div>
+            {/* Duration Settings */}
+            <div className="space-y-4 p-3 bg-muted/30 rounded-lg">
+              <div className="flex items-center gap-2 text-sm font-medium">
+                <Settings className="w-4 h-4" />
+                Длительность слайдов
+              </div>
+              
+              <div className="space-y-2">
+                <Label className="text-xs">Титульный слайд: {titleDuration}с</Label>
+                <Slider
+                  value={[titleDuration]}
+                  onValueChange={([v]) => setTitleDuration(v)}
+                  min={1}
+                  max={10}
+                  step={0.5}
+                />
+              </div>
 
-          <div className="space-y-2">
-            <Label>Other Slides Duration: {otherDuration}s</Label>
-            <Slider
-              value={[otherDuration]}
-              onValueChange={([v]) => setOtherDuration(v)}
-              min={1}
-              max={10}
-              step={0.5}
-            />
-          </div>
+              <div className="space-y-2">
+                <Label className="text-xs">Остальные слайды: {otherDuration}с</Label>
+                <Slider
+                  value={[otherDuration]}
+                  onValueChange={([v]) => setOtherDuration(v)}
+                  min={1}
+                  max={10}
+                  step={0.5}
+                />
+              </div>
+            </div>
 
-          <div className="pt-4 border-t border-border">
-            <p className="text-sm text-muted-foreground mb-4">
-              Custom settings will use the default visual style. 
-              For advanced styling, create and save presets from the regular Editor.
-            </p>
-            
+            {/* Font & Color Settings */}
+            <div className="space-y-4 p-3 bg-muted/30 rounded-lg">
+              <div className="flex items-center gap-2 text-sm font-medium">
+                <Type className="w-4 h-4" />
+                Шрифт и цвета
+              </div>
+
+              <div className="space-y-2">
+                <Label className="text-xs">Шрифт</Label>
+                <Select value={fontFamily} onValueChange={setFontFamily}>
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {FONTS.map(font => (
+                      <SelectItem 
+                        key={font.value} 
+                        value={font.value}
+                        style={{ fontFamily: font.value }}
+                      >
+                        {font.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-2">
+                  <Label className="text-xs">Цвет текста</Label>
+                  <div className="flex gap-2">
+                    <input
+                      type="color"
+                      value={textColor}
+                      onChange={(e) => setTextColor(e.target.value)}
+                      className="w-10 h-10 rounded cursor-pointer border border-border"
+                    />
+                    <Input
+                      value={textColor}
+                      onChange={(e) => setTextColor(e.target.value)}
+                      className="flex-1 font-mono text-xs"
+                    />
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  <Label className="text-xs">Цвет плашки</Label>
+                  <div className="flex gap-2">
+                    <input
+                      type="color"
+                      value={backgroundColor}
+                      onChange={(e) => setBackgroundColor(e.target.value)}
+                      className="w-10 h-10 rounded cursor-pointer border border-border"
+                    />
+                    <Input
+                      value={backgroundColor}
+                      onChange={(e) => setBackgroundColor(e.target.value)}
+                      className="flex-1 font-mono text-xs"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* Preview */}
+              <div 
+                className="mt-3 p-4 rounded-lg text-center"
+                style={{ 
+                  backgroundColor: backgroundColor,
+                  color: textColor,
+                  fontFamily: fontFamily,
+                }}
+              >
+                <div className="text-lg font-bold">Превью текста</div>
+                <div className="text-sm opacity-80">Так будет выглядеть слайд</div>
+              </div>
+            </div>
+
             <Button
               onClick={handleUseCustom}
               variant={selectedPreset?.id === "custom" ? "default" : "outline"}
@@ -173,14 +292,14 @@ export const StepVisualPresets = ({
               {selectedPreset?.id === "custom" ? (
                 <>
                   <Check className="w-4 h-4 mr-2" />
-                  Using Custom Settings
+                  Используются кастомные настройки
                 </>
               ) : (
-                "Use Custom Settings"
+                "Применить кастомные настройки"
               )}
             </Button>
           </div>
-        </div>
+        </ScrollArea>
       </div>
     </div>
   );

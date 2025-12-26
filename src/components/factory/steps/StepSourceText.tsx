@@ -3,7 +3,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { FileText, Search } from "lucide-react";
+import { FileText, Search, Plus, Trash2, GripVertical } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 
@@ -13,20 +13,26 @@ interface Template {
   content: string;
 }
 
+export interface SlideInput {
+  id: string;
+  title: string;
+  body: string;
+}
+
 interface StepSourceTextProps {
-  sourceText: string;
+  slides: SlideInput[];
   captionText: string;
   selectedTemplateId?: string;
-  onSourceTextChange: (text: string) => void;
+  onSlidesChange: (slides: SlideInput[]) => void;
   onCaptionTextChange: (text: string) => void;
   onTemplateSelect: (id: string, content: string) => void;
 }
 
 export const StepSourceText = ({
-  sourceText,
+  slides,
   captionText,
   selectedTemplateId,
-  onSourceTextChange,
+  onSlidesChange,
   onCaptionTextChange,
   onTemplateSelect,
 }: StepSourceTextProps) => {
@@ -65,19 +71,66 @@ export const StepSourceText = ({
     t.content.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
+  const addSlide = () => {
+    const newSlide: SlideInput = {
+      id: crypto.randomUUID(),
+      title: "",
+      body: "",
+    };
+    onSlidesChange([...slides, newSlide]);
+  };
+
+  const updateSlide = (id: string, field: "title" | "body", value: string) => {
+    onSlidesChange(
+      slides.map(slide => 
+        slide.id === id ? { ...slide, [field]: value } : slide
+      )
+    );
+  };
+
+  const removeSlide = (id: string) => {
+    if (slides.length <= 1) {
+      toast.error("Нужен минимум один слайд");
+      return;
+    }
+    onSlidesChange(slides.filter(slide => slide.id !== id));
+  };
+
+  // Convert template content to slides format
+  const handleTemplateSelect = (templateId: string, content: string) => {
+    // Parse content: paragraphs separated by double newlines
+    const paragraphs = content.split(/\n\n+/).filter(p => p.trim());
+    
+    const parsedSlides: SlideInput[] = paragraphs.map(paragraph => {
+      const lines = paragraph.split("\n").map(l => l.trim()).filter(l => l);
+      return {
+        id: crypto.randomUUID(),
+        title: lines[0] || "",
+        body: lines.slice(1).join("\n"),
+      };
+    });
+
+    if (parsedSlides.length === 0) {
+      parsedSlides.push({ id: crypto.randomUUID(), title: "", body: "" });
+    }
+
+    onSlidesChange(parsedSlides);
+    onTemplateSelect(templateId, content);
+  };
+
   return (
     <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
       {/* Left: Template selection */}
       <div className="bg-card border border-border rounded-lg p-4">
         <h3 className="font-semibold mb-4 flex items-center gap-2">
           <FileText className="w-4 h-4" />
-          Select from Templates
+          Выберите шаблон
         </h3>
         
         <div className="relative mb-4">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
           <Input
-            placeholder="Search templates..."
+            placeholder="Поиск шаблонов..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             className="pl-9"
@@ -87,13 +140,13 @@ export const StepSourceText = ({
         <ScrollArea className="h-[300px]">
           {isLoading ? (
             <div className="text-center text-muted-foreground py-8">
-              Loading templates...
+              Загрузка шаблонов...
             </div>
           ) : filteredTemplates.length === 0 ? (
             <div className="text-center text-muted-foreground py-8">
               {templates.length === 0 
-                ? "No templates saved yet" 
-                : "No templates match your search"}
+                ? "Шаблоны пока не сохранены" 
+                : "Ничего не найдено"}
             </div>
           ) : (
             <div className="space-y-2">
@@ -102,7 +155,7 @@ export const StepSourceText = ({
                   key={template.id}
                   variant={selectedTemplateId === template.id ? "default" : "outline"}
                   className="w-full justify-start text-left h-auto py-3 px-4"
-                  onClick={() => onTemplateSelect(template.id, template.content)}
+                  onClick={() => handleTemplateSelect(template.id, template.content)}
                 >
                   <div className="truncate">
                     <div className="font-medium">{template.name}</div>
@@ -117,38 +170,72 @@ export const StepSourceText = ({
         </ScrollArea>
       </div>
 
-      {/* Right: Manual input */}
+      {/* Right: Slide cards input */}
       <div className="bg-card border border-border rounded-lg p-4">
-        <h3 className="font-semibold mb-4">Or Enter Custom Text</h3>
+        <div className="flex items-center justify-between mb-4">
+          <h3 className="font-semibold">Или введите текст вручную</h3>
+          <Button 
+            size="sm" 
+            variant="outline" 
+            onClick={addSlide}
+            className="gap-1"
+          >
+            <Plus className="w-4 h-4" />
+            Слайд
+          </Button>
+        </div>
 
-        <div className="space-y-4">
-          <div>
-            <div className="text-sm font-medium mb-2">Slides text</div>
-            <Textarea
-              placeholder={
-                "Слайд 1 — Заголовок\n\nСлайд 2 — Заголовок\nОсновной текст\n\nСлайд 3 — Заголовок\nОсновной текст"
-              }
-              value={sourceText}
-              onChange={(e) => onSourceTextChange(e.target.value)}
-              className="min-h-[240px] resize-none font-mono text-sm"
-            />
-            <div className="mt-2 text-xs text-muted-foreground">
-              <p>
-                Подсказка: первый абзац = титульный слайд. Каждый следующий абзац = новый слайд.
-                Внутри абзаца первая строка = заголовок, остальные строки = основной текст.
-              </p>
-            </div>
+        <ScrollArea className="h-[280px] pr-2">
+          <div className="space-y-3">
+            {slides.map((slide, index) => (
+              <div 
+                key={slide.id} 
+                className="bg-muted/50 border border-border rounded-lg p-3 space-y-2"
+              >
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
+                    <GripVertical className="w-4 h-4" />
+                    Слайд {index + 1}
+                    {index === 0 && <span className="text-xs">(титульный)</span>}
+                  </div>
+                  <Button
+                    size="icon"
+                    variant="ghost"
+                    className="h-6 w-6 text-muted-foreground hover:text-destructive"
+                    onClick={() => removeSlide(slide.id)}
+                  >
+                    <Trash2 className="w-3.5 h-3.5" />
+                  </Button>
+                </div>
+                
+                <Input
+                  placeholder="Заголовок"
+                  value={slide.title}
+                  onChange={(e) => updateSlide(slide.id, "title", e.target.value)}
+                  className="font-medium"
+                />
+                
+                {index > 0 && (
+                  <Textarea
+                    placeholder="Основной текст (необязательно)"
+                    value={slide.body}
+                    onChange={(e) => updateSlide(slide.id, "body", e.target.value)}
+                    className="min-h-[60px] resize-none text-sm"
+                  />
+                )}
+              </div>
+            ))}
           </div>
+        </ScrollArea>
 
-          <div>
-            <div className="text-sm font-medium mb-2">Текст для описания (caption)</div>
-            <Textarea
-              placeholder="Этот текст останется в описании поста/видео (caption), а не в слайдах…"
-              value={captionText}
-              onChange={(e) => onCaptionTextChange(e.target.value)}
-              className="min-h-[120px] resize-none"
-            />
-          </div>
+        <div className="mt-4 pt-4 border-t border-border">
+          <div className="text-sm font-medium mb-2">Текст для описания (caption)</div>
+          <Textarea
+            placeholder="Этот текст останется в описании поста/видео, а не в слайдах…"
+            value={captionText}
+            onChange={(e) => onCaptionTextChange(e.target.value)}
+            className="min-h-[80px] resize-none"
+          />
         </div>
       </div>
     </div>
