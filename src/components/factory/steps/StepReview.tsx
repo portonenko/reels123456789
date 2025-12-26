@@ -190,14 +190,40 @@ export const StepReview = ({ generatedContent, assets }: StepReviewProps) => {
       });
 
       const blob = await mainZip.generateAsync({ type: "blob" });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = `content_factory_export_${Date.now()}.zip`;
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-      URL.revokeObjectURL(url);
+      const filename = `content_factory_export_${Date.now()}.zip`;
+
+      // Robust download across browsers / embedded previews
+      const navAny = navigator as any;
+      if (typeof navAny?.msSaveOrOpenBlob === "function") {
+        navAny.msSaveOrOpenBlob(blob, filename);
+      } else {
+        const url = URL.createObjectURL(blob);
+
+        // 1) Try direct download
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = filename;
+        a.rel = "noopener";
+        a.style.display = "none";
+        document.body.appendChild(a);
+
+        try {
+          a.click();
+        } catch {
+          // ignore
+        }
+
+        document.body.removeChild(a);
+
+        // 2) Fallback: open in a new tab (Safari / embedded iframes often block programmatic downloads)
+        const opened = window.open(url, "_blank", "noopener,noreferrer");
+        if (!opened) {
+          toast.error("Браузер блокирует скачивание. Разрешите всплывающие окна для предпросмотра.");
+        }
+
+        // Delay revocation so the download/new tab has time to read the blob
+        setTimeout(() => URL.revokeObjectURL(url), 60_000);
+      }
 
       toast.success("Экспорт завершён!");
     } catch (error: any) {
