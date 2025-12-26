@@ -73,6 +73,25 @@ export const StepVisualPresets = ({
     loadPresets();
   }, []);
 
+  // Sync preview with selected preset
+  useEffect(() => {
+    if (selectedPreset?.style) {
+      const style = selectedPreset.style as any;
+      if (style.text) {
+        setTitleFontFamily(style.text.fontFamily || "Inter");
+        setBodyFontFamily(style.text.bodyFontFamily || style.text.fontFamily || "Inter");
+        setTextColor(style.text.color || "#FFFFFF");
+        setBodyTextColor(style.text.bodyColor || style.text.color || "#FFFFFF");
+      }
+      if (style.plate) {
+        setBackgroundColor(style.plate.backgroundColor || "#000000");
+      }
+      setTitleDuration(selectedPreset.titleDuration || 2);
+      setOtherDuration(selectedPreset.otherDuration || 3);
+      setCustomName(selectedPreset.name || "Custom Preset");
+    }
+  }, [selectedPreset]);
+
   const loadPresets = async () => {
     setIsLoading(true);
     try {
