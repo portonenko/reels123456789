@@ -86,6 +86,9 @@ export const StepVisualPresets = ({
       if (style.plate) {
         setBackgroundColor(style.plate.backgroundColor || "#000000");
       }
+      if (style.overlay) {
+        setOverlayOpacity(Math.round((style.overlay.opacity || 0.3) * 100));
+      }
       setTitleDuration(selectedPreset.titleDuration || 2);
       setOtherDuration(selectedPreset.otherDuration || 3);
       setCustomName(selectedPreset.name || "Custom Preset");
@@ -137,6 +140,9 @@ export const StepVisualPresets = ({
       plate: {
         ...baseStyle.plate,
         backgroundColor,
+      },
+      overlay: {
+        opacity: overlayOpacity / 100,
       },
     };
     
