@@ -80,26 +80,83 @@ export const StepReview = ({ generatedContent, assets }: StepReviewProps) => {
   const handleDownloadAll = async () => {
     setIsDownloading(true);
     try {
-      const zip = new JSZip();
+      const mainZip = new JSZip();
 
-      for (const content of generatedContent) {
+      for (let i = 0; i < generatedContent.length; i++) {
+        const content = generatedContent[i];
         const langName = FACTORY_LANGUAGES.find(l => l.code === content.language)?.name || content.language;
         const formatName = CONTENT_FORMATS.find(f => f.code === content.format)?.name?.replace(/\s+/g, '_') || content.format;
         const folderName = `${langName}_${formatName}`;
-        const folder = zip.folder(folderName);
+        const folder = mainZip.folder(folderName);
         
         if (!folder) continue;
 
-        // For now, export slide data as JSON
-        // Full video/image export would require canvas rendering
-        folder.file("slides.json", JSON.stringify(content.slides, null, 2));
-        
-        if (content.musicUrl) {
-          folder.file("music_url.txt", content.musicUrl);
+        toast.info(`Экспортируем ${folderName}...`, { duration: 2000 });
+
+        // Export based on format
+        if (content.format === "video") {
+          // For video format - find an asset and export video
+          const videoAsset = assets.find(a => a.type === 'video' || !a.type);
+          
+          try {
+            const videoBlob = await exportVideo(
+              content.slides,
+              videoAsset || null,
+              (progress, message) => {
+                console.log(`Video export ${folderName}: ${progress}% - ${message}`);
+              },
+              content.musicUrl,
+              30
+            );
+            folder.file("video.webm", videoBlob);
+          } catch (videoError: any) {
+            console.error("Video export failed:", videoError);
+            // Fallback to JSON if video export fails
+            folder.file("slides.json", JSON.stringify(content.slides, null, 2));
+            folder.file("export_error.txt", `Video export failed: ${videoError.message}`);
+          }
+          
+          if (content.musicUrl) {
+            folder.file("music_url.txt", content.musicUrl);
+          }
+        } else {
+          // For carousel/static formats - export as images
+          const imageAsset = assets.find(a => a.type === 'image');
+          
+          try {
+            const photosZipBlob = await exportPhotos(
+              content.slides,
+              imageAsset || null,
+              (progress, message) => {
+                console.log(`Photos export ${folderName}: ${progress}% - ${message}`);
+              },
+              30
+            );
+            
+            // Extract images from the inner zip and add to the main folder
+            const innerZip = await JSZip.loadAsync(photosZipBlob);
+            
+            for (const [fileName, file] of Object.entries(innerZip.files)) {
+              if (!file.dir) {
+                const fileData = await file.async("blob");
+                folder.file(fileName, fileData);
+              }
+            }
+          } catch (photoError: any) {
+            console.error("Photo export failed:", photoError);
+            // Fallback to JSON if photo export fails
+            folder.file("slides.json", JSON.stringify(content.slides, null, 2));
+            folder.file("export_error.txt", `Photo export failed: ${photoError.message}`);
+          }
+        }
+
+        // Add caption text if available
+        if (content.captionText) {
+          folder.file("caption.txt", content.captionText);
         }
       }
 
-      const blob = await zip.generateAsync({ type: "blob" });
+      const blob = await mainZip.generateAsync({ type: "blob" });
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
       a.href = url;
@@ -109,10 +166,10 @@ export const StepReview = ({ generatedContent, assets }: StepReviewProps) => {
       document.body.removeChild(a);
       URL.revokeObjectURL(url);
 
-      toast.success("Download started!");
+      toast.success("Экспорт завершён!");
     } catch (error: any) {
       console.error("Download error:", error);
-      toast.error(`Failed to download: ${error.message}`);
+      toast.error(`Ошибка экспорта: ${error.message}`);
     } finally {
       setIsDownloading(false);
     }
