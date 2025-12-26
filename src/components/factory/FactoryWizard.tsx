@@ -171,79 +171,61 @@ export const FactoryWizard = () => {
 
         let translatedSlides: Slide[] = [];
 
-        if (lang === "en") {
-          // For English, just apply the ENERGIA rule
-          const caption = state.captionText?.trim()
-            ? applyEnergiaRule(state.captionText, lang)
+        // Translate ALL languages (including English) using the edge function
+        try {
+          const { data, error } = await supabase.functions.invoke("translate-slides", {
+            body: {
+              slides: baseSlides.map(s => ({
+                id: s.id,
+                title: s.title,
+                body: s.body,
+                style: s.style,
+                durationSec: s.durationSec,
+                type: s.type,
+                projectId: s.projectId,
+              })),
+              targetLanguages: [lang],
+              unusedText: state.captionText,
+            },
+          });
+
+          if (error) {
+            console.error("Edge function error:", error);
+            throw new Error(error.message || "Failed to send a request to the Edge Function");
+          }
+
+          if (!data || !data.translatedSlides) {
+            console.error("Invalid response from translate-slides:", data);
+            throw new Error("Invalid response from translation service");
+          }
+
+          const caption = (data.translatedUnusedText?.[lang] as string | undefined)?.trim()
+            ? applyEnergiaRule(String(data.translatedUnusedText[lang]), lang)
             : "";
 
-          translatedSlides = baseSlides.map(slide => ({
-            ...slide,
-            id: crypto.randomUUID(),
-            title: applyEnergiaRule(slide.title, lang),
-            body: slide.body ? applyEnergiaRule(slide.body, lang) : undefined,
-            language: lang,
-          }));
+          translatedSlides = (data.translatedSlides || []).map((ts: any, idx: number) => {
+            // Apply ENERGIA rule to translated text
+            let title = ts.title.replace(/^\[.*?\]\s*/, ""); // Remove language prefix
+            let body = ts.body;
 
-          // attach caption later per generated item
+            title = applyEnergiaRule(title, lang);
+            if (body) body = applyEnergiaRule(body, lang);
+
+            return {
+              ...ts,
+              id: crypto.randomUUID(),
+              title,
+              body,
+              style: baseSlides[idx]?.style || getDefaultStyle(),
+              durationSec: baseSlides[idx]?.durationSec || 3,
+              language: lang,
+            };
+          });
+
           (translatedSlides as any)._factoryCaption = caption;
-        } else {
-          // Translate using the edge function
-          try {
-            const { data, error } = await supabase.functions.invoke("translate-slides", {
-              body: {
-                slides: baseSlides.map(s => ({
-                  id: s.id,
-                  title: s.title,
-                  body: s.body,
-                  style: s.style,
-                  durationSec: s.durationSec,
-                  type: s.type,
-                  projectId: s.projectId,
-                })),
-                targetLanguages: [lang],
-                unusedText: state.captionText,
-              },
-            });
-
-            if (error) {
-              console.error("Edge function error:", error);
-              throw new Error(error.message || "Failed to send a request to the Edge Function");
-            }
-
-            if (!data || !data.translatedSlides) {
-              console.error("Invalid response from translate-slides:", data);
-              throw new Error("Invalid response from translation service");
-            }
-
-            const caption = (data.translatedUnusedText?.[lang] as string | undefined)?.trim()
-              ? applyEnergiaRule(String(data.translatedUnusedText[lang]), lang)
-              : "";
-
-            translatedSlides = (data.translatedSlides || []).map((ts: any, idx: number) => {
-              // Apply ENERGIA rule to translated text
-              let title = ts.title.replace(/^\[.*?\]\s*/, ""); // Remove language prefix
-              let body = ts.body;
-
-              title = applyEnergiaRule(title, lang);
-              if (body) body = applyEnergiaRule(body, lang);
-
-              return {
-                ...ts,
-                id: crypto.randomUUID(),
-                title,
-                body,
-                style: baseSlides[idx]?.style || getDefaultStyle(),
-                durationSec: baseSlides[idx]?.durationSec || 3,
-                language: lang,
-              };
-            });
-
-            (translatedSlides as any)._factoryCaption = caption;
-          } catch (invokeError: any) {
-            console.error("Function invoke failed:", invokeError);
-            throw new Error(`Translation failed for ${lang}: ${invokeError.message || "Network error"}`);
-          }
+        } catch (invokeError: any) {
+          console.error("Function invoke failed:", invokeError);
+          throw new Error(`Translation failed for ${lang}: ${invokeError.message || "Network error"}`);
         }
 
         // Generate each format for this language
