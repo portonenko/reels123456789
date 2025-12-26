@@ -215,14 +215,12 @@ export const StepSourceText = ({
                   className="font-medium"
                 />
                 
-                {index > 0 && (
-                  <Textarea
-                    placeholder="Основной текст (необязательно)"
-                    value={slide.body}
-                    onChange={(e) => updateSlide(slide.id, "body", e.target.value)}
-                    className="min-h-[60px] resize-none text-sm"
-                  />
-                )}
+                <Textarea
+                  placeholder="Основной текст (необязательно)"
+                  value={slide.body}
+                  onChange={(e) => updateSlide(slide.id, "body", e.target.value)}
+                  className="min-h-[60px] resize-none text-sm"
+                />
               </div>
             ))}
           </div>
