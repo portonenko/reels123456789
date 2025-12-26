@@ -1,6 +1,66 @@
 import { Slide, Asset } from "@/types";
 import { renderSlideText } from "./canvasTextRenderer";
 import JSZip from "jszip";
+import { FFmpeg } from "@ffmpeg/ffmpeg";
+import { fetchFile, toBlobURL } from "@ffmpeg/util";
+
+let ffmpegInstance: FFmpeg | null = null;
+
+const getFFmpeg = async (): Promise<FFmpeg> => {
+  if (ffmpegInstance && ffmpegInstance.loaded) {
+    return ffmpegInstance;
+  }
+  
+  const ffmpeg = new FFmpeg();
+  
+  const baseURL = 'https://unpkg.com/@ffmpeg/core@0.12.6/dist/umd';
+  
+  await ffmpeg.load({
+    coreURL: await toBlobURL(`${baseURL}/ffmpeg-core.js`, 'text/javascript'),
+    wasmURL: await toBlobURL(`${baseURL}/ffmpeg-core.wasm`, 'application/wasm'),
+  });
+  
+  ffmpegInstance = ffmpeg;
+  return ffmpeg;
+};
+
+const convertToMp4 = async (
+  webmBlob: Blob, 
+  onProgress: (progress: number, message: string) => void
+): Promise<Blob> => {
+  onProgress(96, "Loading video converter...");
+  
+  const ffmpeg = await getFFmpeg();
+  
+  onProgress(97, "Converting to MP4...");
+  
+  const inputData = await fetchFile(webmBlob);
+  await ffmpeg.writeFile('input.webm', inputData);
+  
+  // Convert WebM to MP4 with H.264 codec
+  await ffmpeg.exec([
+    '-i', 'input.webm',
+    '-c:v', 'libx264',
+    '-preset', 'fast',
+    '-crf', '23',
+    '-c:a', 'aac',
+    '-b:a', '128k',
+    '-movflags', '+faststart',
+    'output.mp4'
+  ]);
+  
+  onProgress(99, "Finalizing MP4...");
+  
+  const data = await ffmpeg.readFile('output.mp4');
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const mp4Blob = new Blob([data as any], { type: 'video/mp4' });
+  
+  // Clean up
+  await ffmpeg.deleteFile('input.webm');
+  await ffmpeg.deleteFile('output.mp4');
+  
+  return mp4Blob;
+};
 
 const prepareCanvasContext = (canvas: HTMLCanvasElement): CanvasRenderingContext2D | null => {
   const ctx = canvas.getContext("2d", {
@@ -360,11 +420,22 @@ export const exportVideo = async (
   // Start render loop
   void runFixedFpsRenderLoop();
 
-  onProgress(95, "Finalizing video...");
-  const videoBlob = await recordingPromise;
+  onProgress(95, "Finalizing recording...");
+  const webmBlob = await recordingPromise;
+  
+  // Check if we recorded in WebM format - if so, convert to MP4
+  const needsConversion = mimeType.includes('webm');
+  
+  if (needsConversion) {
+    console.log("Converting WebM to MP4...");
+    const mp4Blob = await convertToMp4(webmBlob, onProgress);
+    console.log(`Converted to MP4: ${(mp4Blob.size / 1024 / 1024).toFixed(2)} MB`);
+    onProgress(100, "Complete!");
+    return mp4Blob;
+  }
   
   onProgress(100, "Complete!");
-  return videoBlob;
+  return webmBlob;
 };
 
 export const exportPhotos = async (
