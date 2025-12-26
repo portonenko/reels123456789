@@ -171,12 +171,15 @@ export const StepReview = ({ generatedContent, assets }: StepReviewProps) => {
 
     try {
       if (content.format === "video") {
-        const videoAsset = assets.find((a) => a.type === "video" || !a.type);
+        const firstAssetId = (content.slides?.[0] as any)?.assetId as string | undefined;
+        const backgroundAsset = firstAssetId ? assets.find((a) => a.id === firstAssetId) : undefined;
+        const videoAsset = backgroundAsset || assets.find((a) => a.type === "video" || !a.type);
+
         setSingleExport({ id: content.id, progress: 10, stage: "Рендеринг видео..." });
 
         const videoBlob = await exportVideo(
           content.slides,
-          videoAsset || null,
+          (videoAsset as any) || null,
           (progress, message) => {
             setSingleExport({ id: content.id, progress: 10 + progress * 0.9, stage: message });
           },
@@ -209,12 +212,15 @@ export const StepReview = ({ generatedContent, assets }: StepReviewProps) => {
       const zip = new JSZip();
 
       if (content.format === "carousel" || content.format === "static-single" || content.format === "static-multi") {
-        const imageAsset = assets.find((a) => a.type === "image");
+        const firstAssetId = (content.slides?.[0] as any)?.assetId as string | undefined;
+        const backgroundAsset = firstAssetId ? assets.find((a) => a.id === firstAssetId) : undefined;
+        const imageAsset = backgroundAsset || assets.find((a) => a.type === "image");
+
         setSingleExport({ id: content.id, progress: 10, stage: "Рендеринг изображений..." });
 
         const photosZipBlob = await exportPhotos(
           content.slides,
-          imageAsset || null,
+          (imageAsset as any) || null,
           (progress, message) => {
             setSingleExport({ id: content.id, progress: 10 + progress * 0.8, stage: message });
           },
@@ -300,12 +306,14 @@ export const StepReview = ({ generatedContent, assets }: StepReviewProps) => {
 
         // Export based on format
         if (content.format === "video") {
-          const videoAsset = assets.find((a) => a.type === "video" || !a.type);
+          const firstAssetId = (content.slides?.[0] as any)?.assetId as string | undefined;
+          const backgroundAsset = firstAssetId ? assets.find((a) => a.id === firstAssetId) : undefined;
+          const videoAsset = backgroundAsset || assets.find((a) => a.type === "video" || !a.type);
 
           try {
             const videoBlob = await exportVideo(
               content.slides,
-              videoAsset || null,
+              (videoAsset as any) || null,
               (progress, message) => {
                 setExportProgress((prev) =>
                   prev
@@ -333,12 +341,14 @@ export const StepReview = ({ generatedContent, assets }: StepReviewProps) => {
             folder.file("music_url.txt", content.musicUrl);
           }
         } else {
-          const imageAsset = assets.find((a) => a.type === "image");
+          const firstAssetId = (content.slides?.[0] as any)?.assetId as string | undefined;
+          const backgroundAsset = firstAssetId ? assets.find((a) => a.id === firstAssetId) : undefined;
+          const imageAsset = backgroundAsset || assets.find((a) => a.type === "image");
 
           try {
             const photosZipBlob = await exportPhotos(
               content.slides,
-              imageAsset || null,
+              (imageAsset as any) || null,
               (progress, message) => {
                 setExportProgress((prev) =>
                   prev
