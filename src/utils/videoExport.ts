@@ -178,6 +178,13 @@ export const exportVideo = async (
 ): Promise<Blob> => {
   onProgress(5, "Initializing video recorder...");
 
+  console.log("exportVideo called with:", {
+    slidesCount: slides.length,
+    backgroundAsset: backgroundAsset ? { id: backgroundAsset.id, url: backgroundAsset.url?.substring(0, 50) + "...", type: backgroundAsset.type } : null,
+    hasMusicUrl: !!backgroundMusicUrl,
+    globalOverlay,
+  });
+
   const canvas = document.createElement("canvas");
   canvas.width = 1080;
   canvas.height = 1920;
@@ -191,7 +198,8 @@ export const exportVideo = async (
   let backgroundAudio: HTMLAudioElement | undefined;
   
   // Load background video if available
-  if (backgroundAsset) {
+  if (backgroundAsset && backgroundAsset.url) {
+    console.log("Loading background video from:", backgroundAsset.url);
     backgroundVideo = document.createElement("video");
     backgroundVideo.src = backgroundAsset.url;
     backgroundVideo.muted = true;
@@ -200,14 +208,31 @@ export const exportVideo = async (
     if (!backgroundAsset.url.startsWith('blob:')) {
       backgroundVideo.crossOrigin = "anonymous";
     }
-    await new Promise((resolve, reject) => {
-      backgroundVideo!.onloadeddata = resolve;
-      backgroundVideo!.onerror = (e) => {
-        console.error("Video loading error:", e);
-        reject(new Error("Failed to load background video"));
-      };
-      backgroundVideo!.load();
-    });
+    try {
+      await new Promise((resolve, reject) => {
+        const timeout = setTimeout(() => {
+          console.warn("Video loading timeout after 10s");
+          reject(new Error("Video loading timeout"));
+        }, 10000);
+        
+        backgroundVideo!.onloadeddata = () => {
+          clearTimeout(timeout);
+          console.log("Background video loaded successfully");
+          resolve(null);
+        };
+        backgroundVideo!.onerror = (e) => {
+          clearTimeout(timeout);
+          console.error("Video loading error:", e);
+          reject(new Error("Failed to load background video"));
+        };
+        backgroundVideo!.load();
+      });
+    } catch (videoError) {
+      console.error("Failed to load background video, continuing without it:", videoError);
+      backgroundVideo = undefined;
+    }
+  } else {
+    console.warn("No background asset provided, will use gradient fallback");
   }
 
   // Load background music if available
