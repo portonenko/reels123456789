@@ -165,6 +165,49 @@ export const FactoryWizard = () => {
         musicTracks = dbMusic;
       }
 
+      // Build non-repeating asset pools for this generation run
+      const shuffle = <T,>(arr: T[]) => {
+        const a = [...arr];
+        for (let i = a.length - 1; i > 0; i--) {
+          const j = Math.floor(Math.random() * (i + 1));
+          [a[i], a[j]] = [a[j], a[i]];
+        }
+        return a;
+      };
+
+      const videoPool = shuffle(availableAssets.filter((a) => a.type === "video" || !a.type));
+      const imagePool = shuffle(availableAssets.filter((a) => a.type === "image"));
+      let videoPoolIndex = 0;
+      let imagePoolIndex = 0;
+
+      if (videoPool.length <= 1 && formats.includes("video")) {
+        toast.warning(
+          videoPool.length === 0
+            ? "У вас нет загруженных видео-фонов — рилсы будут без видео-фона"
+            : "Загружено только 1 видео — все рилсы будут с одним и тем же видео"
+        );
+      }
+      if (imagePool.length <= 1 && formats.some((f) => f !== "video")) {
+        toast.warning(
+          imagePool.length === 0
+            ? "У вас нет загруженных фото-фонов — карусели будут без фото-фона"
+            : "Загружено только 1 фото — все карусели будут с одним и тем же фото"
+        );
+      }
+
+      const pickNextAssetId = (format: string): string | undefined => {
+        if (format === "video") {
+          if (videoPool.length === 0) return undefined;
+          const asset = videoPool[videoPoolIndex % videoPool.length];
+          videoPoolIndex++;
+          return asset.id;
+        }
+        if (imagePool.length === 0) return undefined;
+        const asset = imagePool[imagePoolIndex % imagePool.length];
+        imagePoolIndex++;
+        return asset.id;
+      };
+
       // Process each language
       for (const lang of languages) {
         setState(prev => ({ 
@@ -240,19 +283,8 @@ export const FactoryWizard = () => {
             processingMessage: `Generating ${format} for ${FACTORY_LANGUAGES.find((l) => l.code === lang)?.name}...`,
           }));
 
-          // Pick ONE random asset for the entire content piece (not per slide)
-          let contentAssetId: string | undefined;
-          if (format === "video") {
-            const videoAssets = availableAssets.filter((a) => a.type === "video" || !a.type);
-            if (videoAssets.length > 0) {
-              contentAssetId = videoAssets[Math.floor(Math.random() * videoAssets.length)].id;
-            }
-          } else {
-            const imageAssets = availableAssets.filter((a) => a.type === "image");
-            if (imageAssets.length > 0) {
-              contentAssetId = imageAssets[Math.floor(Math.random() * imageAssets.length)].id;
-            }
-          }
+          // Pick ONE asset per content item (cycle through the pool so items differ)
+          const contentAssetId = pickNextAssetId(format);
 
           // Clone slides and assign the SAME asset to all slides in this content
           // Also ensure overlay style is properly copied
