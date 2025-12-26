@@ -4,7 +4,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Slider } from "@/components/ui/slider";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Palette, Check, Settings, Type } from "lucide-react";
+import { Palette, Check, Settings, Type, Eye } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { VisualPreset } from "@/types/contentFactory";
@@ -28,6 +28,13 @@ const FONTS = [
   { value: "Raleway", label: "Raleway" },
   { value: "Poppins", label: "Poppins" },
   { value: "Merriweather", label: "Merriweather" },
+];
+
+// Sample background for preview
+const PREVIEW_BACKGROUNDS = [
+  "https://images.unsplash.com/photo-1506905925346-21bda4d32df4?w=400&h=700&fit=crop",
+  "https://images.unsplash.com/photo-1519681393784-d120267933ba?w=400&h=700&fit=crop",
+  "https://images.unsplash.com/photo-1470071459604-3b5ec3a7fe05?w=400&h=700&fit=crop",
 ];
 
 interface StepVisualPresetsProps {
@@ -57,6 +64,10 @@ export const StepVisualPresets = ({
   const [textColor, setTextColor] = useState("#FFFFFF");
   const [bodyTextColor, setBodyTextColor] = useState("#FFFFFF");
   const [backgroundColor, setBackgroundColor] = useState("#000000");
+  
+  // Preview settings
+  const [overlayOpacity, setOverlayOpacity] = useState(30);
+  const [previewBgIndex, setPreviewBgIndex] = useState(0);
 
   useEffect(() => {
     loadPresets();
@@ -121,7 +132,7 @@ export const StepVisualPresets = ({
   };
 
   return (
-    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+    <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
       {/* Left: Saved presets */}
       <div className="bg-card border border-border rounded-lg p-4">
         <h3 className="font-semibold mb-4 flex items-center gap-2">
@@ -316,23 +327,16 @@ export const StepVisualPresets = ({
                 </div>
               </div>
 
-              {/* Preview */}
-              <div 
-                className="mt-3 p-4 rounded-lg text-center"
-                style={{ backgroundColor: backgroundColor }}
-              >
-                <div 
-                  className="text-lg font-bold"
-                  style={{ color: textColor, fontFamily: titleFontFamily }}
-                >
-                  Превью заголовка
-                </div>
-                <div 
-                  className="text-sm mt-1"
-                  style={{ color: bodyTextColor, fontFamily: bodyFontFamily }}
-                >
-                  Превью основного текста
-                </div>
+              {/* Overlay Opacity */}
+              <div className="space-y-2">
+                <Label className="text-xs">Затемнение фона: {overlayOpacity}%</Label>
+                <Slider
+                  value={[overlayOpacity]}
+                  onValueChange={([v]) => setOverlayOpacity(v)}
+                  min={0}
+                  max={80}
+                  step={5}
+                />
               </div>
             </div>
 
@@ -352,6 +356,78 @@ export const StepVisualPresets = ({
             </Button>
           </div>
         </ScrollArea>
+      </div>
+
+      {/* Right: Live Preview */}
+      <div className="bg-card border border-border rounded-lg p-4">
+        <h3 className="font-semibold mb-4 flex items-center gap-2">
+          <Eye className="w-4 h-4" />
+          Превью слайда
+        </h3>
+
+        {/* 9:16 Aspect Ratio Preview */}
+        <div className="flex flex-col items-center">
+          <div 
+            className="relative w-full max-w-[200px] rounded-lg overflow-hidden shadow-lg"
+            style={{ aspectRatio: '9/16' }}
+          >
+            {/* Background Image */}
+            <img 
+              src={PREVIEW_BACKGROUNDS[previewBgIndex]} 
+              alt="Preview background"
+              className="absolute inset-0 w-full h-full object-cover"
+            />
+            
+            {/* Overlay */}
+            <div 
+              className="absolute inset-0"
+              style={{ backgroundColor: `rgba(0, 0, 0, ${overlayOpacity / 100})` }}
+            />
+            
+            {/* Content */}
+            <div className="absolute inset-0 flex flex-col justify-center items-center p-4 text-center">
+              {/* Text Plate */}
+              <div 
+                className="rounded-lg p-3 w-full"
+                style={{ backgroundColor: `${backgroundColor}cc` }}
+              >
+                <div 
+                  className="text-sm font-bold leading-tight"
+                  style={{ color: textColor, fontFamily: titleFontFamily }}
+                >
+                  Заголовок слайда
+                </div>
+                <div 
+                  className="text-[10px] mt-1 leading-tight opacity-90"
+                  style={{ color: bodyTextColor, fontFamily: bodyFontFamily }}
+                >
+                  Основной текст слайда с дополнительной информацией
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Background switcher */}
+          <div className="flex gap-2 mt-4">
+            {PREVIEW_BACKGROUNDS.map((bg, index) => (
+              <button
+                key={index}
+                onClick={() => setPreviewBgIndex(index)}
+                className={`w-10 h-10 rounded-lg overflow-hidden border-2 transition-all ${
+                  previewBgIndex === index 
+                    ? 'border-primary ring-2 ring-primary/30' 
+                    : 'border-border hover:border-primary/50'
+                }`}
+              >
+                <img src={bg} alt={`Background ${index + 1}`} className="w-full h-full object-cover" />
+              </button>
+            ))}
+          </div>
+
+          <p className="text-xs text-muted-foreground mt-3 text-center">
+            Выберите фон для превью
+          </p>
+        </div>
       </div>
     </div>
   );
