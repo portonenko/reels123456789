@@ -172,14 +172,24 @@ export const StepReview = ({ generatedContent, assets }: StepReviewProps) => {
     try {
       if (content.format === "video") {
         const firstAssetId = (content.slides?.[0] as any)?.assetId as string | undefined;
-        const backgroundAsset = firstAssetId ? assets.find((a) => a.id === firstAssetId) : undefined;
-        const videoAsset = backgroundAsset || assets.find((a) => a.type === "video" || !a.type);
+        console.log("Export video - firstAssetId:", firstAssetId, "available assets:", assets.map(a => ({ id: a.id, type: a.type })));
+        
+        let videoAsset = firstAssetId ? assets.find((a) => a.id === firstAssetId) : undefined;
+        if (!videoAsset) {
+          // Fallback to any video asset
+          videoAsset = assets.find((a) => a.type === "video" || !a.type);
+          console.log("Fallback to first video asset:", videoAsset?.id);
+        }
+        
+        if (!videoAsset) {
+          console.warn("No video asset found for export!");
+        }
 
         setSingleExport({ id: content.id, progress: 10, stage: "Рендеринг видео..." });
 
         const videoBlob = await exportVideo(
           content.slides,
-          (videoAsset as any) || null,
+          videoAsset || null,
           (progress, message) => {
             setSingleExport({ id: content.id, progress: 10 + progress * 0.9, stage: message });
           },
@@ -307,13 +317,17 @@ export const StepReview = ({ generatedContent, assets }: StepReviewProps) => {
         // Export based on format
         if (content.format === "video") {
           const firstAssetId = (content.slides?.[0] as any)?.assetId as string | undefined;
-          const backgroundAsset = firstAssetId ? assets.find((a) => a.id === firstAssetId) : undefined;
-          const videoAsset = backgroundAsset || assets.find((a) => a.type === "video" || !a.type);
+          console.log("Batch export video - firstAssetId:", firstAssetId);
+          
+          let videoAsset = firstAssetId ? assets.find((a) => a.id === firstAssetId) : undefined;
+          if (!videoAsset) {
+            videoAsset = assets.find((a) => a.type === "video" || !a.type);
+          }
 
           try {
             const videoBlob = await exportVideo(
               content.slides,
-              (videoAsset as any) || null,
+              videoAsset || null,
               (progress, message) => {
                 setExportProgress((prev) =>
                   prev
