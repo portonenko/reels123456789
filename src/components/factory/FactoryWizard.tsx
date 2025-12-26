@@ -118,6 +118,9 @@ export const FactoryWizard = () => {
       let completed = 0;
 
       // Convert slide inputs to Slide objects
+      const presetStyle = state.selectedPreset?.style || getDefaultStyle();
+      console.log("Using preset style for generation:", JSON.stringify(presetStyle, null, 2));
+      
       const baseSlides: Slide[] = state.slides
         .filter(s => s.title.trim()) // Only slides with content
         .map((slideInput, idx) => ({
@@ -130,7 +133,7 @@ export const FactoryWizard = () => {
           durationSec: state.selectedPreset 
             ? (idx === 0 ? state.selectedPreset.titleDuration : state.selectedPreset.otherDuration)
             : 3,
-          style: state.selectedPreset?.style || getDefaultStyle(),
+          style: presetStyle,
         }));
 
       const generatedContent: GeneratedContent[] = [];
@@ -230,30 +233,37 @@ export const FactoryWizard = () => {
 
         // Generate each format for this language
         for (const format of formats) {
-          const contentId = `${lang}-${format}-${Date.now()}`;
+          const contentId = `${lang}-${format}-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
 
           setState((prev) => ({
             ...prev,
             processingMessage: `Generating ${format} for ${FACTORY_LANGUAGES.find((l) => l.code === lang)?.name}...`,
           }));
 
-          // Clone slides and assign random backgrounds
-          const contentSlides = translatedSlides.map((slide) => {
-            let assetId: string | undefined;
-
-            if (format === "video") {
-              const videoAssets = availableAssets.filter((a) => a.type === "video" || !a.type);
-              if (videoAssets.length > 0) {
-                assetId = videoAssets[Math.floor(Math.random() * videoAssets.length)].id;
-              }
-            } else {
-              const imageAssets = availableAssets.filter((a) => a.type === "image");
-              if (imageAssets.length > 0) {
-                assetId = imageAssets[Math.floor(Math.random() * imageAssets.length)].id;
-              }
+          // Pick ONE random asset for the entire content piece (not per slide)
+          let contentAssetId: string | undefined;
+          if (format === "video") {
+            const videoAssets = availableAssets.filter((a) => a.type === "video" || !a.type);
+            if (videoAssets.length > 0) {
+              contentAssetId = videoAssets[Math.floor(Math.random() * videoAssets.length)].id;
             }
+          } else {
+            const imageAssets = availableAssets.filter((a) => a.type === "image");
+            if (imageAssets.length > 0) {
+              contentAssetId = imageAssets[Math.floor(Math.random() * imageAssets.length)].id;
+            }
+          }
 
-            return { ...slide, assetId };
+          // Clone slides and assign the SAME asset to all slides in this content
+          // Also ensure overlay style is properly copied
+          const contentSlides = translatedSlides.map((slide) => {
+            // Make sure style with overlay is preserved
+            const slideStyle = slide.style || state.selectedPreset?.style || getDefaultStyle();
+            return {
+              ...slide,
+              assetId: contentAssetId,
+              style: slideStyle,
+            };
           });
 
           // Assign random music for video format
