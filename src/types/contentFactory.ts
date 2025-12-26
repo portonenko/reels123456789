@@ -23,11 +23,13 @@ export interface GeneratedContent {
   status: "pending" | "processing" | "completed" | "error";
   musicUrl?: string;
   previewUrl?: string;
+  captionText?: string; // Text that stays in the post description/caption
 }
 
 export interface FactoryState {
   step: 1 | 2 | 3 | 4 | 5;
   sourceText: string;
+  captionText: string;
   selectedTemplateId?: string;
   selectedPreset?: VisualPreset;
   matrix: ContentMatrixSelection;

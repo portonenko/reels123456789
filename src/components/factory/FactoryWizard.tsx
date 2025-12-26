@@ -38,6 +38,7 @@ export const FactoryWizard = () => {
   const [state, setState] = useState<FactoryState>({
     step: 1,
     sourceText: "",
+    captionText: "",
     selectedTemplateId: undefined,
     selectedPreset: undefined,
     matrix: {
@@ -172,6 +173,10 @@ export const FactoryWizard = () => {
 
         if (lang === "en") {
           // For English, just apply the ENERGIA rule
+          const caption = state.captionText?.trim()
+            ? applyEnergiaRule(state.captionText, lang)
+            : "";
+
           translatedSlides = baseSlides.map(slide => ({
             ...slide,
             id: crypto.randomUUID(),
@@ -179,6 +184,9 @@ export const FactoryWizard = () => {
             body: slide.body ? applyEnergiaRule(slide.body, lang) : undefined,
             language: lang,
           }));
+
+          // attach caption later per generated item
+          (translatedSlides as any)._factoryCaption = caption;
         } else {
           // Translate using the edge function
           try {
@@ -194,6 +202,7 @@ export const FactoryWizard = () => {
                   projectId: s.projectId,
                 })),
                 targetLanguages: [lang],
+                unusedText: state.captionText,
               },
             });
 
@@ -207,11 +216,15 @@ export const FactoryWizard = () => {
               throw new Error("Invalid response from translation service");
             }
 
+            const caption = (data.translatedUnusedText?.[lang] as string | undefined)?.trim()
+              ? applyEnergiaRule(String(data.translatedUnusedText[lang]), lang)
+              : "";
+
             translatedSlides = (data.translatedSlides || []).map((ts: any, idx: number) => {
               // Apply ENERGIA rule to translated text
               let title = ts.title.replace(/^\[.*?\]\s*/, ""); // Remove language prefix
               let body = ts.body;
-              
+
               title = applyEnergiaRule(title, lang);
               if (body) body = applyEnergiaRule(body, lang);
 
@@ -225,11 +238,8 @@ export const FactoryWizard = () => {
                 language: lang,
               };
             });
-          } catch (invokeError: any) {
-            console.error("Function invoke failed:", invokeError);
-            throw new Error(`Translation failed for ${lang}: ${invokeError.message || "Network error"}`);
-          }
-        }
+
+            (translatedSlides as any)._factoryCaption = caption;
 
         // Generate each format for this language
         for (const format of formats) {
@@ -273,6 +283,7 @@ export const FactoryWizard = () => {
             slides: contentSlides,
             status: "completed",
             musicUrl,
+            captionText: (translatedSlides as any)._factoryCaption || "",
           });
 
           completed++;
@@ -315,12 +326,16 @@ export const FactoryWizard = () => {
         return (
           <StepSourceText
             sourceText={state.sourceText}
+            captionText={state.captionText}
             selectedTemplateId={state.selectedTemplateId}
             onSourceTextChange={(text) => updateState({ sourceText: text })}
-            onTemplateSelect={(id, content) => updateState({ 
-              selectedTemplateId: id, 
-              sourceText: content 
-            })}
+            onCaptionTextChange={(text) => updateState({ captionText: text })}
+            onTemplateSelect={(id, content) =>
+              updateState({
+                selectedTemplateId: id,
+                sourceText: content,
+              })
+            }
           />
         );
       case 2:
