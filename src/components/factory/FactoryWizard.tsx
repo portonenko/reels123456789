@@ -240,27 +240,32 @@ export const FactoryWizard = () => {
             });
 
             (translatedSlides as any)._factoryCaption = caption;
+          } catch (invokeError: any) {
+            console.error("Function invoke failed:", invokeError);
+            throw new Error(`Translation failed for ${lang}: ${invokeError.message || "Network error"}`);
+          }
+        }
 
         // Generate each format for this language
         for (const format of formats) {
           const contentId = `${lang}-${format}-${Date.now()}`;
-          
-          setState(prev => ({ 
-            ...prev, 
-            processingMessage: `Generating ${format} for ${FACTORY_LANGUAGES.find(l => l.code === lang)?.name}...` 
+
+          setState((prev) => ({
+            ...prev,
+            processingMessage: `Generating ${format} for ${FACTORY_LANGUAGES.find((l) => l.code === lang)?.name}...`,
           }));
 
           // Clone slides and assign random backgrounds
-          const contentSlides = translatedSlides.map(slide => {
+          const contentSlides = translatedSlides.map((slide) => {
             let assetId: string | undefined;
-            
+
             if (format === "video") {
-              const videoAssets = availableAssets.filter(a => a.type === 'video' || !a.type);
+              const videoAssets = availableAssets.filter((a) => a.type === "video" || !a.type);
               if (videoAssets.length > 0) {
                 assetId = videoAssets[Math.floor(Math.random() * videoAssets.length)].id;
               }
             } else {
-              const imageAssets = availableAssets.filter(a => a.type === 'image');
+              const imageAssets = availableAssets.filter((a) => a.type === "image");
               if (imageAssets.length > 0) {
                 assetId = imageAssets[Math.floor(Math.random() * imageAssets.length)].id;
               }
@@ -287,10 +292,10 @@ export const FactoryWizard = () => {
           });
 
           completed++;
-          setState(prev => ({ 
-            ...prev, 
+          setState((prev) => ({
+            ...prev,
             processingProgress: Math.round((completed / totalCombinations) * 100),
-            generatedContent: [...generatedContent]
+            generatedContent: [...generatedContent],
           }));
         }
       }
