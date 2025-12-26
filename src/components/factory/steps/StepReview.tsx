@@ -160,35 +160,56 @@ export const StepReview = ({ generatedContent, assets }: StepReviewProps) => {
 
   // Export single item
   const handleExportSingle = async (content: GeneratedContent) => {
-    const langName = FACTORY_LANGUAGES.find(l => l.code === content.language)?.name || content.language;
-    const formatName = CONTENT_FORMATS.find(f => f.code === content.format)?.name?.replace(/\s+/g, '_') || content.format;
-    const folderName = `${langName}_${formatName}`;
+    const langName =
+      FACTORY_LANGUAGES.find((l) => l.code === content.language)?.name || content.language;
+    const formatName =
+      CONTENT_FORMATS.find((f) => f.code === content.format)?.name?.replace(/\s+/g, "_") ||
+      content.format;
+    const baseName = `${langName}_${formatName}_${Date.now()}`;
 
     setSingleExport({ id: content.id, progress: 0, stage: "Подготовка..." });
 
     try {
-      const zip = new JSZip();
-
       if (content.format === "video") {
-        const videoAsset = assets.find(a => a.type === 'video' || !a.type);
+        const videoAsset = assets.find((a) => a.type === "video" || !a.type);
         setSingleExport({ id: content.id, progress: 10, stage: "Рендеринг видео..." });
 
         const videoBlob = await exportVideo(
           content.slides,
           videoAsset || null,
           (progress, message) => {
-            setSingleExport({ id: content.id, progress: 10 + progress * 0.8, stage: message });
+            setSingleExport({ id: content.id, progress: 10 + progress * 0.9, stage: message });
           },
           content.musicUrl,
-          30
+          undefined
         );
-        zip.file("video.webm", videoBlob);
 
-        if (content.musicUrl) {
-          zip.file("music_url.txt", content.musicUrl);
-        }
-      } else {
-        const imageAsset = assets.find(a => a.type === 'image');
+        const isWebm = videoBlob.type.includes("webm");
+        const ext = isWebm ? "webm" : "mp4";
+        const filename = `${baseName}.${ext}`;
+
+        const url = URL.createObjectURL(videoBlob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = filename;
+        a.rel = "noopener";
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+
+        // iOS/Safari fallback (opens in new tab)
+        window.open(url, "_blank");
+        setTimeout(() => URL.revokeObjectURL(url), 60_000);
+
+        toast.success(`Видео «${langName} — ${formatName}» скачано!`);
+        return;
+      }
+
+      // Non-video formats are exported as ZIP
+      const zip = new JSZip();
+
+      if (content.format === "carousel" || content.format === "static-single" || content.format === "static-multi") {
+        const imageAsset = assets.find((a) => a.type === "image");
         setSingleExport({ id: content.id, progress: 10, stage: "Рендеринг изображений..." });
 
         const photosZipBlob = await exportPhotos(
@@ -197,7 +218,7 @@ export const StepReview = ({ generatedContent, assets }: StepReviewProps) => {
           (progress, message) => {
             setSingleExport({ id: content.id, progress: 10 + progress * 0.8, stage: message });
           },
-          30
+          undefined
         );
 
         const innerZip = await JSZip.loadAsync(photosZipBlob);
@@ -209,6 +230,10 @@ export const StepReview = ({ generatedContent, assets }: StepReviewProps) => {
         }
       }
 
+      if (content.musicUrl) {
+        zip.file("music_url.txt", content.musicUrl);
+      }
+
       if (content.captionText) {
         zip.file("caption.txt", content.captionText);
       }
@@ -216,9 +241,8 @@ export const StepReview = ({ generatedContent, assets }: StepReviewProps) => {
       setSingleExport({ id: content.id, progress: 95, stage: "Создание ZIP..." });
 
       const blob = await zip.generateAsync({ type: "blob" });
-      const filename = `${folderName}_${Date.now()}.zip`;
+      const filename = `${baseName}.zip`;
 
-      // Download
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
       a.href = url;
@@ -226,12 +250,11 @@ export const StepReview = ({ generatedContent, assets }: StepReviewProps) => {
       document.body.appendChild(a);
       a.click();
       document.body.removeChild(a);
-      
-      // Fallback
-      window.open(url, "_blank");
-      setTimeout(() => URL.revokeObjectURL(url), 60000);
 
-      toast.success(`Экспорт "${folderName}" завершён!`);
+      window.open(url, "_blank");
+      setTimeout(() => URL.revokeObjectURL(url), 60_000);
+
+      toast.success(`Экспорт «${langName} — ${formatName}» завершён!`);
     } catch (error: any) {
       console.error("Single export error:", error);
       toast.error(`Ошибка экспорта: ${error.message}`);
@@ -277,51 +300,61 @@ export const StepReview = ({ generatedContent, assets }: StepReviewProps) => {
 
         // Export based on format
         if (content.format === "video") {
-          const videoAsset = assets.find(a => a.type === 'video' || !a.type);
-          
+          const videoAsset = assets.find((a) => a.type === "video" || !a.type);
+
           try {
             const videoBlob = await exportVideo(
               content.slides,
               videoAsset || null,
               (progress, message) => {
-                setExportProgress(prev => prev ? {
-                  ...prev,
-                  itemProgress: progress,
-                  stage: message
-                } : null);
+                setExportProgress((prev) =>
+                  prev
+                    ? {
+                        ...prev,
+                        itemProgress: progress,
+                        stage: message,
+                      }
+                    : null
+                );
               },
               content.musicUrl,
-              30
+              undefined
             );
-            folder.file("video.webm", videoBlob);
+
+            const isWebm = videoBlob.type.includes("webm");
+            folder.file(isWebm ? "video.webm" : "video.mp4", videoBlob);
           } catch (videoError: any) {
             console.error("Video export failed:", videoError);
             folder.file("slides.json", JSON.stringify(content.slides, null, 2));
             folder.file("export_error.txt", `Video export failed: ${videoError.message}`);
           }
-          
+
           if (content.musicUrl) {
             folder.file("music_url.txt", content.musicUrl);
           }
         } else {
-          const imageAsset = assets.find(a => a.type === 'image');
-          
+          const imageAsset = assets.find((a) => a.type === "image");
+
           try {
             const photosZipBlob = await exportPhotos(
               content.slides,
               imageAsset || null,
               (progress, message) => {
-                setExportProgress(prev => prev ? {
-                  ...prev,
-                  itemProgress: progress,
-                  stage: message
-                } : null);
+                setExportProgress((prev) =>
+                  prev
+                    ? {
+                        ...prev,
+                        itemProgress: progress,
+                        stage: message,
+                      }
+                    : null
+                );
               },
-              30
+              undefined
             );
-            
+
             const innerZip = await JSZip.loadAsync(photosZipBlob);
-            
+
             for (const [fileName, file] of Object.entries(innerZip.files)) {
               if (!file.dir) {
                 const fileData = await file.async("blob");
@@ -355,9 +388,20 @@ export const StepReview = ({ generatedContent, assets }: StepReviewProps) => {
       setDownloadUrl(url);
       setDownloadName(filename);
 
-      toast.success("Экспорт готов — нажмите кнопку «Скачать ZIP».", { duration: 4000 });
+      // Try to auto-trigger download (helps on desktop). If blocked (iOS/Safari), the "Скачать ZIP" button remains.
+      try {
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = filename;
+        a.rel = "noopener";
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+      } catch {
+        // ignore
+      }
 
-      toast.success("Экспорт завершён!");
+      toast.success("ZIP готов. Если загрузка не началась — нажмите «Скачать ZIP».", { duration: 5000 });
     } catch (error: any) {
       console.error("Download error:", error);
       toast.error(`Ошибка экспорта: ${error.message}`);

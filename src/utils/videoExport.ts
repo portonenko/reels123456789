@@ -149,8 +149,16 @@ const renderSlideToCanvas = (
     ctx.fillRect(0, 0, canvas.width, canvas.height);
   }
 
-  // Apply overlay with globalOverlay value
-  const overlayOpacity = (globalOverlay ?? 30) / 100;
+  // Apply overlay
+  // Prefer per-slide preset overlay (slide.style.overlay.opacity in range 0..1)
+  // Fallback to globalOverlay (0..100, default 30)
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const styleOverlay = (slide.style as any)?.overlay?.opacity;
+  const overlayOpacity =
+    typeof styleOverlay === "number"
+      ? Math.min(1, Math.max(0, styleOverlay))
+      : Math.min(1, Math.max(0, (globalOverlay ?? 30) / 100));
+
   ctx.fillStyle = `rgba(0, 0, 0, ${overlayOpacity})`;
   ctx.fillRect(0, 0, canvas.width, canvas.height);
 
