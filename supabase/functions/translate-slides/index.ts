@@ -13,17 +13,46 @@ type IncomingSlide = {
 };
 
 const safeJsonExtract = (raw: string): any | null => {
+  // Remove markdown code fences if present
+  let cleaned = raw.trim();
+  
+  // Handle ```json ... ``` or ``` ... ```
+  const fenceMatch = cleaned.match(/^```(?:json)?\s*([\s\S]*?)\s*```$/i);
+  if (fenceMatch) {
+    cleaned = fenceMatch[1].trim();
+  }
+  
+  // Try direct parse first
   try {
-    return JSON.parse(raw);
+    return JSON.parse(cleaned);
   } catch {
     // Try to extract the first JSON object/array from a larger string
-    const objStart = raw.indexOf("{");
-    const arrStart = raw.indexOf("[");
+    const objStart = cleaned.indexOf("{");
+    const arrStart = cleaned.indexOf("[");
     const start =
       objStart === -1 ? arrStart : arrStart === -1 ? objStart : Math.min(objStart, arrStart);
     if (start === -1) return null;
 
-    const candidate = raw.slice(start).trim();
+    // Find matching closing bracket
+    const openChar = cleaned[start];
+    const closeChar = openChar === "{" ? "}" : "]";
+    let depth = 0;
+    let end = -1;
+    
+    for (let i = start; i < cleaned.length; i++) {
+      if (cleaned[i] === openChar) depth++;
+      else if (cleaned[i] === closeChar) {
+        depth--;
+        if (depth === 0) {
+          end = i + 1;
+          break;
+        }
+      }
+    }
+    
+    if (end === -1) return null;
+    
+    const candidate = cleaned.slice(start, end);
     try {
       return JSON.parse(candidate);
     } catch {
