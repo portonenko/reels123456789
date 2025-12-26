@@ -49,9 +49,13 @@ export const StepVisualPresets = ({
   const [titleDuration, setTitleDuration] = useState(2);
   const [otherDuration, setOtherDuration] = useState(3);
   
-  // Font & color settings
-  const [fontFamily, setFontFamily] = useState("Inter");
+  // Font settings - separate for title and body
+  const [titleFontFamily, setTitleFontFamily] = useState("Inter");
+  const [bodyFontFamily, setBodyFontFamily] = useState("Inter");
+  
+  // Color settings
   const [textColor, setTextColor] = useState("#FFFFFF");
+  const [bodyTextColor, setBodyTextColor] = useState("#FFFFFF");
   const [backgroundColor, setBackgroundColor] = useState("#000000");
 
   useEffect(() => {
@@ -95,8 +99,10 @@ export const StepVisualPresets = ({
       ...baseStyle,
       text: {
         ...baseStyle.text,
-        fontFamily,
+        fontFamily: titleFontFamily,
+        bodyFontFamily: bodyFontFamily,
         color: textColor,
+        bodyColor: bodyTextColor,
       },
       plate: {
         ...baseStyle.plate,
@@ -214,9 +220,10 @@ export const StepVisualPresets = ({
                 Шрифт и цвета
               </div>
 
+              {/* Title Font */}
               <div className="space-y-2">
-                <Label className="text-xs">Шрифт</Label>
-                <Select value={fontFamily} onValueChange={setFontFamily}>
+                <Label className="text-xs">Шрифт заголовка</Label>
+                <Select value={titleFontFamily} onValueChange={setTitleFontFamily}>
                   <SelectTrigger>
                     <SelectValue />
                   </SelectTrigger>
@@ -234,9 +241,31 @@ export const StepVisualPresets = ({
                 </Select>
               </div>
 
+              {/* Body Font */}
+              <div className="space-y-2">
+                <Label className="text-xs">Шрифт основного текста</Label>
+                <Select value={bodyFontFamily} onValueChange={setBodyFontFamily}>
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {FONTS.map(font => (
+                      <SelectItem 
+                        key={font.value} 
+                        value={font.value}
+                        style={{ fontFamily: font.value }}
+                      >
+                        {font.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {/* Colors */}
               <div className="grid grid-cols-2 gap-3">
                 <div className="space-y-2">
-                  <Label className="text-xs">Цвет текста</Label>
+                  <Label className="text-xs">Цвет заголовка</Label>
                   <div className="flex gap-2">
                     <input
                       type="color"
@@ -253,34 +282,57 @@ export const StepVisualPresets = ({
                 </div>
 
                 <div className="space-y-2">
-                  <Label className="text-xs">Цвет плашки</Label>
+                  <Label className="text-xs">Цвет основного текста</Label>
                   <div className="flex gap-2">
                     <input
                       type="color"
-                      value={backgroundColor}
-                      onChange={(e) => setBackgroundColor(e.target.value)}
+                      value={bodyTextColor}
+                      onChange={(e) => setBodyTextColor(e.target.value)}
                       className="w-10 h-10 rounded cursor-pointer border border-border"
                     />
                     <Input
-                      value={backgroundColor}
-                      onChange={(e) => setBackgroundColor(e.target.value)}
+                      value={bodyTextColor}
+                      onChange={(e) => setBodyTextColor(e.target.value)}
                       className="flex-1 font-mono text-xs"
                     />
                   </div>
                 </div>
               </div>
 
+              <div className="space-y-2">
+                <Label className="text-xs">Цвет плашки</Label>
+                <div className="flex gap-2">
+                  <input
+                    type="color"
+                    value={backgroundColor}
+                    onChange={(e) => setBackgroundColor(e.target.value)}
+                    className="w-10 h-10 rounded cursor-pointer border border-border"
+                  />
+                  <Input
+                    value={backgroundColor}
+                    onChange={(e) => setBackgroundColor(e.target.value)}
+                    className="flex-1 font-mono text-xs"
+                  />
+                </div>
+              </div>
+
               {/* Preview */}
               <div 
                 className="mt-3 p-4 rounded-lg text-center"
-                style={{ 
-                  backgroundColor: backgroundColor,
-                  color: textColor,
-                  fontFamily: fontFamily,
-                }}
+                style={{ backgroundColor: backgroundColor }}
               >
-                <div className="text-lg font-bold">Превью текста</div>
-                <div className="text-sm opacity-80">Так будет выглядеть слайд</div>
+                <div 
+                  className="text-lg font-bold"
+                  style={{ color: textColor, fontFamily: titleFontFamily }}
+                >
+                  Превью заголовка
+                </div>
+                <div 
+                  className="text-sm mt-1"
+                  style={{ color: bodyTextColor, fontFamily: bodyFontFamily }}
+                >
+                  Превью основного текста
+                </div>
               </div>
             </div>
 
