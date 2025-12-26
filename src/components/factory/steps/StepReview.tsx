@@ -1,17 +1,17 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Progress } from "@/components/ui/progress";
-import { 
-  Download, 
-  Save, 
-  Video, 
-  Image, 
+import {
+  Download,
+  Save,
+  Video,
+  Image,
   LayoutGrid,
   CheckCircle2,
   Loader2,
-  Music
+  Music,
 } from "lucide-react";
 import { toast } from "sonner";
 import { 
@@ -50,6 +50,14 @@ export const StepReview = ({ generatedContent, assets }: StepReviewProps) => {
   const [isDownloading, setIsDownloading] = useState(false);
   const [savedItems, setSavedItems] = useState<Set<string>>(new Set());
   const [exportProgress, setExportProgress] = useState<ExportProgress | null>(null);
+  const [downloadUrl, setDownloadUrl] = useState<string | null>(null);
+  const [downloadName, setDownloadName] = useState<string | null>(null);
+
+  useEffect(() => {
+    return () => {
+      if (downloadUrl) URL.revokeObjectURL(downloadUrl);
+    };
+  }, [downloadUrl]);
 
   const handleSaveAll = async () => {
     setIsSaving(true);
@@ -88,6 +96,11 @@ export const StepReview = ({ generatedContent, assets }: StepReviewProps) => {
 
   const handleDownloadAll = async () => {
     setIsDownloading(true);
+    // reset previous download
+    if (downloadUrl) URL.revokeObjectURL(downloadUrl);
+    setDownloadUrl(null);
+    setDownloadName(null);
+
     setExportProgress({
       currentItem: 0,
       totalItems: generatedContent.length,
@@ -192,38 +205,11 @@ export const StepReview = ({ generatedContent, assets }: StepReviewProps) => {
       const blob = await mainZip.generateAsync({ type: "blob" });
       const filename = `content_factory_export_${Date.now()}.zip`;
 
-      // Robust download across browsers / embedded previews
-      const navAny = navigator as any;
-      if (typeof navAny?.msSaveOrOpenBlob === "function") {
-        navAny.msSaveOrOpenBlob(blob, filename);
-      } else {
-        const url = URL.createObjectURL(blob);
+      const url = URL.createObjectURL(blob);
+      setDownloadUrl(url);
+      setDownloadName(filename);
 
-        // 1) Try direct download
-        const a = document.createElement("a");
-        a.href = url;
-        a.download = filename;
-        a.rel = "noopener";
-        a.style.display = "none";
-        document.body.appendChild(a);
-
-        try {
-          a.click();
-        } catch {
-          // ignore
-        }
-
-        document.body.removeChild(a);
-
-        // 2) Fallback: open in a new tab (Safari / embedded iframes often block programmatic downloads)
-        const opened = window.open(url, "_blank", "noopener,noreferrer");
-        if (!opened) {
-          toast.error("Браузер блокирует скачивание. Разрешите всплывающие окна для предпросмотра.");
-        }
-
-        // Delay revocation so the download/new tab has time to read the blob
-        setTimeout(() => URL.revokeObjectURL(url), 60_000);
-      }
+      toast.success("Экспорт готов — нажмите кнопку «Скачать ZIP».", { duration: 4000 });
 
       toast.success("Экспорт завершён!");
     } catch (error: any) {
@@ -237,6 +223,36 @@ export const StepReview = ({ generatedContent, assets }: StepReviewProps) => {
 
   return (
     <div className="space-y-6">
+      {/* Download ready */}
+      {downloadUrl && downloadName && (
+        <div className="bg-card border border-border rounded-lg p-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+          <div className="text-sm">
+            <div className="font-medium">ZIP готов к скачиванию</div>
+            <div className="text-muted-foreground text-xs break-all">{downloadName}</div>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            <Button
+              onClick={() => {
+                const a = document.createElement("a");
+                a.href = downloadUrl;
+                a.download = downloadName;
+                a.rel = "noopener";
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+              }}
+            >
+              Скачать ZIP
+            </Button>
+            <Button asChild variant="outline">
+              <a href={downloadUrl} target="_blank" rel="noreferrer">
+                Открыть
+              </a>
+            </Button>
+          </div>
+        </div>
+      )}
+
       {/* Export Progress Bar */}
       {exportProgress && (
         <div className="bg-card border border-border rounded-lg p-4 space-y-3">
