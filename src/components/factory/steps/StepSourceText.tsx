@@ -15,15 +15,19 @@ interface Template {
 
 interface StepSourceTextProps {
   sourceText: string;
+  captionText: string;
   selectedTemplateId?: string;
   onSourceTextChange: (text: string) => void;
+  onCaptionTextChange: (text: string) => void;
   onTemplateSelect: (id: string, content: string) => void;
 }
 
 export const StepSourceText = ({
   sourceText,
+  captionText,
   selectedTemplateId,
   onSourceTextChange,
+  onCaptionTextChange,
   onTemplateSelect,
 }: StepSourceTextProps) => {
   const [templates, setTemplates] = useState<Template[]>([]);
@@ -116,16 +120,35 @@ export const StepSourceText = ({
       {/* Right: Manual input */}
       <div className="bg-card border border-border rounded-lg p-4">
         <h3 className="font-semibold mb-4">Or Enter Custom Text</h3>
-        
-        <Textarea
-          placeholder="Enter your content here...&#10;&#10;First line will be the title slide.&#10;Subsequent paragraphs become body slides.&#10;&#10;Use line breaks to separate slides."
-          value={sourceText}
-          onChange={(e) => onSourceTextChange(e.target.value)}
-          className="min-h-[350px] resize-none font-mono text-sm"
-        />
 
-        <div className="mt-4 text-sm text-muted-foreground">
-          <p><strong>Tip:</strong> First line = Title slide. Each paragraph = new slide.</p>
+        <div className="space-y-4">
+          <div>
+            <div className="text-sm font-medium mb-2">Slides text</div>
+            <Textarea
+              placeholder={
+                "Слайд 1 — Заголовок\n\nСлайд 2 — Заголовок\nОсновной текст\n\nСлайд 3 — Заголовок\nОсновной текст"
+              }
+              value={sourceText}
+              onChange={(e) => onSourceTextChange(e.target.value)}
+              className="min-h-[240px] resize-none font-mono text-sm"
+            />
+            <div className="mt-2 text-xs text-muted-foreground">
+              <p>
+                Подсказка: первый абзац = титульный слайд. Каждый следующий абзац = новый слайд.
+                Внутри абзаца первая строка = заголовок, остальные строки = основной текст.
+              </p>
+            </div>
+          </div>
+
+          <div>
+            <div className="text-sm font-medium mb-2">Текст для описания (caption)</div>
+            <Textarea
+              placeholder="Этот текст останется в описании поста/видео (caption), а не в слайдах…"
+              value={captionText}
+              onChange={(e) => onCaptionTextChange(e.target.value)}
+              className="min-h-[120px] resize-none"
+            />
+          </div>
         </div>
       </div>
     </div>
