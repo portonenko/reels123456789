@@ -51,10 +51,8 @@ export const StepVisualPresets = ({
 
     setIsSyncing(true);
 
-    const style = selectedPreset.style as any;
-    if (style?.overlay?.opacity !== undefined) {
-      setOverlayOpacity(Math.round(style.overlay.opacity * 100));
-    }
+    // Read overlay from preset's overlayOpacity field (default to 30%)
+    setOverlayOpacity(selectedPreset.overlayOpacity ?? 30);
     setTitleDuration(selectedPreset.titleDuration || 2);
     setOtherDuration(selectedPreset.otherDuration || 3);
 
@@ -66,11 +64,8 @@ export const StepVisualPresets = ({
   useEffect(() => {
     if (!selectedPreset || isSyncing) return;
 
-    const currentStyle = selectedPreset.style as any;
-    const currentOverlay = Math.round((currentStyle?.overlay?.opacity ?? 0.3) * 100);
-
     // Check if anything changed
-    const overlayChanged = overlayOpacity !== currentOverlay;
+    const overlayChanged = overlayOpacity !== (selectedPreset.overlayOpacity ?? 30);
     const titleChanged = titleDuration !== selectedPreset.titleDuration;
     const otherChanged = otherDuration !== selectedPreset.otherDuration;
 
@@ -80,13 +75,7 @@ export const StepVisualPresets = ({
       ...selectedPreset,
       titleDuration,
       otherDuration,
-      style: {
-        ...currentStyle,
-        overlay: {
-          ...(currentStyle?.overlay || {}),
-          opacity: overlayOpacity / 100,
-        },
-      },
+      overlayOpacity,
     };
 
     onPresetSelect(updatedPreset);
@@ -107,6 +96,7 @@ export const StepVisualPresets = ({
         name: p.name,
         titleDuration: Number(p.title_slide_duration),
         otherDuration: Number(p.other_slides_duration),
+        overlayOpacity: 30, // Default overlay, user can adjust
         style: p.style,
       }));
 

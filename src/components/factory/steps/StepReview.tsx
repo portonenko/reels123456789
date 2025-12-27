@@ -595,20 +595,35 @@ export const StepReview = ({ generatedContent, assets, musicTracks = [], onUpdat
                         {/* Overlay */}
                         <div 
                           className="absolute inset-0 bg-black pointer-events-none"
-                          style={{ opacity: (currentSlide?.style as any)?.overlayOpacity || 0.3 }}
+                          style={{ opacity: (previewContent.overlayOpacity ?? 30) / 100 }}
                         />
                         {/* Text overlay */}
                         <div className="absolute inset-0 flex flex-col items-center justify-center p-4">
-                          <div className="text-center text-white">
-                            <h3 className="text-xl font-bold drop-shadow-lg mb-2">
-                              {currentSlide?.title}
-                            </h3>
-                            {currentSlide?.body && (
-                              <p className="text-sm drop-shadow-md">
-                                {currentSlide.body}
-                              </p>
-                            )}
-                          </div>
+                          {(() => {
+                            const slideStyle = currentSlide?.style as any;
+                            const textColor = slideStyle?.text?.color || "#FFFFFF";
+                            const bodyColor = slideStyle?.text?.bodyColor || textColor;
+                            const fontFamily = slideStyle?.text?.fontFamily || "Inter";
+                            const bodyFontFamily = slideStyle?.text?.bodyFontFamily || fontFamily;
+                            return (
+                              <div className="text-center">
+                                <h3 
+                                  className="text-xl font-bold drop-shadow-lg mb-2"
+                                  style={{ color: textColor, fontFamily }}
+                                >
+                                  {currentSlide?.title}
+                                </h3>
+                                {currentSlide?.body && (
+                                  <p 
+                                    className="text-sm drop-shadow-md"
+                                    style={{ color: bodyColor, fontFamily: bodyFontFamily }}
+                                  >
+                                    {currentSlide.body}
+                                  </p>
+                                )}
+                              </div>
+                            );
+                          })()}
                         </div>
                         {/* Play button */}
                         <button
