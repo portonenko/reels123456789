@@ -518,6 +518,12 @@ export const exportVideo = async (
         accumulatedTime += slides[i].durationSec;
       }
 
+      // Ensure background video loops properly
+      if (backgroundVideo && backgroundVideo.ended) {
+        backgroundVideo.currentTime = 0;
+        backgroundVideo.play().catch(() => {});
+      }
+
       // Render slide with transition
       const slideElapsed = elapsed - slideStartTime;
       const transitionDuration = 0.5;
