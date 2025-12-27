@@ -451,13 +451,19 @@ export const exportVideo = async (
 
   onProgress(95, "Finalizing recording...");
   const webmBlob = await recordingPromise;
-  
-  // Always convert the recorded WebM to MP4 for consistent playback
-  console.log("Converting WebM to MP4...");
-  const mp4Blob = await convertToMp4(webmBlob, onProgress);
-  console.log(`Converted to MP4: ${(mp4Blob.size / 1024 / 1024).toFixed(2)} MB`);
-  onProgress(100, "Complete!");
-  return mp4Blob;
+
+  // Convert to MP4 when possible, but never block the export if conversion fails.
+  try {
+    console.log("Converting WebM to MP4...");
+    const mp4Blob = await convertToMp4(webmBlob, onProgress);
+    console.log(`Converted to MP4: ${(mp4Blob.size / 1024 / 1024).toFixed(2)} MB`);
+    onProgress(100, "Complete!");
+    return mp4Blob;
+  } catch (err) {
+    console.error("MP4 conversion failed, falling back to WebM:", err);
+    onProgress(100, "Complete (WebM fallback)!");
+    return webmBlob;
+  }
 };
 
 export const exportPhotos = async (

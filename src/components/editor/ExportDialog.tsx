@@ -213,13 +213,17 @@ export const ExportDialog = ({ open, onClose, projects, assets }: ExportDialogPr
     const isWebm = blob.type.includes("webm");
     const videoExt = isWebm ? "webm" : "mp4";
 
-    a.download = isPhotoCarousel 
+    a.download = isPhotoCarousel
       ? `photos-${language}-${Date.now()}.zip`
       : `video-${language}-${Date.now()}.${videoExt}`;
+
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
-    
+
+    // Clean up object URL after the click has been dispatched
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+
     console.log(`Download triggered for ${language}`);
   };
 
