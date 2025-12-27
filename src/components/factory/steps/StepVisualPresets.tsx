@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -68,12 +68,13 @@ export const StepVisualPresets = ({
   // Preview settings
   const [overlayOpacity, setOverlayOpacity] = useState(30);
   const [previewBgIndex, setPreviewBgIndex] = useState(0);
+  const lastAutoAppliedOverlay = useRef<number | null>(null);
 
   useEffect(() => {
     loadPresets();
   }, []);
 
-  // Sync preview with selected preset
+  // Sync UI with selected preset
   useEffect(() => {
     if (selectedPreset?.style) {
       const style = selectedPreset.style as any;
@@ -87,13 +88,42 @@ export const StepVisualPresets = ({
         setBackgroundColor(style.plate.backgroundColor || "#000000");
       }
       if (style.overlay) {
-        setOverlayOpacity(Math.round((style.overlay.opacity || 0.3) * 100));
+        const next = Math.round((style.overlay.opacity || 0.3) * 100);
+        setOverlayOpacity(next);
+        lastAutoAppliedOverlay.current = next;
       }
       setTitleDuration(selectedPreset.titleDuration || 2);
       setOtherDuration(selectedPreset.otherDuration || 3);
       setCustomName(selectedPreset.name || "Custom Preset");
     }
   }, [selectedPreset]);
+
+  // Auto-apply overlay tweaks on top of the chosen preset (so user doesn't have to press Apply)
+  useEffect(() => {
+    if (!selectedPreset?.style) return;
+
+    const presetOpacity = Math.round(((selectedPreset.style as any)?.overlay?.opacity ?? 0.3) * 100);
+
+    // If UI matches preset, nothing to apply
+    if (overlayOpacity === presetOpacity) return;
+
+    // Prevent loops: ignore the value we just applied
+    if (lastAutoAppliedOverlay.current === overlayOpacity) return;
+
+    const nextPreset: VisualPreset = {
+      ...selectedPreset,
+      style: {
+        ...(selectedPreset.style as any),
+        overlay: {
+          ...((selectedPreset.style as any)?.overlay || {}),
+          opacity: overlayOpacity / 100,
+        },
+      },
+    };
+
+    lastAutoAppliedOverlay.current = overlayOpacity;
+    onPresetSelect(nextPreset);
+  }, [overlayOpacity, selectedPreset, onPresetSelect]);
 
   const loadPresets = async () => {
     setIsLoading(true);

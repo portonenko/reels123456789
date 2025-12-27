@@ -135,7 +135,7 @@ export const StepReview = ({ generatedContent, assets }: StepReviewProps) => {
         
         const projectData = {
           slides: content.slides,
-          globalOverlay: 30,
+          globalOverlay: 0,
           backgroundMusicUrl: content.musicUrl || null,
         };
 
