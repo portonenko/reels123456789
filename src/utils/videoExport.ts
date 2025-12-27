@@ -270,16 +270,10 @@ export const exportVideo = async (
     backgroundVideo.muted = true;
     backgroundVideo.playsInline = true;
     backgroundVideo.preload = "auto";
-    // Some browsers fail to loop reliably during canvas capture; handle looping manually.
-    backgroundVideo.loop = false;
-    backgroundVideo.onended = () => {
-      try {
-        backgroundVideo!.currentTime = 0;
-        void backgroundVideo!.play();
-      } catch {
-        // ignore
-      }
-    };
+    // Prefer native looping; additionally we will pre-emptively wrap near the end in the render loop
+    // to avoid capturing a frozen last frame.
+    backgroundVideo.loop = true;
+    backgroundVideo.onended = null;
     if (!backgroundAsset.url.startsWith('blob:')) {
       backgroundVideo.crossOrigin = "anonymous";
     }
@@ -532,6 +526,19 @@ export const exportVideo = async (
       const slideElapsed = elapsed - slideStartTime;
       const transitionDuration = 0.5;
       const transitionProgress = Math.min(slideElapsed / transitionDuration, 1);
+
+      // Keep background video looping without a visible "pause" at the end.
+      // Some browsers briefly freeze the last frame before restarting even with loop.
+      if (backgroundVideo && Number.isFinite(backgroundVideo.duration) && backgroundVideo.duration > 0) {
+        if (backgroundVideo.ended || backgroundVideo.currentTime >= backgroundVideo.duration - 0.12) {
+          try {
+            backgroundVideo.currentTime = 0;
+            void backgroundVideo.play();
+          } catch {
+            // ignore
+          }
+        }
+      }
 
       renderSlideToCanvas(ctx, slides[currentSlideIndex], canvas, backgroundVideo, transitionProgress, globalOverlay);
     }
