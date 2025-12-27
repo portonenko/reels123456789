@@ -273,20 +273,16 @@ export const exportVideo = async (
 
   onProgress(10, "Starting recording...");
 
-  // Use H.264 for maximum compatibility - works on all devices
-  let mimeType = 'video/mp4;codecs=avc1.42E01E,mp4a.40.2'; // H.264 Baseline + AAC
-  
-  // Fallback to WebM VP8 if H.264 not supported
+  // For best playback compatibility (no stutter / stable FPS), record as WebM first,
+  // then convert to MP4 (H.264) using FFmpeg.
+  let mimeType = "video/webm;codecs=vp8,opus";
+
+  // Fallback to generic WebM if needed
   if (!MediaRecorder.isTypeSupported(mimeType)) {
-    mimeType = 'video/webm;codecs=vp8,opus'; // VP8 - widely supported
-  }
-  
-  // Final fallback
-  if (!MediaRecorder.isTypeSupported(mimeType)) {
-    mimeType = 'video/webm'; // Let browser choose codecs
+    mimeType = "video/webm";
   }
 
-  console.log('Using video format:', mimeType);
+  console.log("Using video format:", mimeType);
 
   // Create MediaRecorder with optimized settings for high quality
   const videoStream = canvas.captureStream(30); // 30 FPS for smooth, high-quality video
@@ -456,19 +452,12 @@ export const exportVideo = async (
   onProgress(95, "Finalizing recording...");
   const webmBlob = await recordingPromise;
   
-  // Check if we recorded in WebM format - if so, convert to MP4
-  const needsConversion = mimeType.includes('webm');
-  
-  if (needsConversion) {
-    console.log("Converting WebM to MP4...");
-    const mp4Blob = await convertToMp4(webmBlob, onProgress);
-    console.log(`Converted to MP4: ${(mp4Blob.size / 1024 / 1024).toFixed(2)} MB`);
-    onProgress(100, "Complete!");
-    return mp4Blob;
-  }
-  
+  // Always convert the recorded WebM to MP4 for consistent playback
+  console.log("Converting WebM to MP4...");
+  const mp4Blob = await convertToMp4(webmBlob, onProgress);
+  console.log(`Converted to MP4: ${(mp4Blob.size / 1024 / 1024).toFixed(2)} MB`);
   onProgress(100, "Complete!");
-  return webmBlob;
+  return mp4Blob;
 };
 
 export const exportPhotos = async (
