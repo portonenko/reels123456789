@@ -204,6 +204,19 @@ export const StepReview = ({ generatedContent, assets, musicTracks = [], onUpdat
   const handleChangeAsset = (contentId: string, newAssetId: string) => {
     if (onUpdateContent) {
       onUpdateContent(contentId, { assetId: newAssetId });
+      
+      // Update preview in real-time
+      if (previewContent && previewContent.id === contentId) {
+        setPreviewContent(prev => {
+          if (!prev) return null;
+          const newSlides = prev.slides.map((slide: any) => ({
+            ...slide,
+            assetId: newAssetId,
+          }));
+          return { ...prev, slides: newSlides };
+        });
+      }
+      
       toast.success("Видео изменено");
     }
   };
@@ -211,6 +224,23 @@ export const StepReview = ({ generatedContent, assets, musicTracks = [], onUpdat
   const handleChangeMusic = (contentId: string, newMusicUrl: string) => {
     if (onUpdateContent) {
       onUpdateContent(contentId, { musicUrl: newMusicUrl || undefined });
+      
+      // Update preview in real-time
+      if (previewContent && previewContent.id === contentId) {
+        setPreviewContent(prev => prev ? { ...prev, musicUrl: newMusicUrl || undefined } : null);
+        
+        // Update audio element
+        if (audioRef.current) {
+          audioRef.current.pause();
+          if (newMusicUrl) {
+            audioRef.current.src = newMusicUrl;
+            if (isPlaying) {
+              audioRef.current.play().catch(() => {});
+            }
+          }
+        }
+      }
+      
       toast.success("Музыка изменена");
     }
   };
