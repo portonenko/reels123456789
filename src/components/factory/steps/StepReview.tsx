@@ -316,7 +316,7 @@ export const StepReview = ({ generatedContent, assets, musicTracks = [], onUpdat
             setSingleExport({ id: content.id, progress: 10 + progress * 0.9, stage: message });
           },
           content.musicUrl,
-          undefined
+          content.overlayOpacity
         );
 
         const isWebm = videoBlob.type.includes("webm");
@@ -324,19 +324,32 @@ export const StepReview = ({ generatedContent, assets, musicTracks = [], onUpdat
         const filename = `${baseName}.${ext}`;
 
         const url = URL.createObjectURL(videoBlob);
-        const a = document.createElement("a");
-        a.href = url;
-        a.download = filename;
-        a.rel = "noopener";
-        document.body.appendChild(a);
-        a.click();
-        document.body.removeChild(a);
 
-        // iOS/Safari fallback (opens in new tab)
-        window.open(url, "_blank");
-        setTimeout(() => URL.revokeObjectURL(url), 60_000);
+        // Keep a manual download fallback visible in UI
+        setDownloadUrl(url);
+        setDownloadName(filename);
 
-        toast.success(`Видео «${langName} — ${formatName}» скачано!`);
+        try {
+          const a = document.createElement("a");
+          a.href = url;
+          a.download = filename;
+          a.rel = "noopener";
+          document.body.appendChild(a);
+          a.click();
+          document.body.removeChild(a);
+        } catch (e) {
+          console.warn("Auto-download failed, showing manual download link", e);
+        }
+
+        // iOS/Safari fallback (may be blocked by popup blockers)
+        try {
+          window.open(url, "_blank");
+        } catch {
+          // ignore
+        }
+
+        toast.success(`Видео готово к скачиванию: ${filename}`);
+        return;
         return;
       }
 
@@ -356,7 +369,7 @@ export const StepReview = ({ generatedContent, assets, musicTracks = [], onUpdat
           (progress, message) => {
             setSingleExport({ id: content.id, progress: 10 + progress * 0.8, stage: message });
           },
-          undefined
+          content.overlayOpacity
         );
 
         const innerZip = await JSZip.loadAsync(photosZipBlob);
@@ -462,7 +475,7 @@ export const StepReview = ({ generatedContent, assets, musicTracks = [], onUpdat
                 );
               },
               content.musicUrl,
-              undefined
+              content.overlayOpacity
             );
 
             const isWebm = videoBlob.type.includes("webm");
@@ -496,7 +509,7 @@ export const StepReview = ({ generatedContent, assets, musicTracks = [], onUpdat
                     : null
                 );
               },
-              undefined
+              content.overlayOpacity
             );
 
             const innerZip = await JSZip.loadAsync(photosZipBlob);
