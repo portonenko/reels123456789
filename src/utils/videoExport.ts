@@ -268,8 +268,18 @@ export const exportVideo = async (
     backgroundVideo = document.createElement("video");
     backgroundVideo.src = backgroundAsset.url;
     backgroundVideo.muted = true;
-    backgroundVideo.loop = true;
-    // Don't set crossOrigin for blob URLs as it causes CORS issues
+    backgroundVideo.playsInline = true;
+    backgroundVideo.preload = "auto";
+    // Some browsers fail to loop reliably during canvas capture; handle looping manually.
+    backgroundVideo.loop = false;
+    backgroundVideo.onended = () => {
+      try {
+        backgroundVideo!.currentTime = 0;
+        void backgroundVideo!.play();
+      } catch {
+        // ignore
+      }
+    };
     if (!backgroundAsset.url.startsWith('blob:')) {
       backgroundVideo.crossOrigin = "anonymous";
     }
@@ -516,12 +526,6 @@ export const exportVideo = async (
           break;
         }
         accumulatedTime += slides[i].durationSec;
-      }
-
-      // Ensure background video loops properly
-      if (backgroundVideo && backgroundVideo.ended) {
-        backgroundVideo.currentTime = 0;
-        backgroundVideo.play().catch(() => {});
       }
 
       // Render slide with transition
