@@ -1,34 +1,13 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Slider } from "@/components/ui/slider";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Palette, Check, Settings, Type, Eye } from "lucide-react";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import { Palette, Settings, Eye } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { VisualPreset } from "@/types/contentFactory";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-
-// Available fonts
-const FONTS = [
-  { value: "Inter", label: "Inter" },
-  { value: "Roboto", label: "Roboto" },
-  { value: "Montserrat", label: "Montserrat" },
-  { value: "Playfair Display", label: "Playfair Display" },
-  { value: "Oswald", label: "Oswald" },
-  { value: "Lato", label: "Lato" },
-  { value: "Open Sans", label: "Open Sans" },
-  { value: "Raleway", label: "Raleway" },
-  { value: "Poppins", label: "Poppins" },
-  { value: "Merriweather", label: "Merriweather" },
-];
 
 // Sample background for preview
 const PREVIEW_BACKGROUNDS = [
@@ -50,80 +29,68 @@ export const StepVisualPresets = ({
 }: StepVisualPresetsProps) => {
   const [presets, setPresets] = useState<VisualPreset[]>([]);
   const [isLoading, setIsLoading] = useState(false);
-  
-  // Custom preset settings
-  const [customName, setCustomName] = useState("Custom Preset");
+
+  // Adjustable settings (on top of selected preset)
+  const [overlayOpacity, setOverlayOpacity] = useState(30);
   const [titleDuration, setTitleDuration] = useState(2);
   const [otherDuration, setOtherDuration] = useState(3);
-  
-  // Font settings - separate for title and body
-  const [titleFontFamily, setTitleFontFamily] = useState("Inter");
-  const [bodyFontFamily, setBodyFontFamily] = useState("Inter");
-  
-  // Color settings
-  const [textColor, setTextColor] = useState("#FFFFFF");
-  const [bodyTextColor, setBodyTextColor] = useState("#FFFFFF");
-  const [backgroundColor, setBackgroundColor] = useState("#000000");
-  
-  // Preview settings
-  const [overlayOpacity, setOverlayOpacity] = useState(30);
+
+  // Preview
   const [previewBgIndex, setPreviewBgIndex] = useState(0);
-  const lastAutoAppliedOverlay = useRef<number | null>(null);
+
+  // Track if we're syncing from preset to avoid loops
+  const [isSyncing, setIsSyncing] = useState(false);
 
   useEffect(() => {
     loadPresets();
   }, []);
 
-  // Sync UI with selected preset
+  // Sync sliders from selected preset (only when preset changes)
   useEffect(() => {
-    if (selectedPreset?.style) {
-      const style = selectedPreset.style as any;
-      if (style.text) {
-        setTitleFontFamily(style.text.fontFamily || "Inter");
-        setBodyFontFamily(style.text.bodyFontFamily || style.text.fontFamily || "Inter");
-        setTextColor(style.text.color || "#FFFFFF");
-        setBodyTextColor(style.text.bodyColor || style.text.color || "#FFFFFF");
-      }
-      if (style.plate) {
-        setBackgroundColor(style.plate.backgroundColor || "#000000");
-      }
-      if (style.overlay) {
-        const next = Math.round((style.overlay.opacity || 0.3) * 100);
-        setOverlayOpacity(next);
-        lastAutoAppliedOverlay.current = next;
-      }
-      setTitleDuration(selectedPreset.titleDuration || 2);
-      setOtherDuration(selectedPreset.otherDuration || 3);
-      setCustomName(selectedPreset.name || "Custom Preset");
+    if (!selectedPreset) return;
+
+    setIsSyncing(true);
+
+    const style = selectedPreset.style as any;
+    if (style?.overlay?.opacity !== undefined) {
+      setOverlayOpacity(Math.round(style.overlay.opacity * 100));
     }
-  }, [selectedPreset]);
+    setTitleDuration(selectedPreset.titleDuration || 2);
+    setOtherDuration(selectedPreset.otherDuration || 3);
 
-  // Auto-apply overlay tweaks on top of the chosen preset (so user doesn't have to press Apply)
+    // Allow changes after sync
+    setTimeout(() => setIsSyncing(false), 50);
+  }, [selectedPreset?.id]);
+
+  // Apply slider changes to the selected preset
   useEffect(() => {
-    if (!selectedPreset?.style) return;
+    if (!selectedPreset || isSyncing) return;
 
-    const presetOpacity = Math.round(((selectedPreset.style as any)?.overlay?.opacity ?? 0.3) * 100);
+    const currentStyle = selectedPreset.style as any;
+    const currentOverlay = Math.round((currentStyle?.overlay?.opacity ?? 0.3) * 100);
 
-    // If UI matches preset, nothing to apply
-    if (overlayOpacity === presetOpacity) return;
+    // Check if anything changed
+    const overlayChanged = overlayOpacity !== currentOverlay;
+    const titleChanged = titleDuration !== selectedPreset.titleDuration;
+    const otherChanged = otherDuration !== selectedPreset.otherDuration;
 
-    // Prevent loops: ignore the value we just applied
-    if (lastAutoAppliedOverlay.current === overlayOpacity) return;
+    if (!overlayChanged && !titleChanged && !otherChanged) return;
 
-    const nextPreset: VisualPreset = {
+    const updatedPreset: VisualPreset = {
       ...selectedPreset,
+      titleDuration,
+      otherDuration,
       style: {
-        ...(selectedPreset.style as any),
+        ...currentStyle,
         overlay: {
-          ...((selectedPreset.style as any)?.overlay || {}),
+          ...(currentStyle?.overlay || {}),
           opacity: overlayOpacity / 100,
         },
       },
     };
 
-    lastAutoAppliedOverlay.current = overlayOpacity;
-    onPresetSelect(nextPreset);
-  }, [overlayOpacity, selectedPreset, onPresetSelect]);
+    onPresetSelect(updatedPreset);
+  }, [overlayOpacity, titleDuration, otherDuration]);
 
   const loadPresets = async () => {
     setIsLoading(true);
@@ -135,7 +102,7 @@ export const StepVisualPresets = ({
 
       if (error) throw error;
 
-      const formattedPresets: VisualPreset[] = (data || []).map(p => ({
+      const formattedPresets: VisualPreset[] = (data || []).map((p) => ({
         id: p.id,
         name: p.name,
         titleDuration: Number(p.title_slide_duration),
@@ -144,6 +111,11 @@ export const StepVisualPresets = ({
       }));
 
       setPresets(formattedPresets);
+
+      // Auto-select first preset if none selected
+      if (!selectedPreset && formattedPresets.length > 0) {
+        onPresetSelect(formattedPresets[0]);
+      }
     } catch (error) {
       console.error("Error loading presets:", error);
       toast.error("Ошибка загрузки пресетов");
@@ -152,47 +124,28 @@ export const StepVisualPresets = ({
     }
   };
 
-  const handleSelectPreset = (preset: VisualPreset) => {
-    onPresetSelect(preset);
+  const handleSelectPreset = (presetId: string) => {
+    const preset = presets.find((p) => p.id === presetId);
+    if (preset) {
+      onPresetSelect(preset);
+    }
   };
 
-  const handleUseCustom = () => {
-    const baseStyle = getDefaultStyle();
-    const customStyle = {
-      ...baseStyle,
-      text: {
-        ...baseStyle.text,
-        fontFamily: titleFontFamily,
-        bodyFontFamily: bodyFontFamily,
-        color: textColor,
-        bodyColor: bodyTextColor,
-      },
-      plate: {
-        ...baseStyle.plate,
-        backgroundColor,
-      },
-      overlay: {
-        opacity: overlayOpacity / 100,
-      },
-    };
-    
-    const customPreset: VisualPreset = {
-      id: "custom",
-      name: customName,
-      titleDuration,
-      otherDuration,
-      style: customStyle,
-    };
-    onPresetSelect(customPreset);
-  };
+  // Get preview colors from selected preset
+  const previewStyle = selectedPreset?.style as any;
+  const textColor = previewStyle?.text?.color || "#FFFFFF";
+  const bodyTextColor = previewStyle?.text?.bodyColor || textColor;
+  const backgroundColor = previewStyle?.plate?.backgroundColor || "#000000";
+  const titleFontFamily = previewStyle?.text?.fontFamily || "Inter";
+  const bodyFontFamily = previewStyle?.text?.bodyFontFamily || titleFontFamily;
 
   return (
     <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-      {/* Left: Saved presets */}
+      {/* Left: Preset selection */}
       <div className="bg-card border border-border rounded-lg p-4">
         <h3 className="font-semibold mb-4 flex items-center gap-2">
           <Palette className="w-4 h-4" />
-          Сохранённые пресеты
+          Выберите пресет
         </h3>
 
         <ScrollArea className="h-[400px]">
@@ -203,260 +156,166 @@ export const StepVisualPresets = ({
           ) : presets.length === 0 ? (
             <div className="text-center text-muted-foreground py-8">
               <p>Пресеты ещё не сохранены.</p>
-              <p className="text-sm mt-2">Используйте настройки справа.</p>
+              <p className="text-sm mt-2">
+                Создайте пресет в редакторе и сохраните его.
+              </p>
             </div>
           ) : (
-            <div className="space-y-2">
+            <RadioGroup
+              value={selectedPreset?.id || ""}
+              onValueChange={handleSelectPreset}
+              className="space-y-2"
+            >
               {presets.map((preset) => (
-                <Button
+                <div
                   key={preset.id}
-                  variant={selectedPreset?.id === preset.id ? "default" : "outline"}
-                  className="w-full justify-between h-auto py-3 px-4"
-                  onClick={() => handleSelectPreset(preset)}
+                  className={`flex items-center space-x-3 p-3 rounded-lg border transition-all cursor-pointer ${
+                    selectedPreset?.id === preset.id
+                      ? "border-primary bg-primary/10"
+                      : "border-border hover:border-primary/50"
+                  }`}
+                  onClick={() => handleSelectPreset(preset.id)}
                 >
-                  <div className="text-left">
+                  <RadioGroupItem value={preset.id} id={preset.id} />
+                  <label
+                    htmlFor={preset.id}
+                    className="flex-1 cursor-pointer"
+                  >
                     <div className="font-medium">{preset.name}</div>
                     <div className="text-xs text-muted-foreground">
-                      Титульный: {preset.titleDuration}с • Другие: {preset.otherDuration}с
+                      {preset.titleDuration}с / {preset.otherDuration}с
                     </div>
-                  </div>
-                  {selectedPreset?.id === preset.id && (
-                    <Check className="w-4 h-4 ml-2" />
-                  )}
-                </Button>
+                  </label>
+                </div>
               ))}
-            </div>
+            </RadioGroup>
           )}
         </ScrollArea>
       </div>
 
-      {/* Right: Custom settings */}
+      {/* Middle: Adjustments */}
       <div className="bg-card border border-border rounded-lg p-4">
         <h3 className="font-semibold mb-4 flex items-center gap-2">
           <Settings className="w-4 h-4" />
-          Кастомные настройки
+          Настройки
         </h3>
 
-        <ScrollArea className="h-[400px] pr-2">
-          <div className="space-y-5">
-            {/* Preset Name */}
-            <div className="space-y-2">
-              <Label>Название пресета</Label>
-              <Input
-                value={customName}
-                onChange={(e) => setCustomName(e.target.value)}
-                placeholder="Мой пресет"
+        {!selectedPreset ? (
+          <div className="text-center text-muted-foreground py-8">
+            Сначала выберите пресет слева
+          </div>
+        ) : (
+          <div className="space-y-6">
+            {/* Overlay Opacity */}
+            <div className="space-y-3 p-4 bg-muted/30 rounded-lg">
+              <Label className="text-sm font-medium">
+                Затемнение фона: {overlayOpacity}%
+              </Label>
+              <Slider
+                value={[overlayOpacity]}
+                onValueChange={([v]) => setOverlayOpacity(v)}
+                min={0}
+                max={80}
+                step={5}
               />
+              <p className="text-xs text-muted-foreground">
+                Насколько затемнить видео/фото под текстом
+              </p>
             </div>
 
             {/* Duration Settings */}
-            <div className="space-y-4 p-3 bg-muted/30 rounded-lg">
-              <div className="flex items-center gap-2 text-sm font-medium">
-                <Settings className="w-4 h-4" />
-                Длительность слайдов
-              </div>
-              
-              <div className="space-y-2">
-                <Label className="text-xs">Титульный слайд: {titleDuration}с</Label>
-                <Slider
-                  value={[titleDuration]}
-                  onValueChange={([v]) => setTitleDuration(v)}
-                  min={1}
-                  max={10}
-                  step={0.5}
-                />
-              </div>
+            <div className="space-y-4 p-4 bg-muted/30 rounded-lg">
+              <Label className="text-sm font-medium">Длительность слайдов</Label>
 
-              <div className="space-y-2">
-                <Label className="text-xs">Остальные слайды: {otherDuration}с</Label>
-                <Slider
-                  value={[otherDuration]}
-                  onValueChange={([v]) => setOtherDuration(v)}
-                  min={1}
-                  max={10}
-                  step={0.5}
-                />
-              </div>
-            </div>
-
-            {/* Font & Color Settings */}
-            <div className="space-y-4 p-3 bg-muted/30 rounded-lg">
-              <div className="flex items-center gap-2 text-sm font-medium">
-                <Type className="w-4 h-4" />
-                Шрифт и цвета
-              </div>
-
-              {/* Title Font */}
-              <div className="space-y-2">
-                <Label className="text-xs">Шрифт заголовка</Label>
-                <Select value={titleFontFamily} onValueChange={setTitleFontFamily}>
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {FONTS.map(font => (
-                      <SelectItem 
-                        key={font.value} 
-                        value={font.value}
-                        style={{ fontFamily: font.value }}
-                      >
-                        {font.label}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-
-              {/* Body Font */}
-              <div className="space-y-2">
-                <Label className="text-xs">Шрифт основного текста</Label>
-                <Select value={bodyFontFamily} onValueChange={setBodyFontFamily}>
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {FONTS.map(font => (
-                      <SelectItem 
-                        key={font.value} 
-                        value={font.value}
-                        style={{ fontFamily: font.value }}
-                      >
-                        {font.label}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-
-              {/* Colors */}
-              <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-3">
                 <div className="space-y-2">
-                  <Label className="text-xs">Цвет заголовка</Label>
-                  <div className="flex gap-2">
-                    <input
-                      type="color"
-                      value={textColor}
-                      onChange={(e) => setTextColor(e.target.value)}
-                      className="w-10 h-10 rounded cursor-pointer border border-border"
-                    />
-                    <Input
-                      value={textColor}
-                      onChange={(e) => setTextColor(e.target.value)}
-                      className="flex-1 font-mono text-xs"
-                    />
+                  <div className="flex justify-between text-xs">
+                    <span>Титульный слайд</span>
+                    <span className="font-mono">{titleDuration}с</span>
                   </div>
+                  <Slider
+                    value={[titleDuration]}
+                    onValueChange={([v]) => setTitleDuration(v)}
+                    min={1}
+                    max={10}
+                    step={0.5}
+                  />
                 </div>
 
                 <div className="space-y-2">
-                  <Label className="text-xs">Цвет основного текста</Label>
-                  <div className="flex gap-2">
-                    <input
-                      type="color"
-                      value={bodyTextColor}
-                      onChange={(e) => setBodyTextColor(e.target.value)}
-                      className="w-10 h-10 rounded cursor-pointer border border-border"
-                    />
-                    <Input
-                      value={bodyTextColor}
-                      onChange={(e) => setBodyTextColor(e.target.value)}
-                      className="flex-1 font-mono text-xs"
-                    />
+                  <div className="flex justify-between text-xs">
+                    <span>Остальные слайды</span>
+                    <span className="font-mono">{otherDuration}с</span>
                   </div>
-                </div>
-              </div>
-
-              <div className="space-y-2">
-                <Label className="text-xs">Цвет плашки</Label>
-                <div className="flex gap-2">
-                  <input
-                    type="color"
-                    value={backgroundColor}
-                    onChange={(e) => setBackgroundColor(e.target.value)}
-                    className="w-10 h-10 rounded cursor-pointer border border-border"
-                  />
-                  <Input
-                    value={backgroundColor}
-                    onChange={(e) => setBackgroundColor(e.target.value)}
-                    className="flex-1 font-mono text-xs"
+                  <Slider
+                    value={[otherDuration]}
+                    onValueChange={([v]) => setOtherDuration(v)}
+                    min={1}
+                    max={10}
+                    step={0.5}
                   />
                 </div>
-              </div>
-
-              {/* Overlay Opacity */}
-              <div className="space-y-2">
-                <Label className="text-xs">Затемнение фона: {overlayOpacity}%</Label>
-                <Slider
-                  value={[overlayOpacity]}
-                  onValueChange={([v]) => setOverlayOpacity(v)}
-                  min={0}
-                  max={80}
-                  step={5}
-                />
               </div>
             </div>
 
-            <Button
-              onClick={handleUseCustom}
-              variant={selectedPreset?.id === "custom" ? "default" : "outline"}
-              className="w-full"
-            >
-              {selectedPreset?.id === "custom" ? (
-                <>
-                  <Check className="w-4 h-4 mr-2" />
-                  Используются кастомные настройки
-                </>
-              ) : (
-                "Применить кастомные настройки"
-              )}
-            </Button>
+            {/* Selected preset info */}
+            <div className="p-3 bg-primary/10 rounded-lg text-sm">
+              <div className="font-medium text-primary">
+                Выбран: {selectedPreset.name}
+              </div>
+              <div className="text-xs text-muted-foreground mt-1">
+                Настройки применяются автоматически
+              </div>
+            </div>
           </div>
-        </ScrollArea>
+        )}
       </div>
 
       {/* Right: Live Preview */}
       <div className="bg-card border border-border rounded-lg p-4">
         <h3 className="font-semibold mb-4 flex items-center gap-2">
           <Eye className="w-4 h-4" />
-          Превью слайда
+          Превью
         </h3>
 
-        {/* 9:16 Aspect Ratio Preview */}
         <div className="flex flex-col items-center">
-          <div 
+          <div
             className="relative w-full max-w-[200px] rounded-lg overflow-hidden shadow-lg"
-            style={{ aspectRatio: '9/16' }}
+            style={{ aspectRatio: "9/16" }}
           >
             {/* Background Image */}
-            <img 
-              src={PREVIEW_BACKGROUNDS[previewBgIndex]} 
+            <img
+              src={PREVIEW_BACKGROUNDS[previewBgIndex]}
               alt="Preview background"
               className="absolute inset-0 w-full h-full object-cover"
             />
-            
+
             {/* Overlay */}
-            <div 
+            <div
               className="absolute inset-0"
-              style={{ backgroundColor: `rgba(0, 0, 0, ${overlayOpacity / 100})` }}
+              style={{
+                backgroundColor: `rgba(0, 0, 0, ${overlayOpacity / 100})`,
+              }}
             />
-            
+
             {/* Content */}
             <div className="absolute inset-0 flex flex-col justify-center items-center p-4 text-center">
               {/* Text Plate */}
-              <div 
+              <div
                 className="rounded-lg p-3 w-full"
                 style={{ backgroundColor: `${backgroundColor}cc` }}
               >
-                <div 
+                <div
                   className="text-sm font-bold leading-tight"
                   style={{ color: textColor, fontFamily: titleFontFamily }}
                 >
                   Заголовок слайда
                 </div>
-                <div 
+                <div
                   className="text-[10px] mt-1 leading-tight opacity-90"
                   style={{ color: bodyTextColor, fontFamily: bodyFontFamily }}
                 >
-                  Основной текст слайда с дополнительной информацией
+                  Основной текст слайда
                 </div>
               </div>
             </div>
@@ -469,19 +328,19 @@ export const StepVisualPresets = ({
                 key={index}
                 onClick={() => setPreviewBgIndex(index)}
                 className={`w-10 h-10 rounded-lg overflow-hidden border-2 transition-all ${
-                  previewBgIndex === index 
-                    ? 'border-primary ring-2 ring-primary/30' 
-                    : 'border-border hover:border-primary/50'
+                  previewBgIndex === index
+                    ? "border-primary ring-2 ring-primary/30"
+                    : "border-border hover:border-primary/50"
                 }`}
               >
-                <img src={bg} alt={`Background ${index + 1}`} className="w-full h-full object-cover" />
+                <img
+                  src={bg}
+                  alt={`Background ${index + 1}`}
+                  className="w-full h-full object-cover"
+                />
               </button>
             ))}
           </div>
-
-          <p className="text-xs text-muted-foreground mt-3 text-center">
-            Выберите фон для превью
-          </p>
         </div>
       </div>
     </div>
