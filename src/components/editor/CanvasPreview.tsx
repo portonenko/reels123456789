@@ -26,11 +26,16 @@ export const CanvasPreview = ({ slide, globalOverlay, showTextBoxControls = fals
   const audioRef = useRef<HTMLAudioElement>(null);
   const animationRef = useRef<number | null>(null);
 
+  // Playback refs to avoid stale closures during rAF
+  const slideIndexRef = useRef(0);
+  const slideStartTsRef = useRef<number>(0);
+  const lastUiUpdateTsRef = useRef<number>(0);
+
   const currentSlide = isPlaying ? slides[currentSlideIndex] : slide;
-  
+
   // Calculate total timeline duration
   const totalDuration = slides.reduce((sum, s) => sum + s.durationSec, 0);
-  
+
   useEffect(() => {
     if (slide) {
       const index = slides.findIndex((s) => s.id === slide.id);
@@ -40,54 +45,68 @@ export const CanvasPreview = ({ slide, globalOverlay, showTextBoxControls = fals
     }
   }, [slide, slides, isPlaying]);
 
-  // Animate slide time for transitions - optimized with throttling
+  // Timeline playback (robust even if background video ends)
   useEffect(() => {
-    if (isPlaying && slides.length > 0) {
-      const currentSlideDuration = slides[currentSlideIndex]?.durationSec || 2;
-      const startTime = Date.now();
-      let lastUpdateTime = startTime;
-      const UPDATE_INTERVAL = 1000 / 30; // 30 FPS cap for smoother performance
-      
-      const animate = () => {
-        const now = Date.now();
-        const elapsed = (now - startTime) / 1000;
-        
-        // Throttle updates to reduce rerender frequency
-        if (now - lastUpdateTime >= UPDATE_INTERVAL) {
-          setSlideTime(elapsed);
-          lastUpdateTime = now;
-        }
-        
-        if (elapsed < currentSlideDuration) {
-          animationRef.current = requestAnimationFrame(animate);
-        } else {
-          if (currentSlideIndex < slides.length - 1) {
-            setCurrentSlideIndex(currentSlideIndex + 1);
-            setSlideTime(0);
-          } else {
-            setIsPlaying(false);
-            setCurrentSlideIndex(0);
-            setSlideTime(0);
-            if (videoRef.current) {
-              videoRef.current.pause();
-            }
-            if (audioRef.current) {
-              audioRef.current.pause();
-            }
-          }
-        }
-      };
-      
-      animationRef.current = requestAnimationFrame(animate);
-      
-      return () => {
-        if (animationRef.current) {
-          cancelAnimationFrame(animationRef.current);
-        }
-      };
-    }
-  }, [isPlaying, currentSlideIndex, slides]);
+    if (!isPlaying || slides.length === 0) return;
 
+    slideIndexRef.current = Math.min(currentSlideIndex, Math.max(slides.length - 1, 0));
+    slideStartTsRef.current = performance.now();
+    lastUiUpdateTsRef.current = 0;
+
+    const UPDATE_INTERVAL_MS = 1000 / 30; // 30 FPS UI cap
+
+    const tick = (now: number) => {
+      const idx = slideIndexRef.current;
+      const duration = slides[idx]?.durationSec ?? 2;
+      const elapsed = Math.max(0, (now - slideStartTsRef.current) / 1000);
+
+      // Keep background video looping during preview playback (some browsers stop even with loop)
+      const v = videoRef.current;
+      if (v && v.ended) {
+        try {
+          v.currentTime = 0;
+          void v.play();
+        } catch {
+          // ignore
+        }
+      }
+
+      if (now - lastUiUpdateTsRef.current >= UPDATE_INTERVAL_MS) {
+        setSlideTime(elapsed);
+        lastUiUpdateTsRef.current = now;
+      }
+
+      if (elapsed < duration) {
+        animationRef.current = requestAnimationFrame(tick);
+        return;
+      }
+
+      // advance slide
+      if (idx < slides.length - 1) {
+        slideIndexRef.current = idx + 1;
+        slideStartTsRef.current = now;
+        setCurrentSlideIndex(idx + 1);
+        setSlideTime(0);
+        animationRef.current = requestAnimationFrame(tick);
+        return;
+      }
+
+      // end timeline
+      setIsPlaying(false);
+      setCurrentSlideIndex(0);
+      setSlideTime(0);
+      if (videoRef.current) videoRef.current.pause();
+      if (audioRef.current) audioRef.current.pause();
+    };
+
+    animationRef.current = requestAnimationFrame(tick);
+
+    return () => {
+      if (animationRef.current) cancelAnimationFrame(animationRef.current);
+    };
+    // Intentionally NOT depending on currentSlideIndex: controlled via refs during playback.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isPlaying, slides]);
   // Render canvas text overlay - optimized
   useEffect(() => {
     if (!canvasRef.current || !currentSlide) return;
