@@ -37,37 +37,34 @@ const getFFmpeg = async (): Promise<FFmpeg> => {
   const loadFFmpeg = async (): Promise<FFmpeg> => {
     const ffmpeg = new FFmpeg();
 
-    // Multiple CDN sources for reliability
+    // Use single-threaded version (core-st) - works WITHOUT SharedArrayBuffer headers
+    // This is more compatible with all browsers/hosting environments
     const cdnConfigs = [
       {
-        coreURL: "https://cdn.jsdelivr.net/npm/@ffmpeg/core@0.12.6/dist/esm/ffmpeg-core.js",
-        wasmURL: "https://cdn.jsdelivr.net/npm/@ffmpeg/core@0.12.6/dist/esm/ffmpeg-core.wasm",
+        coreURL: "https://cdn.jsdelivr.net/npm/@ffmpeg/core-st@0.12.6/dist/esm/ffmpeg-core.js",
+        wasmURL: "https://cdn.jsdelivr.net/npm/@ffmpeg/core-st@0.12.6/dist/esm/ffmpeg-core.wasm",
       },
       {
-        coreURL: "https://unpkg.com/@ffmpeg/core@0.12.6/dist/esm/ffmpeg-core.js",
-        wasmURL: "https://unpkg.com/@ffmpeg/core@0.12.6/dist/esm/ffmpeg-core.wasm",
-      },
-      {
-        coreURL: "https://cdn.jsdelivr.net/npm/@ffmpeg/core@0.12.6/dist/umd/ffmpeg-core.js",
-        wasmURL: "https://cdn.jsdelivr.net/npm/@ffmpeg/core@0.12.6/dist/umd/ffmpeg-core.wasm",
+        coreURL: "https://unpkg.com/@ffmpeg/core-st@0.12.6/dist/esm/ffmpeg-core.js",
+        wasmURL: "https://unpkg.com/@ffmpeg/core-st@0.12.6/dist/esm/ffmpeg-core.wasm",
       },
     ];
 
     let lastErr: unknown;
 
     for (const config of cdnConfigs) {
-      console.log("[FFmpeg] Loading from:", config.coreURL);
+      console.log("[FFmpeg-ST] Loading from:", config.coreURL);
       try {
         await withTimeout(
           ffmpeg.load(config),
-          120_000,
+          90_000, // ST version is smaller and loads faster
           "FFmpeg load"
         );
-        console.log("[FFmpeg] Loaded successfully!");
+        console.log("[FFmpeg-ST] Loaded successfully!");
         ffmpegInstance = ffmpeg;
         return ffmpeg;
       } catch (e) {
-        console.error("[FFmpeg] Load failed:", e);
+        console.error("[FFmpeg-ST] Load failed:", e);
         lastErr = e;
       }
     }
