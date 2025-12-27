@@ -60,14 +60,17 @@ export const CanvasPreview = ({ slide, globalOverlay, showTextBoxControls = fals
       const duration = slides[idx]?.durationSec ?? 2;
       const elapsed = Math.max(0, (now - slideStartTsRef.current) / 1000);
 
-      // Keep background video looping during preview playback (some browsers stop even with loop)
+      // Keep background video looping during preview playback
       const v = videoRef.current;
-      if (v && v.ended) {
-        try {
-          v.currentTime = 0;
-          void v.play();
-        } catch {
-          // ignore
+      if (v && Number.isFinite(v.duration) && v.duration > 0) {
+        // Some browsers freeze at the last frame instead of firing "ended"
+        if (v.ended || v.currentTime >= v.duration - 0.12) {
+          try {
+            v.currentTime = 0;
+            void v.play();
+          } catch {
+            // ignore
+          }
         }
       }
 
@@ -218,14 +221,16 @@ export const CanvasPreview = ({ slide, globalOverlay, showTextBoxControls = fals
     ? assets.find((a) => a.id === currentSlide.assetId)
     : undefined;
 
-  // Ensure background video keeps looping smoothly during preview playback
+  // Smooth background video looping + resume without duplicate hooks
   useEffect(() => {
     const v = videoRef.current;
-    if (!v || !isPlaying) return;
+    if (!v) return;
 
-    const restart = () => {
+    // Prefer native looping when possible
+    v.loop = true;
+
+    const handleEnded = () => {
       try {
-        if (!Number.isFinite(v.duration) || v.duration <= 0) return;
         v.currentTime = 0;
         void v.play();
       } catch {
@@ -233,42 +238,22 @@ export const CanvasPreview = ({ slide, globalOverlay, showTextBoxControls = fals
       }
     };
 
-    const ensureRunning = () => {
-      try {
-        if (!Number.isFinite(v.duration) || v.duration <= 0) return;
+    v.addEventListener("ended", handleEnded);
 
-        // If we reached the end (or very close), restart
-        if (v.ended || v.currentTime >= v.duration - 0.05) {
-          restart();
-          return;
-        }
-
-        // If something paused/stalled playback, try to resume
-        if (v.paused) {
-          void v.play();
-        }
-      } catch {
-        // ignore
+    // When src changes, force reload and resume if timeline is playing
+    try {
+      v.load();
+      if (isPlaying) {
+        void v.play();
       }
-    };
-
-    v.loop = false;
-
-    v.addEventListener("ended", restart);
-    v.addEventListener("stalled", ensureRunning);
-    v.addEventListener("waiting", ensureRunning);
-    v.addEventListener("pause", ensureRunning);
-
-    const interval = window.setInterval(ensureRunning, 250);
+    } catch {
+      // ignore
+    }
 
     return () => {
-      window.clearInterval(interval);
-      v.removeEventListener("ended", restart);
-      v.removeEventListener("stalled", ensureRunning);
-      v.removeEventListener("waiting", ensureRunning);
-      v.removeEventListener("pause", ensureRunning);
+      v.removeEventListener("ended", handleEnded);
     };
-  }, [isPlaying, backgroundAsset?.url]);
+  }, [backgroundAsset?.url, isPlaying]);
 
   if (!currentSlide) {
     return (
@@ -277,57 +262,6 @@ export const CanvasPreview = ({ slide, globalOverlay, showTextBoxControls = fals
       </div>
     );
   }
-  // Ensure background video keeps looping smoothly during preview playback
-  useEffect(() => {
-    const v = videoRef.current;
-    if (!v || !isPlaying) return;
-
-    const restart = () => {
-      try {
-        if (!Number.isFinite(v.duration) || v.duration <= 0) return;
-        v.currentTime = 0;
-        void v.play();
-      } catch {
-        // ignore
-      }
-    };
-
-    const ensureRunning = () => {
-      try {
-        if (!Number.isFinite(v.duration) || v.duration <= 0) return;
-
-        // If we reached the end (or very close), restart
-        if (v.ended || v.currentTime >= v.duration - 0.05) {
-          restart();
-          return;
-        }
-
-        // If something paused/stalled playback, try to resume
-        if (v.paused) {
-          void v.play();
-        }
-      } catch {
-        // ignore
-      }
-    };
-
-    v.loop = false;
-
-    v.addEventListener("ended", restart);
-    v.addEventListener("stalled", ensureRunning);
-    v.addEventListener("waiting", ensureRunning);
-    v.addEventListener("pause", ensureRunning);
-
-    const interval = window.setInterval(ensureRunning, 250);
-
-    return () => {
-      window.clearInterval(interval);
-      v.removeEventListener("ended", restart);
-      v.removeEventListener("stalled", ensureRunning);
-      v.removeEventListener("waiting", ensureRunning);
-      v.removeEventListener("pause", ensureRunning);
-    };
-  }, [isPlaying, backgroundAsset?.url]);
   // Calculate transition effects
   const transitionDuration = 0.5; // 0.5 seconds
   const transitionProgress = Math.min(slideTime / transitionDuration, 1);
