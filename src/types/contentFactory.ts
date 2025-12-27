@@ -1,6 +1,6 @@
 export type ContentFormat = "video" | "carousel" | "static-single" | "static-multi";
 
-export type FactoryLanguage = "en" | "de" | "pl";
+export type FactoryLanguage = "original" | "en" | "de" | "pl";
 
 export interface ContentMatrixSelection {
   languages: FactoryLanguage[];
@@ -46,6 +46,7 @@ export interface FactoryState {
 }
 
 export const FACTORY_LANGUAGES: { code: FactoryLanguage; name: string; energiaReplacement: string }[] = [
+  { code: "original", name: "Original", energiaReplacement: "ENERGIA" },
   { code: "en", name: "English", energiaReplacement: "energy" },
   { code: "de", name: "German", energiaReplacement: "energie" },
   { code: "pl", name: "Polish", energiaReplacement: "Energia" },
