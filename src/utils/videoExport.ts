@@ -76,7 +76,11 @@ const convertToMp4 = async (
   webmBlob: Blob,
   onProgress: (progress: number, message: string) => void
 ): Promise<Blob> => {
-  console.log("[FFmpeg] Starting MP4 conversion, WebM size:", (webmBlob.size / 1024 / 1024).toFixed(2), "MB");
+  console.log(
+    "[FFmpeg] Starting MP4 conversion, WebM size:",
+    (webmBlob.size / 1024 / 1024).toFixed(2),
+    "MB"
+  );
   onProgress(96, "Loading video converter...");
 
   const ffmpeg = await getFFmpeg();
@@ -99,6 +103,10 @@ const convertToMp4 = async (
       "fast",
       "-crf",
       "23",
+      "-pix_fmt",
+      "yuv420p",
+      "-r",
+      "30",
       "-c:a",
       "aac",
       "-b:a",
@@ -107,7 +115,7 @@ const convertToMp4 = async (
       "+faststart",
       "output.mp4",
     ]),
-    180_000, // 3 minutes for conversion
+    180_000,
     "FFmpeg convert"
   );
 
@@ -118,13 +126,73 @@ const convertToMp4 = async (
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const mp4Blob = new Blob([data as any], { type: "video/mp4" });
 
-  console.log("[FFmpeg] Conversion complete! MP4 size:", (mp4Blob.size / 1024 / 1024).toFixed(2), "MB");
+  console.log(
+    "[FFmpeg] Conversion complete! MP4 size:",
+    (mp4Blob.size / 1024 / 1024).toFixed(2),
+    "MB"
+  );
 
   // Clean up
   await ffmpeg.deleteFile("input.webm");
   await ffmpeg.deleteFile("output.mp4");
 
   return mp4Blob;
+};
+
+const normalizeMp4 = async (
+  mp4Blob: Blob,
+  onProgress: (progress: number, message: string) => void
+): Promise<Blob> => {
+  console.log(
+    "[FFmpeg] Normalizing MP4 (re-encode for stable timestamps), size:",
+    (mp4Blob.size / 1024 / 1024).toFixed(2),
+    "MB"
+  );
+  onProgress(96, "Optimizing MP4 playback...");
+
+  const ffmpeg = await getFFmpeg();
+
+  onProgress(97, "Re-encoding MP4...");
+
+  const inputData = await fetchFile(mp4Blob);
+  await ffmpeg.writeFile("input.mp4", inputData);
+
+  await withTimeout(
+    ffmpeg.exec([
+      "-i",
+      "input.mp4",
+      "-c:v",
+      "libx264",
+      "-preset",
+      "fast",
+      "-crf",
+      "23",
+      "-pix_fmt",
+      "yuv420p",
+      "-r",
+      "30",
+      "-c:a",
+      "aac",
+      "-b:a",
+      "128k",
+      "-movflags",
+      "+faststart",
+      "output.mp4",
+    ]),
+    240_000,
+    "FFmpeg normalize"
+  );
+
+  onProgress(99, "Finalizing MP4...");
+
+  const data = await ffmpeg.readFile("output.mp4");
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const outBlob = new Blob([data as any], { type: "video/mp4" });
+
+  await ffmpeg.deleteFile("input.mp4");
+  await ffmpeg.deleteFile("output.mp4");
+
+  return outBlob;
 };
 
 const prepareCanvasContext = (canvas: HTMLCanvasElement): CanvasRenderingContext2D | null => {
@@ -270,20 +338,29 @@ export const exportVideo = async (
     backgroundVideo.muted = true;
     backgroundVideo.playsInline = true;
     backgroundVideo.preload = "auto";
-    // Prefer native looping; additionally we will pre-emptively wrap near the end in the render loop
-    // to avoid capturing a frozen last frame.
     backgroundVideo.loop = true;
-    backgroundVideo.onended = null;
-    if (!backgroundAsset.url.startsWith('blob:')) {
+
+    // Keep decoder active during capture: attach as hidden element.
+    backgroundVideo.style.position = "fixed";
+    backgroundVideo.style.left = "-99999px";
+    backgroundVideo.style.top = "-99999px";
+    backgroundVideo.style.width = "1px";
+    backgroundVideo.style.height = "1px";
+    backgroundVideo.style.opacity = "0";
+    backgroundVideo.style.pointerEvents = "none";
+    document.body.appendChild(backgroundVideo);
+
+    if (!backgroundAsset.url.startsWith("blob:")) {
       backgroundVideo.crossOrigin = "anonymous";
     }
+
     try {
       await new Promise((resolve, reject) => {
         const timeout = setTimeout(() => {
           console.warn("Video loading timeout after 10s");
           reject(new Error("Video loading timeout"));
         }, 10000);
-        
+
         backgroundVideo!.onloadeddata = () => {
           clearTimeout(timeout);
           console.log("Background video loaded successfully");
@@ -298,6 +375,11 @@ export const exportVideo = async (
       });
     } catch (videoError) {
       console.error("Failed to load background video, continuing without it:", videoError);
+      try {
+        backgroundVideo?.remove();
+      } catch {
+        // ignore
+      }
       backgroundVideo = undefined;
     }
   } else {
@@ -553,7 +635,14 @@ export const exportVideo = async (
       renderSlideToCanvas(ctx, slides[currentSlideIndex], canvas, backgroundVideo, transitionProgress, globalOverlay);
     }
 
-    if (backgroundVideo) backgroundVideo.pause();
+    if (backgroundVideo) {
+      backgroundVideo.pause();
+      try {
+        backgroundVideo.remove();
+      } catch {
+        // ignore
+      }
+    }
     if (backgroundAudio) backgroundAudio.pause();
 
     // Give the recorder a tiny moment to flush the last painted frame
@@ -569,11 +658,18 @@ export const exportVideo = async (
   onProgress(95, "Finalizing recording...");
   const recordedBlob = await recordingPromise;
 
-  // If we already recorded as MP4, we're done!
+  // If we recorded as MP4, normalize it for stable playback (fixes stutter on some players)
   if (recordingAsMp4) {
     console.log(`Recorded native MP4: ${(recordedBlob.size / 1024 / 1024).toFixed(2)} MB`);
-    onProgress(100, "Complete!");
-    return recordedBlob;
+    try {
+      const normalized = await normalizeMp4(recordedBlob, onProgress);
+      onProgress(100, "Complete!");
+      return normalized;
+    } catch (err) {
+      console.warn("MP4 normalization failed, returning original MP4:", err);
+      onProgress(100, "Complete!");
+      return recordedBlob;
+    }
   }
 
   // Otherwise we have WebM and need to convert to MP4
