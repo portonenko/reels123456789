@@ -2,9 +2,10 @@ import { Slide, Asset } from "@/types";
 import { renderSlideText } from "./canvasTextRenderer";
 import JSZip from "jszip";
 import { FFmpeg } from "@ffmpeg/ffmpeg";
-import { fetchFile, toBlobURL } from "@ffmpeg/util";
+import { fetchFile } from "@ffmpeg/util";
 
 let ffmpegInstance: FFmpeg | null = null;
+let ffmpegLoading: Promise<FFmpeg> | null = null;
 
 const withTimeout = async <T,>(p: Promise<T>, ms: number, label: string): Promise<T> => {
   let t: number | undefined;
@@ -19,47 +20,74 @@ const withTimeout = async <T,>(p: Promise<T>, ms: number, label: string): Promis
 };
 
 const getFFmpeg = async (): Promise<FFmpeg> => {
+  // Already loaded
   if (ffmpegInstance && ffmpegInstance.loaded) {
+    console.log("[FFmpeg] Using cached instance");
     return ffmpegInstance;
   }
 
-  const ffmpeg = new FFmpeg();
-
-  // CDN for ffmpeg core. jsDelivr tends to be more reliable than unpkg.
-  const baseURL = "https://cdn.jsdelivr.net/npm/@ffmpeg/core@0.12.6/dist/umd";
-
-  try {
-    await withTimeout(
-      ffmpeg.load({
-        coreURL: await toBlobURL(`${baseURL}/ffmpeg-core.js`, "text/javascript"),
-        wasmURL: await toBlobURL(`${baseURL}/ffmpeg-core.wasm`, "application/wasm"),
-      }),
-      60_000,
-      "FFmpeg load"
-    );
-  } catch (e) {
-    // Ensure we don't keep a half-loaded instance around
-    ffmpegInstance = null;
-    throw e;
+  // Loading in progress - wait for it
+  if (ffmpegLoading) {
+    console.log("[FFmpeg] Waiting for loading in progress...");
+    return ffmpegLoading;
   }
 
-  ffmpegInstance = ffmpeg;
-  return ffmpeg;
+  console.log("[FFmpeg] Starting fresh load...");
+
+  const loadFFmpeg = async (): Promise<FFmpeg> => {
+    const ffmpeg = new FFmpeg();
+
+    // Use direct CDN URLs without toBlobURL which can hang
+    // jsDelivr is more reliable and handles CORS well
+    const baseURL = "https://cdn.jsdelivr.net/npm/@ffmpeg/core@0.12.6/dist/umd";
+
+    console.log("[FFmpeg] Loading from:", baseURL);
+
+    try {
+      await withTimeout(
+        ffmpeg.load({
+          coreURL: `${baseURL}/ffmpeg-core.js`,
+          wasmURL: `${baseURL}/ffmpeg-core.wasm`,
+        }),
+        90_000, // 90 second timeout for slow connections
+        "FFmpeg load"
+      );
+      console.log("[FFmpeg] Loaded successfully!");
+      ffmpegInstance = ffmpeg;
+      return ffmpeg;
+    } catch (e) {
+      console.error("[FFmpeg] Load failed:", e);
+      ffmpegInstance = null;
+      throw e;
+    }
+  };
+
+  ffmpegLoading = loadFFmpeg();
+
+  try {
+    const result = await ffmpegLoading;
+    return result;
+  } finally {
+    ffmpegLoading = null;
+  }
 };
 
 const convertToMp4 = async (
-  webmBlob: Blob, 
+  webmBlob: Blob,
   onProgress: (progress: number, message: string) => void
 ): Promise<Blob> => {
+  console.log("[FFmpeg] Starting MP4 conversion, WebM size:", (webmBlob.size / 1024 / 1024).toFixed(2), "MB");
   onProgress(96, "Loading video converter...");
-  
+
   const ffmpeg = await getFFmpeg();
-  
+
   onProgress(97, "Converting to MP4...");
-  
+
+  console.log("[FFmpeg] Writing input file...");
   const inputData = await fetchFile(webmBlob);
-  await ffmpeg.writeFile('input.webm', inputData);
-  
+  await ffmpeg.writeFile("input.webm", inputData);
+
+  console.log("[FFmpeg] Running conversion...");
   // Convert WebM to MP4 with H.264 codec
   await withTimeout(
     ffmpeg.exec([
@@ -79,20 +107,23 @@ const convertToMp4 = async (
       "+faststart",
       "output.mp4",
     ]),
-    120_000,
+    180_000, // 3 minutes for conversion
     "FFmpeg convert"
   );
-  
+
   onProgress(99, "Finalizing MP4...");
-  
-  const data = await ffmpeg.readFile('output.mp4');
+
+  console.log("[FFmpeg] Reading output file...");
+  const data = await ffmpeg.readFile("output.mp4");
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const mp4Blob = new Blob([data as any], { type: 'video/mp4' });
-  
+  const mp4Blob = new Blob([data as any], { type: "video/mp4" });
+
+  console.log("[FFmpeg] Conversion complete! MP4 size:", (mp4Blob.size / 1024 / 1024).toFixed(2), "MB");
+
   // Clean up
-  await ffmpeg.deleteFile('input.webm');
-  await ffmpeg.deleteFile('output.mp4');
-  
+  await ffmpeg.deleteFile("input.webm");
+  await ffmpeg.deleteFile("output.mp4");
+
   return mp4Blob;
 };
 
@@ -307,16 +338,41 @@ export const exportVideo = async (
 
   onProgress(10, "Starting recording...");
 
-  // For best playback compatibility (no stutter / stable FPS), record as WebM first,
-  // then convert to MP4 (H.264) using FFmpeg.
-  let mimeType = "video/webm;codecs=vp8,opus";
+  // Try to record directly as MP4 (H.264) if the browser supports it
+  // This avoids the need for FFmpeg conversion which can hang in some browsers
+  const mp4MimeTypes = [
+    "video/mp4;codecs=avc1.42E01E,mp4a.40.2", // H.264 Baseline + AAC
+    "video/mp4;codecs=avc1.4D401E,mp4a.40.2", // H.264 Main + AAC
+    "video/mp4;codecs=avc1.64001E,mp4a.40.2", // H.264 High + AAC
+    "video/mp4", // Generic MP4
+  ];
 
-  // Fallback to generic WebM if needed
-  if (!MediaRecorder.isTypeSupported(mimeType)) {
-    mimeType = "video/webm";
+  let mimeType = "";
+  let recordingAsMp4 = false;
+
+  // First try MP4 formats
+  for (const mt of mp4MimeTypes) {
+    if (MediaRecorder.isTypeSupported(mt)) {
+      mimeType = mt;
+      recordingAsMp4 = true;
+      console.log("Browser supports native MP4 recording:", mt);
+      break;
+    }
   }
 
-  console.log("Using video format:", mimeType);
+  // Fallback to WebM if MP4 not supported
+  if (!mimeType) {
+    if (MediaRecorder.isTypeSupported("video/webm;codecs=vp8,opus")) {
+      mimeType = "video/webm;codecs=vp8,opus";
+    } else if (MediaRecorder.isTypeSupported("video/webm")) {
+      mimeType = "video/webm";
+    } else {
+      throw new Error("No supported video format found");
+    }
+    console.log("Falling back to WebM format:", mimeType);
+  }
+
+  console.log("Using video format:", mimeType, "| Native MP4:", recordingAsMp4);
 
   // Create MediaRecorder with optimized settings for high quality
   const videoStream = canvas.captureStream(30); // 30 FPS for smooth, high-quality video
@@ -484,19 +540,26 @@ export const exportVideo = async (
   void runFixedFpsRenderLoop();
 
   onProgress(95, "Finalizing recording...");
-  const webmBlob = await recordingPromise;
+  const recordedBlob = await recordingPromise;
 
-  // Convert to MP4 when possible, but never block the export if conversion fails.
+  // If we already recorded as MP4, we're done!
+  if (recordingAsMp4) {
+    console.log(`Recorded native MP4: ${(recordedBlob.size / 1024 / 1024).toFixed(2)} MB`);
+    onProgress(100, "Complete!");
+    return recordedBlob;
+  }
+
+  // Otherwise we have WebM and need to convert to MP4
   try {
     console.log("Converting WebM to MP4...");
-    const mp4Blob = await convertToMp4(webmBlob, onProgress);
+    const mp4Blob = await convertToMp4(recordedBlob, onProgress);
     console.log(`Converted to MP4: ${(mp4Blob.size / 1024 / 1024).toFixed(2)} MB`);
     onProgress(100, "Complete!");
     return mp4Blob;
   } catch (err) {
     console.error("MP4 conversion failed, falling back to WebM:", err);
     onProgress(100, "Complete (WebM fallback)!");
-    return webmBlob;
+    return recordedBlob;
   }
 };
 
