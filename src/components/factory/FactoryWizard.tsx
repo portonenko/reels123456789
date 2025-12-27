@@ -331,6 +331,7 @@ export const FactoryWizard = () => {
             status: "completed",
             musicUrl,
             captionText: (translatedSlides as any)._factoryCaption || "",
+            overlayOpacity: state.selectedPreset?.overlayOpacity ?? 30,
           });
 
           completed++;

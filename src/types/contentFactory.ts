@@ -12,6 +12,7 @@ export interface VisualPreset {
   name: string;
   titleDuration: number;
   otherDuration: number;
+  overlayOpacity: number; // 0-100 percentage for background darkening
   style: any; // SlideStyle
 }
 
@@ -24,6 +25,7 @@ export interface GeneratedContent {
   musicUrl?: string;
   previewUrl?: string;
   captionText?: string; // Text that stays in the post description/caption
+  overlayOpacity?: number; // 0-100 percentage for background darkening
 }
 
 export interface SlideInput {
