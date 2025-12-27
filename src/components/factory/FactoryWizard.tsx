@@ -212,66 +212,81 @@ export const FactoryWizard = () => {
       for (const lang of languages) {
         setState(prev => ({ 
           ...prev, 
-          processingMessage: `Translating to ${FACTORY_LANGUAGES.find(l => l.code === lang)?.name}...` 
+          processingMessage: lang === "original" 
+            ? "Using original text..." 
+            : `Translating to ${FACTORY_LANGUAGES.find(l => l.code === lang)?.name}...` 
         }));
 
         let translatedSlides: Slide[] = [];
 
-        // Translate ALL languages (including English) using the edge function
-        try {
-          const { data, error } = await supabase.functions.invoke("translate-slides", {
-            body: {
-              slides: baseSlides.map(s => ({
-                id: s.id,
-                title: s.title,
-                body: s.body,
-                style: s.style,
-                durationSec: s.durationSec,
-                type: s.type,
-                projectId: s.projectId,
-              })),
-              targetLanguages: [lang],
-              unusedText: state.captionText,
-            },
-          });
+        // If "original" language - skip translation, use base slides directly
+        if (lang === "original") {
+          translatedSlides = baseSlides.map((slide, idx) => ({
+            ...slide,
+            id: crypto.randomUUID(),
+            title: applyEnergiaRule(slide.title, lang),
+            body: slide.body ? applyEnergiaRule(slide.body, lang) : undefined,
+            language: lang,
+          }));
+          // Use original caption text
+          (translatedSlides as any)._factoryCaption = applyEnergiaRule(state.captionText, lang);
+        } else {
+          // Translate using the edge function
+          try {
+            const { data, error } = await supabase.functions.invoke("translate-slides", {
+              body: {
+                slides: baseSlides.map(s => ({
+                  id: s.id,
+                  title: s.title,
+                  body: s.body,
+                  style: s.style,
+                  durationSec: s.durationSec,
+                  type: s.type,
+                  projectId: s.projectId,
+                })),
+                targetLanguages: [lang],
+                unusedText: state.captionText,
+              },
+            });
 
-          if (error) {
-            console.error("Edge function error:", error);
-            throw new Error(error.message || "Failed to send a request to the Edge Function");
+            if (error) {
+              console.error("Edge function error:", error);
+              throw new Error(error.message || "Failed to send a request to the Edge Function");
+            }
+
+            if (!data || !data.translatedSlides) {
+              console.error("Invalid response from translate-slides:", data);
+              throw new Error("Invalid response from translation service");
+            }
+
+            const caption = (data.translatedUnusedText?.[lang] as string | undefined)?.trim()
+              ? applyEnergiaRule(String(data.translatedUnusedText[lang]), lang)
+              : "";
+
+            translatedSlides = (data.translatedSlides || []).map((ts: any, idx: number) => {
+              // Apply ENERGIA rule to translated text
+              let title = ts.title.replace(/^\[.*?\]\s*/, ""); // Remove language prefix
+              let body = ts.body;
+
+              title = applyEnergiaRule(title, lang);
+              if (body) body = applyEnergiaRule(body, lang);
+
+              return {
+                ...ts,
+                id: crypto.randomUUID(),
+                title,
+                body,
+                style: baseSlides[idx]?.style || getDefaultStyle(),
+                durationSec: baseSlides[idx]?.durationSec || 3,
+                language: lang,
+              };
+            });
+
+            (translatedSlides as any)._factoryCaption = caption;
+          } catch (invokeError: any) {
+            console.error("Function invoke failed:", invokeError);
+            throw new Error(`Translation failed for ${lang}: ${invokeError.message || "Network error"}`);
           }
-
-          if (!data || !data.translatedSlides) {
-            console.error("Invalid response from translate-slides:", data);
-            throw new Error("Invalid response from translation service");
-          }
-
-          const caption = (data.translatedUnusedText?.[lang] as string | undefined)?.trim()
-            ? applyEnergiaRule(String(data.translatedUnusedText[lang]), lang)
-            : "";
-
-          translatedSlides = (data.translatedSlides || []).map((ts: any, idx: number) => {
-            // Apply ENERGIA rule to translated text
-            let title = ts.title.replace(/^\[.*?\]\s*/, ""); // Remove language prefix
-            let body = ts.body;
-
-            title = applyEnergiaRule(title, lang);
-            if (body) body = applyEnergiaRule(body, lang);
-
-            return {
-              ...ts,
-              id: crypto.randomUUID(),
-              title,
-              body,
-              style: baseSlides[idx]?.style || getDefaultStyle(),
-              durationSec: baseSlides[idx]?.durationSec || 3,
-              language: lang,
-            };
-          });
-
-          (translatedSlides as any)._factoryCaption = caption;
-        } catch (invokeError: any) {
-          console.error("Function invoke failed:", invokeError);
-          throw new Error(`Translation failed for ${lang}: ${invokeError.message || "Network error"}`);
         }
 
         // Generate each format for this language
