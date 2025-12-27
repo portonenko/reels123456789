@@ -6,20 +6,43 @@ import { fetchFile, toBlobURL } from "@ffmpeg/util";
 
 let ffmpegInstance: FFmpeg | null = null;
 
+const withTimeout = async <T,>(p: Promise<T>, ms: number, label: string): Promise<T> => {
+  let t: number | undefined;
+  const timeout = new Promise<T>((_, reject) => {
+    t = window.setTimeout(() => reject(new Error(`${label} timed out after ${ms}ms`)), ms);
+  });
+  try {
+    return await Promise.race([p, timeout]);
+  } finally {
+    if (t) window.clearTimeout(t);
+  }
+};
+
 const getFFmpeg = async (): Promise<FFmpeg> => {
   if (ffmpegInstance && ffmpegInstance.loaded) {
     return ffmpegInstance;
   }
-  
+
   const ffmpeg = new FFmpeg();
-  
-  const baseURL = 'https://unpkg.com/@ffmpeg/core@0.12.6/dist/umd';
-  
-  await ffmpeg.load({
-    coreURL: await toBlobURL(`${baseURL}/ffmpeg-core.js`, 'text/javascript'),
-    wasmURL: await toBlobURL(`${baseURL}/ffmpeg-core.wasm`, 'application/wasm'),
-  });
-  
+
+  // CDN for ffmpeg core. jsDelivr tends to be more reliable than unpkg.
+  const baseURL = "https://cdn.jsdelivr.net/npm/@ffmpeg/core@0.12.6/dist/umd";
+
+  try {
+    await withTimeout(
+      ffmpeg.load({
+        coreURL: await toBlobURL(`${baseURL}/ffmpeg-core.js`, "text/javascript"),
+        wasmURL: await toBlobURL(`${baseURL}/ffmpeg-core.wasm`, "application/wasm"),
+      }),
+      60_000,
+      "FFmpeg load"
+    );
+  } catch (e) {
+    // Ensure we don't keep a half-loaded instance around
+    ffmpegInstance = null;
+    throw e;
+  }
+
   ffmpegInstance = ffmpeg;
   return ffmpeg;
 };
@@ -38,16 +61,27 @@ const convertToMp4 = async (
   await ffmpeg.writeFile('input.webm', inputData);
   
   // Convert WebM to MP4 with H.264 codec
-  await ffmpeg.exec([
-    '-i', 'input.webm',
-    '-c:v', 'libx264',
-    '-preset', 'fast',
-    '-crf', '23',
-    '-c:a', 'aac',
-    '-b:a', '128k',
-    '-movflags', '+faststart',
-    'output.mp4'
-  ]);
+  await withTimeout(
+    ffmpeg.exec([
+      "-i",
+      "input.webm",
+      "-c:v",
+      "libx264",
+      "-preset",
+      "fast",
+      "-crf",
+      "23",
+      "-c:a",
+      "aac",
+      "-b:a",
+      "128k",
+      "-movflags",
+      "+faststart",
+      "output.mp4",
+    ]),
+    120_000,
+    "FFmpeg convert"
+  );
   
   onProgress(99, "Finalizing MP4...");
   
