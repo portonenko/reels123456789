@@ -37,29 +37,36 @@ const getFFmpeg = async (): Promise<FFmpeg> => {
   const loadFFmpeg = async (): Promise<FFmpeg> => {
     const ffmpeg = new FFmpeg();
 
-    // Use direct CDN URLs without toBlobURL which can hang
-    // jsDelivr is more reliable and handles CORS well
-    const baseURL = "https://cdn.jsdelivr.net/npm/@ffmpeg/core@0.12.6/dist/umd";
+    // Some networks block certain CDNs; try a small list.
+    const baseUrls = [
+      "https://cdn.jsdelivr.net/npm/@ffmpeg/core@0.12.6/dist/umd",
+      "https://unpkg.com/@ffmpeg/core@0.12.6/dist/umd",
+    ];
 
-    console.log("[FFmpeg] Loading from:", baseURL);
+    let lastErr: unknown;
 
-    try {
-      await withTimeout(
-        ffmpeg.load({
-          coreURL: `${baseURL}/ffmpeg-core.js`,
-          wasmURL: `${baseURL}/ffmpeg-core.wasm`,
-        }),
-        90_000, // 90 second timeout for slow connections
-        "FFmpeg load"
-      );
-      console.log("[FFmpeg] Loaded successfully!");
-      ffmpegInstance = ffmpeg;
-      return ffmpeg;
-    } catch (e) {
-      console.error("[FFmpeg] Load failed:", e);
-      ffmpegInstance = null;
-      throw e;
+    for (const baseURL of baseUrls) {
+      console.log("[FFmpeg] Loading from:", baseURL);
+      try {
+        await withTimeout(
+          ffmpeg.load({
+            coreURL: `${baseURL}/ffmpeg-core.js`,
+            wasmURL: `${baseURL}/ffmpeg-core.wasm`,
+          }),
+          180_000, // slower networks/devices
+          "FFmpeg load"
+        );
+        console.log("[FFmpeg] Loaded successfully!");
+        ffmpegInstance = ffmpeg;
+        return ffmpeg;
+      } catch (e) {
+        console.error("[FFmpeg] Load failed:", e);
+        lastErr = e;
+      }
     }
+
+    ffmpegInstance = null;
+    throw lastErr instanceof Error ? lastErr : new Error("FFmpeg load failed");
   };
 
   ffmpegLoading = loadFFmpeg();
@@ -424,8 +431,15 @@ export const exportVideo = async (
 
   onProgress(10, "Starting recording...");
 
-  // Try to record directly as MP4 (H.264) if the browser supports it
-  // This avoids the need for FFmpeg conversion which can hang in some browsers
+  // Calculate total duration early (we also use it to choose the most stable recording mode)
+  const totalDuration = slides.reduce((sum, s) => sum + s.durationSec, 0);
+
+  // Native MP4 from MediaRecorder is known to produce broken timestamps on longer recordings
+  // in some browsers, which can freeze playback around ~15s. Prefer WebM and convert when possible.
+  const preferWebmForStability = totalDuration >= 12;
+
+  // Try to record directly as MP4 (H.264) only for short clips
+  // Otherwise prefer WebM (more stable), then convert to MP4 when converter is available.
   const mp4MimeTypes = [
     "video/mp4;codecs=avc1.42E01E,mp4a.40.2", // H.264 Baseline + AAC
     "video/mp4;codecs=avc1.4D401E,mp4a.40.2", // H.264 Main + AAC
@@ -436,17 +450,20 @@ export const exportVideo = async (
   let mimeType = "";
   let recordingAsMp4 = false;
 
-  // First try MP4 formats
-  for (const mt of mp4MimeTypes) {
-    if (MediaRecorder.isTypeSupported(mt)) {
-      mimeType = mt;
-      recordingAsMp4 = true;
-      console.log("Browser supports native MP4 recording:", mt);
-      break;
+  if (!preferWebmForStability) {
+    for (const mt of mp4MimeTypes) {
+      if (MediaRecorder.isTypeSupported(mt)) {
+        mimeType = mt;
+        recordingAsMp4 = true;
+        console.log("Browser supports native MP4 recording:", mt);
+        break;
+      }
     }
+  } else {
+    console.log("Preferring WebM for stability (duration:", totalDuration, "s)");
   }
 
-  // Fallback to WebM if MP4 not supported
+  // Fallback to WebM if MP4 not selected/supported
   if (!mimeType) {
     if (MediaRecorder.isTypeSupported("video/webm;codecs=vp8,opus")) {
       mimeType = "video/webm;codecs=vp8,opus";
@@ -455,7 +472,7 @@ export const exportVideo = async (
     } else {
       throw new Error("No supported video format found");
     }
-    console.log("Falling back to WebM format:", mimeType);
+    console.log("Using WebM format:", mimeType);
   }
 
   console.log("Using video format:", mimeType, "| Native MP4:", recordingAsMp4);
@@ -494,10 +511,7 @@ export const exportVideo = async (
   } else {
     combinedStream = videoStream;
   }
-  
-  // Calculate total duration for adaptive settings
-  const totalDuration = slides.reduce((sum, s) => sum + s.durationSec, 0);
-
+  // totalDuration is calculated earlier (used for stability + adaptive settings)
   // Adaptive bitrate based on video duration
   const videoBitrate = totalDuration > 30 ? 4000000 : totalDuration > 15 ? 6000000 : 8000000;
 
