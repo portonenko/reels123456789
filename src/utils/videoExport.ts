@@ -37,23 +37,30 @@ const getFFmpeg = async (): Promise<FFmpeg> => {
   const loadFFmpeg = async (): Promise<FFmpeg> => {
     const ffmpeg = new FFmpeg();
 
-    // Some networks block certain CDNs; try a small list.
-    const baseUrls = [
-      "https://cdn.jsdelivr.net/npm/@ffmpeg/core@0.12.6/dist/umd",
-      "https://unpkg.com/@ffmpeg/core@0.12.6/dist/umd",
+    // Multiple CDN sources for reliability
+    const cdnConfigs = [
+      {
+        coreURL: "https://cdn.jsdelivr.net/npm/@ffmpeg/core@0.12.6/dist/esm/ffmpeg-core.js",
+        wasmURL: "https://cdn.jsdelivr.net/npm/@ffmpeg/core@0.12.6/dist/esm/ffmpeg-core.wasm",
+      },
+      {
+        coreURL: "https://unpkg.com/@ffmpeg/core@0.12.6/dist/esm/ffmpeg-core.js",
+        wasmURL: "https://unpkg.com/@ffmpeg/core@0.12.6/dist/esm/ffmpeg-core.wasm",
+      },
+      {
+        coreURL: "https://cdn.jsdelivr.net/npm/@ffmpeg/core@0.12.6/dist/umd/ffmpeg-core.js",
+        wasmURL: "https://cdn.jsdelivr.net/npm/@ffmpeg/core@0.12.6/dist/umd/ffmpeg-core.wasm",
+      },
     ];
 
     let lastErr: unknown;
 
-    for (const baseURL of baseUrls) {
-      console.log("[FFmpeg] Loading from:", baseURL);
+    for (const config of cdnConfigs) {
+      console.log("[FFmpeg] Loading from:", config.coreURL);
       try {
         await withTimeout(
-          ffmpeg.load({
-            coreURL: `${baseURL}/ffmpeg-core.js`,
-            wasmURL: `${baseURL}/ffmpeg-core.wasm`,
-          }),
-          180_000, // slower networks/devices
+          ffmpeg.load(config),
+          120_000,
           "FFmpeg load"
         );
         console.log("[FFmpeg] Loaded successfully!");
