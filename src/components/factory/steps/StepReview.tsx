@@ -10,6 +10,13 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
   Download,
   Save,
   Video,
@@ -20,6 +27,9 @@ import {
   Music,
   Eye,
   X,
+  RefreshCw,
+  Play,
+  Pause,
 } from "lucide-react";
 import { toast } from "sonner";
 import { 
@@ -37,6 +47,8 @@ import { renderSlideText } from "@/utils/canvasTextRenderer";
 interface StepReviewProps {
   generatedContent: GeneratedContent[];
   assets: Asset[];
+  musicTracks?: { id: string; name: string; url: string }[];
+  onUpdateContent?: (id: string, updates: Partial<GeneratedContent & { assetId?: string }>) => void;
 }
 
 interface ExportProgress {
@@ -103,7 +115,7 @@ const SlidePreviewCanvas = ({ slide, size = 120 }: { slide: Slide; size?: number
   );
 };
 
-export const StepReview = ({ generatedContent, assets }: StepReviewProps) => {
+export const StepReview = ({ generatedContent, assets, musicTracks = [], onUpdateContent }: StepReviewProps) => {
   const [isSaving, setIsSaving] = useState(false);
   const [isDownloading, setIsDownloading] = useState(false);
   const [savedItems, setSavedItems] = useState<Set<string>>(new Set());
@@ -116,12 +128,92 @@ export const StepReview = ({ generatedContent, assets }: StepReviewProps) => {
   
   // Preview dialog
   const [previewContent, setPreviewContent] = useState<GeneratedContent | null>(null);
+  const [isPlaying, setIsPlaying] = useState(false);
+  const [currentSlideIndex, setCurrentSlideIndex] = useState(0);
+  const videoRef = useRef<HTMLVideoElement>(null);
+  const audioRef = useRef<HTMLAudioElement>(null);
+  const intervalRef = useRef<NodeJS.Timeout | null>(null);
 
   useEffect(() => {
     return () => {
       if (downloadUrl) URL.revokeObjectURL(downloadUrl);
+      if (intervalRef.current) clearInterval(intervalRef.current);
     };
   }, [downloadUrl]);
+
+  // Reset playback when preview closes
+  useEffect(() => {
+    if (!previewContent) {
+      setIsPlaying(false);
+      setCurrentSlideIndex(0);
+      if (intervalRef.current) clearInterval(intervalRef.current);
+      if (audioRef.current) {
+        audioRef.current.pause();
+        audioRef.current.currentTime = 0;
+      }
+    }
+  }, [previewContent]);
+
+  // Handle playback
+  useEffect(() => {
+    if (!previewContent || !isPlaying) {
+      if (intervalRef.current) clearInterval(intervalRef.current);
+      return;
+    }
+
+    const slides = previewContent.slides;
+    if (!slides.length) return;
+
+    const advanceSlide = () => {
+      setCurrentSlideIndex(prev => {
+        const next = prev + 1;
+        if (next >= slides.length) {
+          setIsPlaying(false);
+          if (audioRef.current) audioRef.current.pause();
+          return 0;
+        }
+        return next;
+      });
+    };
+
+    const currentDuration = (slides[currentSlideIndex]?.duration || 3) * 1000;
+    intervalRef.current = setTimeout(advanceSlide, currentDuration);
+
+    return () => {
+      if (intervalRef.current) clearTimeout(intervalRef.current);
+    };
+  }, [previewContent, isPlaying, currentSlideIndex]);
+
+  const handlePlayPause = () => {
+    if (isPlaying) {
+      setIsPlaying(false);
+      if (audioRef.current) audioRef.current.pause();
+    } else {
+      setIsPlaying(true);
+      if (audioRef.current && previewContent?.musicUrl) {
+        audioRef.current.play().catch(() => {});
+      }
+    }
+  };
+
+  const getCurrentAsset = (content: GeneratedContent) => {
+    const firstAssetId = (content.slides?.[0] as any)?.assetId as string | undefined;
+    return firstAssetId ? assets.find(a => a.id === firstAssetId) : assets.find(a => a.type === "video" || !a.type);
+  };
+
+  const handleChangeAsset = (contentId: string, newAssetId: string) => {
+    if (onUpdateContent) {
+      onUpdateContent(contentId, { assetId: newAssetId });
+      toast.success("Видео изменено");
+    }
+  };
+
+  const handleChangeMusic = (contentId: string, newMusicUrl: string) => {
+    if (onUpdateContent) {
+      onUpdateContent(contentId, { musicUrl: newMusicUrl || undefined });
+      toast.success("Музыка изменена");
+    }
+  };
 
   const handleSaveAll = async () => {
     setIsSaving(true);
@@ -439,7 +531,7 @@ export const StepReview = ({ generatedContent, assets }: StepReviewProps) => {
     <div className="space-y-6">
       {/* Preview Dialog */}
       <Dialog open={!!previewContent} onOpenChange={() => setPreviewContent(null)}>
-        <DialogContent className="max-w-3xl max-h-[80vh] overflow-hidden">
+        <DialogContent className="max-w-4xl max-h-[90vh] overflow-hidden">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               {previewContent && FORMAT_ICONS[previewContent.format]}
@@ -451,16 +543,136 @@ export const StepReview = ({ generatedContent, assets }: StepReviewProps) => {
           
           {previewContent && (
             <div className="space-y-4">
-              <ScrollArea className="h-[50vh]">
-                <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 gap-3 p-2">
-                  {previewContent.slides.map((slide, idx) => (
-                    <div key={idx} className="flex flex-col items-center gap-1">
-                      <SlidePreviewCanvas slide={slide} size={100} />
-                      <span className="text-xs text-muted-foreground">#{idx + 1}</span>
-                    </div>
-                  ))}
+              {/* Video Preview */}
+              {previewContent.format === "video" && (
+                <div className="relative aspect-[9/16] max-h-[50vh] mx-auto bg-black rounded-lg overflow-hidden">
+                  {(() => {
+                    const asset = getCurrentAsset(previewContent);
+                    const currentSlide = previewContent.slides[currentSlideIndex];
+                    return (
+                      <>
+                        {asset?.url && (
+                          <video
+                            ref={videoRef}
+                            src={asset.url}
+                            className="absolute inset-0 w-full h-full object-cover"
+                            loop
+                            muted
+                            playsInline
+                            autoPlay={isPlaying}
+                          />
+                        )}
+                        {/* Overlay */}
+                        <div 
+                          className="absolute inset-0 bg-black pointer-events-none"
+                          style={{ opacity: (currentSlide?.style as any)?.overlayOpacity || 0.3 }}
+                        />
+                        {/* Text overlay */}
+                        <div className="absolute inset-0 flex flex-col items-center justify-center p-4">
+                          <div className="text-center text-white">
+                            <h3 className="text-xl font-bold drop-shadow-lg mb-2">
+                              {currentSlide?.title}
+                            </h3>
+                            {currentSlide?.body && (
+                              <p className="text-sm drop-shadow-md">
+                                {currentSlide.body}
+                              </p>
+                            )}
+                          </div>
+                        </div>
+                        {/* Play button */}
+                        <button
+                          onClick={handlePlayPause}
+                          className="absolute bottom-4 left-1/2 -translate-x-1/2 bg-white/20 backdrop-blur-sm rounded-full p-3 hover:bg-white/30 transition-colors"
+                        >
+                          {isPlaying ? (
+                            <Pause className="w-6 h-6 text-white" />
+                          ) : (
+                            <Play className="w-6 h-6 text-white" />
+                          )}
+                        </button>
+                        {/* Slide indicator */}
+                        <div className="absolute top-4 right-4 bg-black/50 rounded px-2 py-1 text-xs text-white">
+                          {currentSlideIndex + 1} / {previewContent.slides.length}
+                        </div>
+                      </>
+                    );
+                  })()}
+                  {previewContent.musicUrl && (
+                    <audio ref={audioRef} src={previewContent.musicUrl} />
+                  )}
                 </div>
-              </ScrollArea>
+              )}
+
+              {/* Static/Carousel Preview */}
+              {previewContent.format !== "video" && (
+                <ScrollArea className="h-[40vh]">
+                  <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 gap-3 p-2">
+                    {previewContent.slides.map((slide, idx) => (
+                      <div key={idx} className="flex flex-col items-center gap-1">
+                        <SlidePreviewCanvas slide={slide} size={100} />
+                        <span className="text-xs text-muted-foreground">#{idx + 1}</span>
+                      </div>
+                    ))}
+                  </div>
+                </ScrollArea>
+              )}
+
+              {/* Change Video / Music */}
+              {onUpdateContent && (
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 p-3 bg-muted/50 rounded-lg">
+                  {/* Change Video */}
+                  {previewContent.format === "video" && (
+                    <div className="space-y-2">
+                      <label className="text-sm font-medium flex items-center gap-2">
+                        <RefreshCw className="w-4 h-4" />
+                        Заменить видео
+                      </label>
+                      <Select
+                        value={getCurrentAsset(previewContent)?.id || ""}
+                        onValueChange={(value) => handleChangeAsset(previewContent.id, value)}
+                      >
+                        <SelectTrigger>
+                          <SelectValue placeholder="Выберите видео" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {assets
+                            .filter(a => a.type === "video" || !a.type)
+                            .map((asset) => (
+                              <SelectItem key={asset.id} value={asset.id}>
+                                {asset.category || "Видео"} ({asset.duration}s)
+                              </SelectItem>
+                            ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  )}
+
+                  {/* Change Music */}
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium flex items-center gap-2">
+                      <Music className="w-4 h-4" />
+                      Заменить музыку
+                    </label>
+                    <Select
+                      value={previewContent.musicUrl || "none"}
+                      onValueChange={(value) => handleChangeMusic(previewContent.id, value === "none" ? "" : value)}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Выберите трек" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="none">Без музыки</SelectItem>
+                        {musicTracks.map((track) => (
+                          <SelectItem key={track.id} value={track.url}>
+                            {track.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+              )}
 
               {previewContent.captionText && (
                 <div className="p-3 bg-muted rounded-lg">

@@ -31,6 +31,8 @@ export const FactoryWizard = () => {
   const navigate = useNavigate();
   const { getDefaultStyle, assets, addAsset } = useEditorStore();
   
+  const [musicTracks, setMusicTracks] = useState<{ id: string; name: string; url: string }[]>([]);
+  
   const [state, setState] = useState<FactoryState>({
     step: 1,
     slides: [{ id: crypto.randomUUID(), title: "", body: "" }],
@@ -159,10 +161,11 @@ export const FactoryWizard = () => {
       }
 
       // Load music tracks
-      let musicTracks: any[] = [];
+      let loadedMusicTracks: any[] = [];
       const { data: dbMusic } = await supabase.from("music_tracks").select("*");
       if (dbMusic) {
-        musicTracks = dbMusic;
+        loadedMusicTracks = dbMusic.map(m => ({ id: m.id, name: m.name, url: m.url }));
+        setMusicTracks(loadedMusicTracks);
       }
 
       // Build non-repeating asset pools for this generation run
@@ -315,8 +318,8 @@ export const FactoryWizard = () => {
 
           // Assign random music for video format
           let musicUrl: string | undefined;
-          if (format === "video" && musicTracks.length > 0) {
-            const randomTrack = musicTracks[Math.floor(Math.random() * musicTracks.length)];
+          if (format === "video" && loadedMusicTracks.length > 0) {
+            const randomTrack = loadedMusicTracks[Math.floor(Math.random() * loadedMusicTracks.length)];
             musicUrl = randomTrack.url;
           }
 
@@ -409,6 +412,31 @@ export const FactoryWizard = () => {
           <StepReview
             generatedContent={state.generatedContent}
             assets={Object.values(assets)}
+            musicTracks={musicTracks}
+            onUpdateContent={(id, updates) => {
+              setState(prev => ({
+                ...prev,
+                generatedContent: prev.generatedContent.map(content => {
+                  if (content.id !== id) return content;
+                  
+                  // Handle asset change
+                  if ('assetId' in updates && updates.assetId) {
+                    const newSlides = content.slides.map((slide: any) => ({
+                      ...slide,
+                      assetId: updates.assetId,
+                    }));
+                    return { ...content, slides: newSlides };
+                  }
+                  
+                  // Handle music change
+                  if ('musicUrl' in updates) {
+                    return { ...content, musicUrl: updates.musicUrl };
+                  }
+                  
+                  return { ...content, ...updates };
+                }),
+              }));
+            }}
           />
         );
       default:
