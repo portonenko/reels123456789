@@ -527,12 +527,30 @@ export const exportVideo = async (
       const transitionDuration = 0.5;
       const transitionProgress = Math.min(slideElapsed / transitionDuration, 1);
 
-      // Keep background video looping without a visible "pause" at the end.
-      // Some browsers briefly freeze the last frame before restarting even with loop.
+      // Background video stutter at loop boundary (often exactly at its duration, e.g. ~15s):
+      // don't rely on the browser's loop/ended timing while capturing.
+      // Instead, keep the video time loosely aligned with our deterministic export timeline.
       if (backgroundVideo && Number.isFinite(backgroundVideo.duration) && backgroundVideo.duration > 0) {
-        if (backgroundVideo.ended || backgroundVideo.currentTime >= backgroundVideo.duration - 0.12) {
+        const d = backgroundVideo.duration;
+        const desired = elapsed % d;
+
+        // If we're near the end (where many browsers freeze the last frame) or drifted,
+        // jump to the modulo time.
+        if (
+          backgroundVideo.ended ||
+          backgroundVideo.currentTime >= d - 0.35 ||
+          Math.abs(backgroundVideo.currentTime - desired) > 0.25
+        ) {
           try {
-            backgroundVideo.currentTime = 0;
+            backgroundVideo.currentTime = desired;
+          } catch {
+            // ignore
+          }
+        }
+
+        // Ensure it keeps decoding frames
+        if (backgroundVideo.paused) {
+          try {
             void backgroundVideo.play();
           } catch {
             // ignore
