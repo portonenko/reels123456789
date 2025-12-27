@@ -24,6 +24,12 @@ interface ProjectData {
   projectName: string;
 }
 
+interface DownloadItem {
+  language: string;
+  filename: string;
+  url: string;
+}
+
 interface ExportDialogProps {
   open: boolean;
   onClose: () => void;
@@ -37,6 +43,7 @@ export const ExportDialog = ({ open, onClose, projects, assets }: ExportDialogPr
   const [currentStep, setCurrentStep] = useState("");
   const [keepMusicAcrossLanguages, setKeepMusicAcrossLanguages] = useState(false);
   const [selectedLanguages, setSelectedLanguages] = useState<Set<string>>(new Set());
+  const [downloadItems, setDownloadItems] = useState<DownloadItem[]>([]);
 
   // Check if any project is a photo carousel
   const isPhotoCarousel = Object.values(projects).some(project => {
@@ -52,7 +59,13 @@ export const ExportDialog = ({ open, onClose, projects, assets }: ExportDialogPr
   useEffect(() => {
     if (open) {
       setSelectedLanguages(new Set(Object.keys(projects)));
+      setDownloadItems([]);
+    } else {
+      // Cleanup object URLs when dialog closes
+      downloadItems.forEach((i) => URL.revokeObjectURL(i.url));
+      setDownloadItems([]);
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, projects]);
 
   // Load user preference for keeping music
@@ -146,15 +159,14 @@ export const ExportDialog = ({ open, onClose, projects, assets }: ExportDialogPr
         setProgress(((i + 1) / languages.length) * 100);
       }
       
-      toast.success(`Export complete!`);
-      onClose();
+      setProgress(100);
+      setCurrentStep(isPhotoCarousel ? "Готово. Нажмите «Скачать» ниже." : "Done. Click “Download” below.");
+      toast.success(isPhotoCarousel ? "Экспорт готов — скачайте файлы ниже" : "Export ready — download files below");
     } catch (error) {
       console.error("Export error:", error);
       toast.error("Export failed. Please try again.");
     } finally {
       setIsExporting(false);
-      setProgress(0);
-      setCurrentStep("");
     }
   };
 
@@ -204,27 +216,21 @@ export const ExportDialog = ({ open, onClose, projects, assets }: ExportDialogPr
           project.globalOverlay
         );
 
-    console.log(`Export complete for ${language}, downloading...`);
-    // Download the file (video or zip)
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
+    console.log(`Export complete for ${language}, preparing download...`);
 
+    const url = URL.createObjectURL(blob);
     const isWebm = blob.type.includes("webm");
     const videoExt = isWebm ? "webm" : "mp4";
 
-    a.download = isPhotoCarousel
+    const filename = isPhotoCarousel
       ? `photos-${language}-${Date.now()}.zip`
       : `video-${language}-${Date.now()}.${videoExt}`;
 
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
+    // Important: many browsers block automatic downloads after long async work.
+    // We store the result and let the user click a Download button (user gesture).
+    setDownloadItems((prev) => [...prev, { language, filename, url }]);
 
-    // Clean up object URL after the click has been dispatched
-    setTimeout(() => URL.revokeObjectURL(url), 1000);
-
-    console.log(`Download triggered for ${language}`);
+    console.log(`Download ready for ${language}: ${filename}`);
   };
 
   return (
@@ -292,6 +298,45 @@ export const ExportDialog = ({ open, onClose, projects, assets }: ExportDialogPr
             <div className="space-y-2">
               <p className="text-sm text-muted-foreground">{currentStep}</p>
               <Progress value={progress} />
+            </div>
+          )}
+
+          {downloadItems.length > 0 && (
+            <div className="space-y-2">
+              <h4 className="text-sm font-medium">
+                {isPhotoCarousel ? "Скачать результаты:" : "Download results:"}
+              </h4>
+              <div className="space-y-2">
+                {downloadItems.map((item) => (
+                  <div
+                    key={item.url}
+                    className="flex items-center justify-between gap-2 rounded-lg bg-secondary p-3"
+                  >
+                    <div className="min-w-0">
+                      <p className="truncate text-sm font-medium capitalize">{item.language}</p>
+                      <p className="truncate text-xs text-muted-foreground">{item.filename}</p>
+                    </div>
+                    <Button
+                      type="button"
+                      onClick={() => {
+                        const a = document.createElement("a");
+                        a.href = item.url;
+                        a.download = item.filename;
+                        document.body.appendChild(a);
+                        a.click();
+                        document.body.removeChild(a);
+                      }}
+                    >
+                      {isPhotoCarousel ? "Скачать" : "Download"}
+                    </Button>
+                  </div>
+                ))}
+              </div>
+              <p className="text-xs text-muted-foreground">
+                {isPhotoCarousel
+                  ? "Если браузер блокировал автоскачивание — здесь всегда можно скачать вручную."
+                  : "If your browser blocked the automatic download, you can always download manually here."}
+              </p>
             </div>
           )}
 
