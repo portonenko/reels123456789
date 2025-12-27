@@ -213,6 +213,63 @@ export const CanvasPreview = ({ slide, globalOverlay, showTextBoxControls = fals
     }
   };
   
+  const overlayOpacity = globalOverlay / 100;
+  const backgroundAsset = currentSlide
+    ? assets.find((a) => a.id === currentSlide.assetId)
+    : undefined;
+
+  // Ensure background video keeps looping smoothly during preview playback
+  useEffect(() => {
+    const v = videoRef.current;
+    if (!v || !isPlaying) return;
+
+    const restart = () => {
+      try {
+        if (!Number.isFinite(v.duration) || v.duration <= 0) return;
+        v.currentTime = 0;
+        void v.play();
+      } catch {
+        // ignore
+      }
+    };
+
+    const ensureRunning = () => {
+      try {
+        if (!Number.isFinite(v.duration) || v.duration <= 0) return;
+
+        // If we reached the end (or very close), restart
+        if (v.ended || v.currentTime >= v.duration - 0.05) {
+          restart();
+          return;
+        }
+
+        // If something paused/stalled playback, try to resume
+        if (v.paused) {
+          void v.play();
+        }
+      } catch {
+        // ignore
+      }
+    };
+
+    v.loop = false;
+
+    v.addEventListener("ended", restart);
+    v.addEventListener("stalled", ensureRunning);
+    v.addEventListener("waiting", ensureRunning);
+    v.addEventListener("pause", ensureRunning);
+
+    const interval = window.setInterval(ensureRunning, 250);
+
+    return () => {
+      window.clearInterval(interval);
+      v.removeEventListener("ended", restart);
+      v.removeEventListener("stalled", ensureRunning);
+      v.removeEventListener("waiting", ensureRunning);
+      v.removeEventListener("pause", ensureRunning);
+    };
+  }, [isPlaying, backgroundAsset?.url]);
+
   if (!currentSlide) {
     return (
       <div className="w-full h-full flex items-center justify-center bg-canvas rounded-lg">
@@ -220,10 +277,57 @@ export const CanvasPreview = ({ slide, globalOverlay, showTextBoxControls = fals
       </div>
     );
   }
+  // Ensure background video keeps looping smoothly during preview playback
+  useEffect(() => {
+    const v = videoRef.current;
+    if (!v || !isPlaying) return;
 
-  const overlayOpacity = globalOverlay / 100;
-  const backgroundAsset = assets.find((a) => a.id === currentSlide.assetId);
+    const restart = () => {
+      try {
+        if (!Number.isFinite(v.duration) || v.duration <= 0) return;
+        v.currentTime = 0;
+        void v.play();
+      } catch {
+        // ignore
+      }
+    };
 
+    const ensureRunning = () => {
+      try {
+        if (!Number.isFinite(v.duration) || v.duration <= 0) return;
+
+        // If we reached the end (or very close), restart
+        if (v.ended || v.currentTime >= v.duration - 0.05) {
+          restart();
+          return;
+        }
+
+        // If something paused/stalled playback, try to resume
+        if (v.paused) {
+          void v.play();
+        }
+      } catch {
+        // ignore
+      }
+    };
+
+    v.loop = false;
+
+    v.addEventListener("ended", restart);
+    v.addEventListener("stalled", ensureRunning);
+    v.addEventListener("waiting", ensureRunning);
+    v.addEventListener("pause", ensureRunning);
+
+    const interval = window.setInterval(ensureRunning, 250);
+
+    return () => {
+      window.clearInterval(interval);
+      v.removeEventListener("ended", restart);
+      v.removeEventListener("stalled", ensureRunning);
+      v.removeEventListener("waiting", ensureRunning);
+      v.removeEventListener("pause", ensureRunning);
+    };
+  }, [isPlaying, backgroundAsset?.url]);
   // Calculate transition effects
   const transitionDuration = 0.5; // 0.5 seconds
   const transitionProgress = Math.min(slideTime / transitionDuration, 1);
@@ -338,9 +442,9 @@ export const CanvasPreview = ({ slide, globalOverlay, showTextBoxControls = fals
               ref={videoRef}
               src={backgroundAsset.url}
               className="absolute inset-0 w-full h-full object-cover"
-              loop
               muted
               playsInline
+              preload="auto"
             />
           )
         ) : (
