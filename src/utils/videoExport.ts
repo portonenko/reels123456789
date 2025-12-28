@@ -65,15 +65,18 @@ const getFFmpeg = async (): Promise<FFmpeg> => {
   const loadFFmpeg = async (): Promise<FFmpeg> => {
     const ffmpeg = new FFmpeg();
 
-    // Use @ffmpeg/core UMD files. Note: @ffmpeg/ffmpeg wrapper versions may advance
-    // faster than the published @ffmpeg/core package versions on CDNs.
-    // As of now, @ffmpeg/core@0.12.10 is the latest available 0.12.x core build.
+    // Use ESM core build first (the @ffmpeg/ffmpeg worker imports it as an ES module).
+    // Keep UMD as a fallback for environments/CDNs where ESM path might be missing.
     const coreVersion = "0.12.10";
     const coreSources = [
+      `https://cdn.jsdelivr.net/npm/@ffmpeg/core@${coreVersion}/dist/esm/ffmpeg-core.js`,
+      `https://unpkg.com/@ffmpeg/core@${coreVersion}/dist/esm/ffmpeg-core.js`,
       `https://cdn.jsdelivr.net/npm/@ffmpeg/core@${coreVersion}/dist/umd/ffmpeg-core.js`,
       `https://unpkg.com/@ffmpeg/core@${coreVersion}/dist/umd/ffmpeg-core.js`,
     ];
     const wasmSources = [
+      `https://cdn.jsdelivr.net/npm/@ffmpeg/core@${coreVersion}/dist/esm/ffmpeg-core.wasm`,
+      `https://unpkg.com/@ffmpeg/core@${coreVersion}/dist/esm/ffmpeg-core.wasm`,
       `https://cdn.jsdelivr.net/npm/@ffmpeg/core@${coreVersion}/dist/umd/ffmpeg-core.wasm`,
       `https://unpkg.com/@ffmpeg/core@${coreVersion}/dist/umd/ffmpeg-core.wasm`,
     ];
