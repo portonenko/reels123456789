@@ -4,13 +4,6 @@ import JSZip from "jszip";
 import { FFmpeg } from "@ffmpeg/ffmpeg";
 import { fetchFile } from "@ffmpeg/util";
 
-// Load FFmpeg core locally (bundled by Vite) to avoid CDN/CORS issues.
-// Vite will rewrite these to proper asset URLs at build time.
-// eslint-disable-next-line import/no-unresolved
-import ffmpegCoreURL from "@ffmpeg/core-st/dist/esm/ffmpeg-core.js?url";
-// eslint-disable-next-line import/no-unresolved
-import ffmpegWasmURL from "@ffmpeg/core-st/dist/esm/ffmpeg-core.wasm?url";
-
 let ffmpegInstance: FFmpeg | null = null;
 let ffmpegLoading: Promise<FFmpeg> | null = null;
 
@@ -24,6 +17,14 @@ const withTimeout = async <T,>(p: Promise<T>, ms: number, label: string): Promis
   } finally {
     if (t) window.clearTimeout(t);
   }
+};
+
+// Fetch a file and convert to blob URL to bypass CORS
+const fetchToBlobURL = async (url: string, mimeType: string): Promise<string> => {
+  const response = await fetch(url);
+  if (!response.ok) throw new Error(`Failed to fetch ${url}: ${response.status}`);
+  const blob = await response.blob();
+  return URL.createObjectURL(new Blob([blob], { type: mimeType }));
 };
 
 const getFFmpeg = async (): Promise<FFmpeg> => {
@@ -44,13 +45,20 @@ const getFFmpeg = async (): Promise<FFmpeg> => {
   const loadFFmpeg = async (): Promise<FFmpeg> => {
     const ffmpeg = new FFmpeg();
 
-    const config = {
-      coreURL: ffmpegCoreURL,
-      wasmURL: ffmpegWasmURL,
-    };
+    // Use unpkg with fetch->blob approach to bypass CORS issues
+    const baseURL = "https://unpkg.com/@ffmpeg/core-st@0.12.6/dist/umd";
+    
+    console.log("[FFmpeg] Fetching core files as blobs...");
+    
+    const [coreURL, wasmURL] = await Promise.all([
+      fetchToBlobURL(`${baseURL}/ffmpeg-core.js`, "text/javascript"),
+      fetchToBlobURL(`${baseURL}/ffmpeg-core.wasm`, "application/wasm"),
+    ]);
+
+    const config = { coreURL, wasmURL };
 
     try {
-      console.log("[FFmpeg-ST] Loading local core:", config.coreURL);
+      console.log("[FFmpeg-ST] Loading from blob URLs...");
       await withTimeout(ffmpeg.load(config), 90_000, "FFmpeg load");
       console.log("[FFmpeg-ST] Loaded successfully!");
       ffmpegInstance = ffmpeg;
