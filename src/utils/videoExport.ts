@@ -19,12 +19,25 @@ const withTimeout = async <T,>(p: Promise<T>, ms: number, label: string): Promis
   }
 };
 
-// Fetch a file and convert to blob URL to bypass CORS
-const fetchToBlobURL = async (url: string, mimeType: string): Promise<string> => {
-  const response = await fetch(url);
-  if (!response.ok) throw new Error(`Failed to fetch ${url}: ${response.status}`);
-  const blob = await response.blob();
-  return URL.createObjectURL(new Blob([blob], { type: mimeType }));
+// Try multiple CDNs to fetch FFmpeg core files
+const fetchToBlobURL = async (urls: string[], mimeType: string): Promise<string> => {
+  let lastError: Error | null = null;
+  
+  for (const url of urls) {
+    try {
+      console.log(`[FFmpeg] Trying: ${url}`);
+      const response = await fetch(url);
+      if (!response.ok) throw new Error(`HTTP ${response.status}`);
+      const blob = await response.blob();
+      console.log(`[FFmpeg] Success: ${url}`);
+      return URL.createObjectURL(new Blob([blob], { type: mimeType }));
+    } catch (e) {
+      console.warn(`[FFmpeg] Failed ${url}:`, e);
+      lastError = e instanceof Error ? e : new Error(String(e));
+    }
+  }
+  
+  throw lastError || new Error("All CDN sources failed");
 };
 
 const getFFmpeg = async (): Promise<FFmpeg> => {
@@ -45,14 +58,21 @@ const getFFmpeg = async (): Promise<FFmpeg> => {
   const loadFFmpeg = async (): Promise<FFmpeg> => {
     const ffmpeg = new FFmpeg();
 
-    // Use unpkg with fetch->blob approach to bypass CORS issues
-    const baseURL = "https://unpkg.com/@ffmpeg/core-st@0.12.6/dist/umd";
+    // Multiple CDN sources for reliability
+    const coreSources = [
+      "https://cdn.jsdelivr.net/npm/@ffmpeg/core@0.12.6/dist/esm/ffmpeg-core.js",
+      "https://unpkg.com/@ffmpeg/core@0.12.6/dist/esm/ffmpeg-core.js",
+    ];
+    const wasmSources = [
+      "https://cdn.jsdelivr.net/npm/@ffmpeg/core@0.12.6/dist/esm/ffmpeg-core.wasm",
+      "https://unpkg.com/@ffmpeg/core@0.12.6/dist/esm/ffmpeg-core.wasm",
+    ];
     
-    console.log("[FFmpeg] Fetching core files as blobs...");
+    console.log("[FFmpeg] Fetching core files...");
     
     const [coreURL, wasmURL] = await Promise.all([
-      fetchToBlobURL(`${baseURL}/ffmpeg-core.js`, "text/javascript"),
-      fetchToBlobURL(`${baseURL}/ffmpeg-core.wasm`, "application/wasm"),
+      fetchToBlobURL(coreSources, "text/javascript"),
+      fetchToBlobURL(wasmSources, "application/wasm"),
     ]);
 
     const config = { coreURL, wasmURL };
