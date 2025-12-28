@@ -28,7 +28,8 @@ const fetchToBlobURL = async (urls: string[], mimeType: string): Promise<string>
       console.log(`[FFmpeg] Trying: ${url}`);
 
       const controller = new AbortController();
-      const t = window.setTimeout(() => controller.abort(), 45_000);
+      // Some CDNs are slow for large .wasm files; keep this generous.
+      const t = window.setTimeout(() => controller.abort(), 120_000);
 
       const response = await fetch(url, { signal: controller.signal });
       window.clearTimeout(t);
@@ -76,14 +77,19 @@ const getFFmpeg = async (): Promise<FFmpeg> => {
       `https://cdn.jsdelivr.net/npm/@ffmpeg/core@${coreVersion}/dist/umd/ffmpeg-core.wasm`,
       `https://unpkg.com/@ffmpeg/core@${coreVersion}/dist/umd/ffmpeg-core.wasm`,
     ];
+    const workerSources = [
+      `https://cdn.jsdelivr.net/npm/@ffmpeg/core@${coreVersion}/dist/umd/ffmpeg-core.worker.js`,
+      `https://unpkg.com/@ffmpeg/core@${coreVersion}/dist/umd/ffmpeg-core.worker.js`,
+    ];
     console.log("[FFmpeg] Fetching core files...");
 
-    const [coreURL, wasmURL] = await Promise.all([
+    const [coreURL, wasmURL, workerURL] = await Promise.all([
       fetchToBlobURL(coreSources, "text/javascript"),
       fetchToBlobURL(wasmSources, "application/wasm"),
+      fetchToBlobURL(workerSources, "text/javascript"),
     ]);
 
-    const config = { coreURL, wasmURL };
+    const config = { coreURL, wasmURL, workerURL };
 
     try {
       console.log("[FFmpeg] Loading FFmpeg core...");
