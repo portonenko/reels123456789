@@ -58,21 +58,22 @@ const getFFmpeg = async (): Promise<FFmpeg> => {
   const loadFFmpeg = async (): Promise<FFmpeg> => {
     const ffmpeg = new FFmpeg();
 
-    // Use @ffmpeg/core-st@0.11.1 (single-thread, no SharedArrayBuffer requirement)
-    const coreStSources = [
-      "https://cdn.jsdelivr.net/npm/@ffmpeg/core-st@0.11.1/dist/ffmpeg-core.js",
-      "https://unpkg.com/@ffmpeg/core-st@0.11.1/dist/ffmpeg-core.js",
+    // Use @ffmpeg/core (UMD) that matches @ffmpeg/ffmpeg v0.12.x
+    // NOTE: Do NOT use core-mt here (would require cross-origin isolation).
+    const coreSources = [
+      "https://cdn.jsdelivr.net/npm/@ffmpeg/core@0.12.6/dist/umd/ffmpeg-core.js",
+      "https://unpkg.com/@ffmpeg/core@0.12.6/dist/umd/ffmpeg-core.js",
     ];
-    const wasmStSources = [
-      "https://cdn.jsdelivr.net/npm/@ffmpeg/core-st@0.11.1/dist/ffmpeg-core.wasm",
-      "https://unpkg.com/@ffmpeg/core-st@0.11.1/dist/ffmpeg-core.wasm",
+    const wasmSources = [
+      "https://cdn.jsdelivr.net/npm/@ffmpeg/core@0.12.6/dist/umd/ffmpeg-core.wasm",
+      "https://unpkg.com/@ffmpeg/core@0.12.6/dist/umd/ffmpeg-core.wasm",
     ];
 
     console.log("[FFmpeg] Fetching core files...");
 
     const [coreURL, wasmURL] = await Promise.all([
-      fetchToBlobURL(coreStSources, "text/javascript"),
-      fetchToBlobURL(wasmStSources, "application/wasm"),
+      fetchToBlobURL(coreSources, "text/javascript"),
+      fetchToBlobURL(wasmSources, "application/wasm"),
     ]);
 
     const config = { coreURL, wasmURL };
