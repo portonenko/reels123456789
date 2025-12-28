@@ -80,26 +80,48 @@ const getFFmpeg = async (): Promise<FFmpeg> => {
       `https://cdn.jsdelivr.net/npm/@ffmpeg/core@${coreVersion}/dist/umd/ffmpeg-core.wasm`,
       `https://unpkg.com/@ffmpeg/core@${coreVersion}/dist/umd/ffmpeg-core.wasm`,
     ];
-    console.log("[FFmpeg] Fetching core files...");
+    console.log("[FFmpeg] Preparing core config...");
 
+    // In some environments, importing `blob:` URLs inside a module worker fails.
+    // Prefer direct CDN URLs first, then fall back to blob URLs.
+    const directConfig = {
+      coreURL: coreSources[0],
+      wasmURL: wasmSources[0],
+    };
+
+    let config: { coreURL: string; wasmURL: string } = directConfig;
+
+    try {
+      console.log("[FFmpeg] Loading FFmpeg core (direct URLs)...", directConfig);
+      await withTimeout(ffmpeg.load(directConfig), 600_000, "FFmpeg load");
+      console.log("[FFmpeg] Loaded successfully (direct URLs)!");
+      ffmpegInstance = ffmpeg;
+      return ffmpeg;
+    } catch (e) {
+      console.warn("[FFmpeg] Direct URL load failed, falling back to blob URLs:", e);
+    }
+
+    console.log("[FFmpeg] Fetching core files (blob fallback)...");
     const [coreURL, wasmURL] = await Promise.all([
       fetchToBlobURL(coreSources, "text/javascript"),
       fetchToBlobURL(wasmSources, "application/wasm"),
     ]);
 
-    const config = { coreURL, wasmURL };
+    config = { coreURL, wasmURL };
 
     try {
-      console.log("[FFmpeg] Loading FFmpeg core...");
+      console.log("[FFmpeg] Loading FFmpeg core (blob URLs)...", config);
       // Wasm compilation can be slow on some devices/browsers; keep a generous timeout.
       await withTimeout(ffmpeg.load(config), 600_000, "FFmpeg load");
-      console.log("[FFmpeg] Loaded successfully!");
+      console.log("[FFmpeg] Loaded successfully (blob URLs)!");
       ffmpegInstance = ffmpeg;
       return ffmpeg;
     } catch (e) {
       console.error("[FFmpeg] Load failed:", e);
       ffmpegInstance = null;
-      throw e instanceof Error ? e : new Error("FFmpeg load failed");
+      // Preserve the original error message if possible
+      const msg = e instanceof Error ? e.message : String(e);
+      throw new Error(`FFmpeg load failed: ${msg}`);
     }
   };
 
