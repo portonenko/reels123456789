@@ -80,7 +80,8 @@ const getFFmpeg = async (): Promise<FFmpeg> => {
 
     try {
       console.log("[FFmpeg] Loading FFmpeg core...");
-      await withTimeout(ffmpeg.load(config), 90_000, "FFmpeg load");
+      // Wasm compilation can be slow on some devices/browsers; keep a generous timeout.
+      await withTimeout(ffmpeg.load(config), 600_000, "FFmpeg load");
       console.log("[FFmpeg] Loaded successfully!");
       ffmpegInstance = ffmpeg;
       return ffmpeg;
@@ -498,6 +499,11 @@ export const exportVideo = async (
   }
 
   console.log("Using video format:", mimeType, "| Native MP4:", recordingAsMp4);
+
+  // If we will need FFmpeg conversion later, start loading it in the background while we record.
+  if (!recordingAsMp4) {
+    void getFFmpeg().catch((e) => console.warn("[FFmpeg] Preload failed (will retry later):", e));
+  }
 
   // Create MediaRecorder with optimized settings for high quality
   const videoStream = canvas.captureStream(30); // 30 FPS for smooth, high-quality video
