@@ -22,11 +22,17 @@ const withTimeout = async <T,>(p: Promise<T>, ms: number, label: string): Promis
 // Try multiple CDNs to fetch FFmpeg core files
 const fetchToBlobURL = async (urls: string[], mimeType: string): Promise<string> => {
   let lastError: Error | null = null;
-  
+
   for (const url of urls) {
     try {
       console.log(`[FFmpeg] Trying: ${url}`);
-      const response = await fetch(url);
+
+      const controller = new AbortController();
+      const t = window.setTimeout(() => controller.abort(), 45_000);
+
+      const response = await fetch(url, { signal: controller.signal });
+      window.clearTimeout(t);
+
       if (!response.ok) throw new Error(`HTTP ${response.status}`);
       const blob = await response.blob();
       console.log(`[FFmpeg] Success: ${url}`);
@@ -36,7 +42,7 @@ const fetchToBlobURL = async (urls: string[], mimeType: string): Promise<string>
       lastError = e instanceof Error ? e : new Error(String(e));
     }
   }
-  
+
   throw lastError || new Error("All CDN sources failed");
 };
 
@@ -59,14 +65,14 @@ const getFFmpeg = async (): Promise<FFmpeg> => {
     const ffmpeg = new FFmpeg();
 
     // Use @ffmpeg/core (UMD) that matches @ffmpeg/ffmpeg v0.12.x
-    // NOTE: Do NOT use core-mt here (would require cross-origin isolation).
+    // Keep versions aligned to avoid subtle load/runtime hangs.
     const coreSources = [
-      "https://cdn.jsdelivr.net/npm/@ffmpeg/core@0.12.6/dist/umd/ffmpeg-core.js",
-      "https://unpkg.com/@ffmpeg/core@0.12.6/dist/umd/ffmpeg-core.js",
+      "https://cdn.jsdelivr.net/npm/@ffmpeg/core@0.12.15/dist/umd/ffmpeg-core.js",
+      "https://unpkg.com/@ffmpeg/core@0.12.15/dist/umd/ffmpeg-core.js",
     ];
     const wasmSources = [
-      "https://cdn.jsdelivr.net/npm/@ffmpeg/core@0.12.6/dist/umd/ffmpeg-core.wasm",
-      "https://unpkg.com/@ffmpeg/core@0.12.6/dist/umd/ffmpeg-core.wasm",
+      "https://cdn.jsdelivr.net/npm/@ffmpeg/core@0.12.15/dist/umd/ffmpeg-core.wasm",
+      "https://unpkg.com/@ffmpeg/core@0.12.15/dist/umd/ffmpeg-core.wasm",
     ];
     console.log("[FFmpeg] Fetching core files...");
 
