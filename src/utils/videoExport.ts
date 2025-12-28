@@ -68,15 +68,21 @@ const getFFmpeg = async (): Promise<FFmpeg> => {
       "https://cdn.jsdelivr.net/npm/@ffmpeg/core@0.12.6/dist/umd/ffmpeg-core.wasm",
       "https://unpkg.com/@ffmpeg/core@0.12.6/dist/umd/ffmpeg-core.wasm",
     ];
+    // Required by @ffmpeg/ffmpeg for running the core inside a Web Worker.
+    const workerSources = [
+      "https://cdn.jsdelivr.net/npm/@ffmpeg/core@0.12.6/dist/umd/ffmpeg-core.worker.js",
+      "https://unpkg.com/@ffmpeg/core@0.12.6/dist/umd/ffmpeg-core.worker.js",
+    ];
 
     console.log("[FFmpeg] Fetching core files...");
 
-    const [coreURL, wasmURL] = await Promise.all([
+    const [coreURL, wasmURL, workerURL] = await Promise.all([
       fetchToBlobURL(coreSources, "text/javascript"),
       fetchToBlobURL(wasmSources, "application/wasm"),
+      fetchToBlobURL(workerSources, "text/javascript"),
     ]);
 
-    const config = { coreURL, wasmURL };
+    const config = { coreURL, wasmURL, workerURL };
 
     try {
       console.log("[FFmpeg] Loading FFmpeg core...");
