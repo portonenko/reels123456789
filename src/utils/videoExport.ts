@@ -4,6 +4,13 @@ import JSZip from "jszip";
 import { FFmpeg } from "@ffmpeg/ffmpeg";
 import { fetchFile } from "@ffmpeg/util";
 
+// Load FFmpeg core locally (bundled by Vite) to avoid CDN/CORS issues.
+// Vite will rewrite these to proper asset URLs at build time.
+// eslint-disable-next-line import/no-unresolved
+import ffmpegCoreURL from "@ffmpeg/core-st/dist/esm/ffmpeg-core.js?url";
+// eslint-disable-next-line import/no-unresolved
+import ffmpegWasmURL from "@ffmpeg/core-st/dist/esm/ffmpeg-core.wasm?url";
+
 let ffmpegInstance: FFmpeg | null = null;
 let ffmpegLoading: Promise<FFmpeg> | null = null;
 
@@ -37,40 +44,22 @@ const getFFmpeg = async (): Promise<FFmpeg> => {
   const loadFFmpeg = async (): Promise<FFmpeg> => {
     const ffmpeg = new FFmpeg();
 
-    // Use single-threaded version (core-st) - works WITHOUT SharedArrayBuffer headers
-    // This is more compatible with all browsers/hosting environments
-    const cdnConfigs = [
-      {
-        coreURL: "https://cdn.jsdelivr.net/npm/@ffmpeg/core-st@0.12.6/dist/esm/ffmpeg-core.js",
-        wasmURL: "https://cdn.jsdelivr.net/npm/@ffmpeg/core-st@0.12.6/dist/esm/ffmpeg-core.wasm",
-      },
-      {
-        coreURL: "https://unpkg.com/@ffmpeg/core-st@0.12.6/dist/esm/ffmpeg-core.js",
-        wasmURL: "https://unpkg.com/@ffmpeg/core-st@0.12.6/dist/esm/ffmpeg-core.wasm",
-      },
-    ];
+    const config = {
+      coreURL: ffmpegCoreURL,
+      wasmURL: ffmpegWasmURL,
+    };
 
-    let lastErr: unknown;
-
-    for (const config of cdnConfigs) {
-      console.log("[FFmpeg-ST] Loading from:", config.coreURL);
-      try {
-        await withTimeout(
-          ffmpeg.load(config),
-          90_000, // ST version is smaller and loads faster
-          "FFmpeg load"
-        );
-        console.log("[FFmpeg-ST] Loaded successfully!");
-        ffmpegInstance = ffmpeg;
-        return ffmpeg;
-      } catch (e) {
-        console.error("[FFmpeg-ST] Load failed:", e);
-        lastErr = e;
-      }
+    try {
+      console.log("[FFmpeg-ST] Loading local core:", config.coreURL);
+      await withTimeout(ffmpeg.load(config), 90_000, "FFmpeg load");
+      console.log("[FFmpeg-ST] Loaded successfully!");
+      ffmpegInstance = ffmpeg;
+      return ffmpeg;
+    } catch (e) {
+      console.error("[FFmpeg-ST] Load failed:", e);
+      ffmpegInstance = null;
+      throw e instanceof Error ? e : new Error("FFmpeg load failed");
     }
-
-    ffmpegInstance = null;
-    throw lastErr instanceof Error ? lastErr : new Error("FFmpeg load failed");
   };
 
   ffmpegLoading = loadFFmpeg();
