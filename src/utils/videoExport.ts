@@ -54,10 +54,18 @@ const getFFmpeg = async (): Promise<FFmpeg> => {
     return ffmpegInstance;
   }
 
-  // Loading in progress - wait for it
+  // Loading in progress - wait for it (but don't allow an infinite hang)
   if (ffmpegLoading) {
     console.log("[FFmpeg] Waiting for loading in progress...");
-    return ffmpegLoading;
+    try {
+      return await withTimeout(ffmpegLoading, 180_000, "FFmpeg shared load");
+    } catch (e) {
+      // If the shared load got stuck, allow a clean retry.
+      console.warn("[FFmpeg] Shared load timed out/failed; resetting loader state", e);
+      ffmpegLoading = null;
+      ffmpegInstance = null;
+      throw e instanceof Error ? e : new Error(String(e));
+    }
   }
 
   console.log("[FFmpeg] Starting fresh load...");
