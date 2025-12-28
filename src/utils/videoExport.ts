@@ -58,14 +58,14 @@ const getFFmpeg = async (): Promise<FFmpeg> => {
   const loadFFmpeg = async (): Promise<FFmpeg> => {
     const ffmpeg = new FFmpeg();
 
-    // IMPORTANT: prefer single-thread core (no SharedArrayBuffer / COOP+COEP requirement)
+    // Use @ffmpeg/core-st@0.11.1 (single-thread, no SharedArrayBuffer requirement)
     const coreStSources = [
-      "https://cdn.jsdelivr.net/npm/@ffmpeg/core-st@0.12.6/dist/umd/ffmpeg-core.js",
-      "https://unpkg.com/@ffmpeg/core-st@0.12.6/dist/umd/ffmpeg-core.js",
+      "https://cdn.jsdelivr.net/npm/@ffmpeg/core-st@0.11.1/dist/ffmpeg-core.js",
+      "https://unpkg.com/@ffmpeg/core-st@0.11.1/dist/ffmpeg-core.js",
     ];
     const wasmStSources = [
-      "https://cdn.jsdelivr.net/npm/@ffmpeg/core-st@0.12.6/dist/umd/ffmpeg-core.wasm",
-      "https://unpkg.com/@ffmpeg/core-st@0.12.6/dist/umd/ffmpeg-core.wasm",
+      "https://cdn.jsdelivr.net/npm/@ffmpeg/core-st@0.11.1/dist/ffmpeg-core.wasm",
+      "https://unpkg.com/@ffmpeg/core-st@0.11.1/dist/ffmpeg-core.wasm",
     ];
 
     console.log("[FFmpeg] Fetching core files...");
@@ -707,19 +707,12 @@ export const exportVideo = async (
     }
   }
 
-  // Otherwise we have WebM; try to convert to MP4, but if conversion fails
-  // return WebM so the user still gets a downloadable file.
+  // Convert WebM to MP4 (required for quality)
   console.log("Converting WebM to MP4...");
-  try {
-    const mp4Blob = await convertToMp4(recordedBlob, onProgress);
-    console.log(`Converted to MP4: ${(mp4Blob.size / 1024 / 1024).toFixed(2)} MB`);
-    onProgress(100, "Complete!");
-    return mp4Blob;
-  } catch (err) {
-    console.warn("WebM→MP4 conversion failed, returning WebM:", err);
-    onProgress(100, "Не удалось конвертировать в MP4 — скачан WebM");
-    return recordedBlob;
-  }
+  const mp4Blob = await convertToMp4(recordedBlob, onProgress);
+  console.log(`Converted to MP4: ${(mp4Blob.size / 1024 / 1024).toFixed(2)} MB`);
+  onProgress(100, "Complete!");
+  return mp4Blob;
 };
 
 export const exportPhotos = async (
