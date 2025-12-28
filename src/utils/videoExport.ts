@@ -58,33 +58,33 @@ const getFFmpeg = async (): Promise<FFmpeg> => {
   const loadFFmpeg = async (): Promise<FFmpeg> => {
     const ffmpeg = new FFmpeg();
 
-    // Multiple CDN sources for reliability
-    const coreSources = [
-      "https://cdn.jsdelivr.net/npm/@ffmpeg/core@0.12.6/dist/esm/ffmpeg-core.js",
-      "https://unpkg.com/@ffmpeg/core@0.12.6/dist/esm/ffmpeg-core.js",
+    // IMPORTANT: prefer single-thread core (no SharedArrayBuffer / COOP+COEP requirement)
+    const coreStSources = [
+      "https://cdn.jsdelivr.net/npm/@ffmpeg/core-st@0.12.6/dist/umd/ffmpeg-core.js",
+      "https://unpkg.com/@ffmpeg/core-st@0.12.6/dist/umd/ffmpeg-core.js",
     ];
-    const wasmSources = [
-      "https://cdn.jsdelivr.net/npm/@ffmpeg/core@0.12.6/dist/esm/ffmpeg-core.wasm",
-      "https://unpkg.com/@ffmpeg/core@0.12.6/dist/esm/ffmpeg-core.wasm",
+    const wasmStSources = [
+      "https://cdn.jsdelivr.net/npm/@ffmpeg/core-st@0.12.6/dist/umd/ffmpeg-core.wasm",
+      "https://unpkg.com/@ffmpeg/core-st@0.12.6/dist/umd/ffmpeg-core.wasm",
     ];
-    
+
     console.log("[FFmpeg] Fetching core files...");
-    
+
     const [coreURL, wasmURL] = await Promise.all([
-      fetchToBlobURL(coreSources, "text/javascript"),
-      fetchToBlobURL(wasmSources, "application/wasm"),
+      fetchToBlobURL(coreStSources, "text/javascript"),
+      fetchToBlobURL(wasmStSources, "application/wasm"),
     ]);
 
     const config = { coreURL, wasmURL };
 
     try {
-      console.log("[FFmpeg-ST] Loading from blob URLs...");
+      console.log("[FFmpeg] Loading FFmpeg core...");
       await withTimeout(ffmpeg.load(config), 90_000, "FFmpeg load");
-      console.log("[FFmpeg-ST] Loaded successfully!");
+      console.log("[FFmpeg] Loaded successfully!");
       ffmpegInstance = ffmpeg;
       return ffmpeg;
     } catch (e) {
-      console.error("[FFmpeg-ST] Load failed:", e);
+      console.error("[FFmpeg] Load failed:", e);
       ffmpegInstance = null;
       throw e instanceof Error ? e : new Error("FFmpeg load failed");
     }
@@ -707,12 +707,19 @@ export const exportVideo = async (
     }
   }
 
-  // Otherwise we have WebM and MUST convert to MP4 (no fallback to WebM)
+  // Otherwise we have WebM; try to convert to MP4, but if conversion fails
+  // return WebM so the user still gets a downloadable file.
   console.log("Converting WebM to MP4...");
-  const mp4Blob = await convertToMp4(recordedBlob, onProgress);
-  console.log(`Converted to MP4: ${(mp4Blob.size / 1024 / 1024).toFixed(2)} MB`);
-  onProgress(100, "Complete!");
-  return mp4Blob;
+  try {
+    const mp4Blob = await convertToMp4(recordedBlob, onProgress);
+    console.log(`Converted to MP4: ${(mp4Blob.size / 1024 / 1024).toFixed(2)} MB`);
+    onProgress(100, "Complete!");
+    return mp4Blob;
+  } catch (err) {
+    console.warn("WebM→MP4 conversion failed, returning WebM:", err);
+    onProgress(100, "Не удалось конвертировать в MP4 — скачан WebM");
+    return recordedBlob;
+  }
 };
 
 export const exportPhotos = async (
