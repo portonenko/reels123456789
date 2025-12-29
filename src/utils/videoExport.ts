@@ -238,7 +238,7 @@ const applyEnergiaRuleToSlides = (slides: Slide[]): Slide[] => {
 };
 
 // -----------------------
-// FFmpeg encoding: ULTRAFAST 30fps CFR, 5Mbps bitrate (single-pass), hard trim 15.0s
+// FFmpeg encoding: ULTRAFAST 30fps CFR, 5Mbps bitrate (single-pass), dynamic duration
 // -----------------------
 
 type EncodeOptions = {
@@ -451,10 +451,15 @@ export const exportVideo = async (
   // Preload all assets BEFORE starting render
   onProgress(8, "Загрузка ассетов...");
 
-  const TARGET_DURATION_SEC = 15.0;
+  // DYNAMIC DURATION: total length = sum of all slide durations
+  const totalDuration = slides.reduce((sum, s) => sum + s.durationSec, 0);
+  // Fallback minimum 1 second to avoid zero-length exports
+  const TARGET_DURATION_SEC = Math.max(1, totalDuration);
   const fps = 30;
   const frameMs = 1000 / fps;
   const totalFrames = Math.round(TARGET_DURATION_SEC * fps);
+
+  console.log(`[Export] Dynamic duration: ${TARGET_DURATION_SEC}s (${totalFrames} frames @ ${fps}fps)`);
 
   const needBackgroundVideo = !!(backgroundAsset?.url && backgroundAsset?.type !== "image");
 
@@ -621,9 +626,10 @@ export const exportVideo = async (
 
         const elapsed = frame / fps;
 
+        // Update progress every half-second (15 frames)
         if (frame % 15 === 0) {
           const percent = (elapsed / TARGET_DURATION_SEC) * 100;
-          onProgress(10 + percent * 0.85, `Recording... ${percent.toFixed(0)}%`);
+          onProgress(10 + percent * 0.85, `Запись... ${percent.toFixed(0)}% (${elapsed.toFixed(1)}s / ${TARGET_DURATION_SEC.toFixed(1)}s)`);
         }
 
         const { index: currentSlideIndex, start: slideStartTime } = getSlideAtTime(elapsed);
@@ -631,8 +637,28 @@ export const exportVideo = async (
         const transitionDuration = 0.5;
         const transitionProgress = Math.min(slideElapsed / transitionDuration, 1);
 
-        if (needBackgroundVideo && (!backgroundVideo || backgroundVideo.readyState < 4)) {
-          throw new Error("Видео еще загружается");
+        // Seamless video looping: let browser handle native loop, only restart if truly stuck
+        if (backgroundVideo) {
+          if (backgroundVideo.readyState < 4) {
+            throw new Error("Видео еще загружается");
+          }
+          // If paused for some reason, resume (but don't manually reset currentTime - loop=true handles it)
+          if (backgroundVideo.paused && !backgroundVideo.ended) {
+            try {
+              void backgroundVideo.play();
+            } catch {
+              // ignore
+            }
+          }
+        }
+
+        // Seamless audio looping: ensure audio keeps playing (loop=true is already set)
+        if (backgroundAudio && backgroundAudio.paused) {
+          try {
+            void backgroundAudio.play();
+          } catch {
+            // ignore
+          }
         }
 
         renderSlideToCanvas(ctx, slides[currentSlideIndex], canvas, backgroundVideo, transitionProgress, globalOverlay);
