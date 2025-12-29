@@ -336,6 +336,10 @@ const convertToMp4 = async (
   }
 };
 
+// Alias (requested name): encodeToMp4
+const encodeToMp4 = convertToMp4;
+
+
 const prepareCanvasContext = (canvas: HTMLCanvasElement): CanvasRenderingContext2D | null => {
   const ctx = canvas.getContext("2d", {
     alpha: false,
@@ -454,13 +458,13 @@ export const exportVideo = async (
 
   // DYNAMIC DURATION: total length = sum of all slide durations
   const totalDuration = slides.reduce((sum, s) => sum + s.durationSec, 0);
-  // Fallback minimum 1 second to avoid zero-length exports
+  // Fallback minimum to avoid zero/negative duration
   const durationSec = Math.max(1, totalDuration);
   const fps = 30;
   const frameMs = 1000 / fps;
-  const totalFrames = Math.round(durationSec * fps);
+  const totalFrames = Math.round(Math.max(0.001, totalDuration) * fps);
 
-  console.log(`[Export] Dynamic duration: ${durationSec}s (${totalFrames} frames @ ${fps}fps)`);
+  console.log(`[Export] Dynamic duration: ${durationSec}s (slides total: ${totalDuration}s, ${totalFrames} frames @ ${fps}fps)`);
 
   const needBackgroundVideo = !!(backgroundAsset?.url && backgroundAsset?.type !== "image");
 
@@ -479,18 +483,6 @@ export const exportVideo = async (
 
       backgroundVideo = createHiddenVideo(bgVideoBlob.objectUrl);
       backgroundVideo.loop = true;
-      backgroundVideo.addEventListener(
-        "ended",
-        () => {
-          try {
-            backgroundVideo!.currentTime = 0;
-            void backgroundVideo!.play();
-          } catch {
-            // ignore
-          }
-        },
-        { passive: true }
-      );
       await waitForEvent(backgroundVideo, "canplaythrough", 3_000, "Background video ready");
     }
 
@@ -500,18 +492,6 @@ export const exportVideo = async (
         bgAudioBlob = await withTimeout(fetchAsBlob(backgroundMusicUrl, "Background audio"), 5_000, "Background audio");
         backgroundAudio = createAudio(bgAudioBlob.objectUrl);
         backgroundAudio.loop = true;
-        backgroundAudio.addEventListener(
-          "ended",
-          () => {
-            try {
-              backgroundAudio!.currentTime = 0;
-              void backgroundAudio!.play();
-            } catch {
-              // ignore
-            }
-          },
-          { passive: true }
-        );
         await waitForEvent(backgroundAudio as any, "canplaythrough", 5_000, "Audio ready");
       } catch {
         bgAudioBlob = null;
@@ -610,6 +590,10 @@ export const exportVideo = async (
       mediaRecorder.onerror = (e) => reject(e);
     });
 
+    // Ensure looping is enabled right before starting recording
+    if (backgroundVideo) backgroundVideo.loop = true;
+    if (backgroundAudio) backgroundAudio.loop = true;
+
     // Start media first (reduces frozen-first-frame issues)
     if (backgroundVideo) {
       backgroundVideo.currentTime = 0;
@@ -630,16 +614,15 @@ export const exportVideo = async (
 
     mediaRecorder.start();
 
-    const slidesTotalDuration = durationSec;
     const getSlideAtTime = (tSec: number) => {
-      const t = slidesTotalDuration > 0 ? Math.min(tSec, Math.max(0, slidesTotalDuration - 1e-6)) : 0;
+      const t = totalDuration > 0 ? Math.min(tSec, totalDuration - 0.001) : 0;
       let acc = 0;
       for (let i = 0; i < slides.length; i++) {
         const d = slides[i].durationSec;
         if (t < acc + d) return { index: i, start: acc };
         acc += d;
       }
-      return { index: Math.max(0, slides.length - 1), start: Math.max(0, slidesTotalDuration - 1e-6) };
+      return { index: Math.max(0, slides.length - 1), start: Math.max(0, totalDuration - 0.001) };
     };
 
     const startTime = performance.now();
@@ -728,7 +711,8 @@ export const exportVideo = async (
     }
 
     // Otherwise convert webm -> mp4 via FFmpeg (single-pass)
-    const mp4Blob = await convertToMp4(recordedBlob, onProgress, { durationSec }, "webm");
+    // IMPORTANT: do NOT trim to a fixed 15s; use the full slides duration.
+    const mp4Blob = await encodeToMp4(recordedBlob, onProgress, { durationSec }, "webm");
     onProgress(100, "Complete!");
     return mp4Blob;
   } finally {
