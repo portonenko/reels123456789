@@ -238,62 +238,56 @@ const applyEnergiaRuleToSlides = (slides: Slide[]): Slide[] => {
 };
 
 // -----------------------
-// FFmpeg encoding: ULTRAFAST 30fps CFR, hard trim 15.0s
+// FFmpeg encoding: ULTRAFAST 30fps CFR, 6Mbps bitrate, hard trim 15.0s
 // -----------------------
 
 type EncodeOptions = {
   useFaststart: boolean;
-  profile: "main" | "high";
-  preset: "ultrafast" | "superfast" | "veryfast" | "fast";
-  crf: number;
   durationSec: number;
 };
 
 const buildEncodeArgs = (inputName: string, opts: EncodeOptions): string[] => {
-  // Minimal filter chain for speed
-  const vf = "fps=30,scale=1080:1920:force_original_aspect_ratio=increase,crop=1080:1920,setsar=1";
+  // Simple filter: just scale/crop, no complex timestamp manipulation
+  const vf = "scale=1080:1920:force_original_aspect_ratio=increase,crop=1080:1920,setsar=1";
 
   const args = [
-    // Input
+    // Input at 30fps
     "-r", "30",
     "-i", inputName,
 
-    // Timestamp reset
-    "-fflags", "+genpts",
-    "-avoid_negative_ts", "make_zero",
-
-    // Hard trim
+    // Hard trim to exact duration
     "-t", opts.durationSec.toFixed(1),
 
-    // Video - ULTRAFAST for speed
+    // Video: ultrafast H.264 with 6Mbps bitrate (fast + good for Reels)
     "-vf", vf,
     "-c:v", "libx264",
-    "-preset", opts.preset,
-    "-profile:v", opts.profile,
+    "-preset", "ultrafast",
+    "-profile:v", "main",
     "-pix_fmt", "yuv420p",
     "-vsync", "cfr",
     "-r", "30",
+    "-b:v", "6M",
+    "-maxrate", "8M",
+    "-bufsize", "12M",
 
-    // Quality (CRF 23 is faster than 22, still good for Reels)
-    "-crf", String(opts.crf),
-
-    // Audio - simple copy where possible
+    // Audio: simple AAC
     "-map", "0:v:0",
     "-map", "0:a?",
     "-c:a", "aac",
     "-ar", "48000",
     "-b:a", "128k",
-    "-af", `atrim=0:${opts.durationSec.toFixed(1)},asetpts=PTS-STARTPTS`,
+
+    // Trim audio to match video
+    "-t", opts.durationSec.toFixed(1),
 
     // Muxing
-    "-max_muxing_queue_size", "2048",
+    "-max_muxing_queue_size", "1024",
+    "-shortest",
   ];
 
   if (opts.useFaststart) {
     args.push("-movflags", "+faststart");
   }
-
-  args.push("-shortest");
 
   return args;
 };
@@ -488,13 +482,13 @@ export const exportVideo = async (
   let backgroundVideo: HTMLVideoElement | undefined;
   let backgroundAudio: HTMLAudioElement | undefined;
 
-  // Use canplaythrough for full buffer readiness
+  // Use canplaythrough with 3-second timeout - instant gradient fallback on failure
   if (bgVideoBlob) {
     try {
       backgroundVideo = createHiddenVideo(bgVideoBlob.objectUrl);
-      await waitForEvent(backgroundVideo, "canplaythrough", 15_000, "Background video ready");
+      await waitForEvent(backgroundVideo, "canplaythrough", 3_000, "Background video ready");
     } catch (e) {
-      console.warn("[Export] Video canplaythrough failed, using gradient:", e);
+      console.warn("[Export] Video timeout (3s), using gradient fallback:", e);
       if (backgroundVideo) {
         try { backgroundVideo.remove(); } catch {}
       }
@@ -504,10 +498,11 @@ export const exportVideo = async (
     }
   }
 
+  // Audio has slightly longer timeout but still quick
   if (bgAudioBlob) {
     try {
       backgroundAudio = createAudio(bgAudioBlob.objectUrl);
-      await waitForEvent(backgroundAudio as any, "canplaythrough", 10_000, "Audio ready");
+      await waitForEvent(backgroundAudio as any, "canplaythrough", 5_000, "Audio ready");
     } catch {
       backgroundAudio = undefined;
     }
@@ -709,14 +704,9 @@ export const exportVideo = async (
   onProgress(95, "Finalizing recording...");
   const recordedBlob = await recordingPromise;
 
-  const lowMem = isLowMemoryDevice() || recordedBlob.size > 100 * 1024 * 1024;
-
-  // ULTRAFAST preset for 20-30s export time
-  const baseOpts: EncodeOptions = {
-    useFaststart: !lowMem,
-    profile: "main",
-    preset: "ultrafast",
-    crf: 23,
+  // Simple encode options - no 2-pass, no retry with different settings
+  const encodeOpts: EncodeOptions = {
+    useFaststart: !isLowMemoryDevice(),
     durationSec: TARGET_DURATION_SEC,
   };
 
@@ -724,21 +714,19 @@ export const exportVideo = async (
     const mp4Blob = await encodeToMp4(
       recordedBlob,
       onProgress,
-      baseOpts,
+      encodeOpts,
       recordingAsMp4 ? "mp4" : "webm"
     );
     onProgress(100, "Complete!");
     return mp4Blob;
   } catch (err) {
-    console.warn("[Export] FFmpeg failed, retrying with minimal settings...", err);
+    console.warn("[Export] FFmpeg failed, retrying without faststart...", err);
     ffmpegInstance = null;
     ffmpegLoading = null;
 
+    // Single retry without faststart - no 2-pass encoding
     const retryOpts: EncodeOptions = {
       useFaststart: false,
-      profile: "main",
-      preset: "ultrafast",
-      crf: 25,
       durationSec: TARGET_DURATION_SEC,
     };
 
