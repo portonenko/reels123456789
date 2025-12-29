@@ -73,8 +73,6 @@ const getFFmpeg = async (): Promise<FFmpeg> => {
   const loadFFmpeg = async (): Promise<FFmpeg> => {
     const ffmpeg = new FFmpeg();
 
-    // Use ESM core build first (the @ffmpeg/ffmpeg worker imports it as an ES module).
-    // Keep UMD as a fallback for environments/CDNs where ESM path might be missing.
     const coreVersion = "0.12.10";
     const coreSources = [
       `https://cdn.jsdelivr.net/npm/@ffmpeg/core@${coreVersion}/dist/esm/ffmpeg-core.js`,
@@ -90,14 +88,10 @@ const getFFmpeg = async (): Promise<FFmpeg> => {
     ];
     console.log("[FFmpeg] Preparing core config...");
 
-    // In some environments, importing `blob:` URLs inside a module worker fails.
-    // Prefer direct CDN URLs first, then fall back to blob URLs.
     const directConfig = {
       coreURL: coreSources[0],
       wasmURL: wasmSources[0],
     };
-
-    let config: { coreURL: string; wasmURL: string } = directConfig;
 
     try {
       console.log("[FFmpeg] Loading FFmpeg core (direct URLs)...", directConfig);
@@ -115,19 +109,15 @@ const getFFmpeg = async (): Promise<FFmpeg> => {
       fetchToBlobURL(wasmSources, "application/wasm"),
     ]);
 
-    config = { coreURL, wasmURL };
-
     try {
-      console.log("[FFmpeg] Loading FFmpeg core (blob URLs)...", config);
-      // Wasm compilation can be slow on some devices/browsers; keep a generous timeout.
-      await withTimeout(ffmpeg.load(config), 600_000, "FFmpeg load");
+      console.log("[FFmpeg] Loading FFmpeg core (blob URLs)...", { coreURL, wasmURL });
+      await withTimeout(ffmpeg.load({ coreURL, wasmURL }), 600_000, "FFmpeg load");
       console.log("[FFmpeg] Loaded successfully (blob URLs)!");
       ffmpegInstance = ffmpeg;
       return ffmpeg;
     } catch (e) {
       console.error("[FFmpeg] Load failed:", e);
       ffmpegInstance = null;
-      // Preserve the original error message if possible
       const msg = e instanceof Error ? e.message : String(e);
       throw new Error(`FFmpeg load failed: ${msg}`);
     }
@@ -136,83 +126,173 @@ const getFFmpeg = async (): Promise<FFmpeg> => {
   ffmpegLoading = loadFFmpeg();
 
   try {
-    const result = await ffmpegLoading;
-    return result;
+    return await ffmpegLoading;
   } finally {
     ffmpegLoading = null;
   }
 };
 
-const convertToMp4 = async (
-  webmBlob: Blob,
-  onProgress: (progress: number, message: string) => void,
-  isRetry: boolean = false
-): Promise<Blob> => {
-  console.log(
-    "[FFmpeg] Starting MP4 conversion, input size:",
-    (webmBlob.size / 1024 / 1024).toFixed(2),
-    "MB"
+// -----------------------
+// Helpers: stable media loading (Promise.all)
+// -----------------------
+
+type LoadedBlob = { blob: Blob; objectUrl: string };
+
+const fetchAsBlob = async (url: string, label: string): Promise<LoadedBlob> => {
+  const controller = new AbortController();
+  const t = window.setTimeout(() => controller.abort(), 60_000);
+
+  try {
+    const res = await fetch(url, { signal: controller.signal, cache: "force-cache" });
+    if (!res.ok) throw new Error(`${label}: HTTP ${res.status}`);
+    const blob = await res.blob();
+    const objectUrl = URL.createObjectURL(blob);
+    return { blob, objectUrl };
+  } finally {
+    window.clearTimeout(t);
+  }
+};
+
+const waitForEvent = (el: HTMLElement, eventName: string, timeoutMs: number, label: string) =>
+  withTimeout(
+    new Promise<void>((resolve, reject) => {
+      const onOk = () => {
+        cleanup();
+        resolve();
+      };
+      const onErr = () => {
+        cleanup();
+        reject(new Error(`${label}: failed (${eventName})`));
+      };
+      const cleanup = () => {
+        el.removeEventListener(eventName, onOk as any);
+        el.removeEventListener("error", onErr as any);
+      };
+      el.addEventListener(eventName, onOk as any, { once: true });
+      el.addEventListener("error", onErr as any, { once: true });
+    }),
+    timeoutMs,
+    label
   );
-  onProgress(96, "Loading video converter...");
 
-  const ffmpeg = await getFFmpeg();
+const createHiddenVideo = (src: string): HTMLVideoElement => {
+  const v = document.createElement("video");
+  v.src = src;
+  v.muted = true;
+  v.playsInline = true;
+  v.preload = "auto";
+  v.loop = true;
 
-  onProgress(97, "Converting to MP4 (H.264)...");
+  // Keep decoder active during capture: attach as hidden element.
+  v.style.position = "fixed";
+  v.style.left = "-99999px";
+  v.style.top = "-99999px";
+  v.style.width = "1px";
+  v.style.height = "1px";
+  v.style.opacity = "0";
+  v.style.pointerEvents = "none";
+  document.body.appendChild(v);
 
-  console.log("[FFmpeg] Writing input file...");
-  const inputData = await fetchFile(webmBlob);
-  const inputName = webmBlob.type.includes("webm") ? "input.webm" : "input.mp4";
-  await ffmpeg.writeFile(inputName, inputData);
+  return v;
+};
 
-  // Export fixes for Reels/Shorts stability:
-  // - Force 1080x1920, 30 FPS CFR
-  // - Reset/normalize timestamps to avoid slow-motion (bad PTS/DTS)
-  // - Hard trim to EXACTLY 15.0s
-  // - MP4 + H.264 High Profile Level 4.1 + faststart
-  // - Prefer CRF 20 (high quality, smaller file) for delivery stability
-  // If retrying: switch to 2-pass bitrate mode to reduce finalization stalls.
-  const targetDurationSec = 15;
-  const crf = "20";
-  const retryBitrate = "10M";
+const createAudio = (src: string): HTMLAudioElement => {
+  const a = document.createElement("audio");
+  a.src = src;
+  a.preload = "auto";
+  a.loop = true;
+  return a;
+};
 
-  console.log(
-    `[FFmpeg] Running conversion: 30fps + reset timestamps + trim ${targetDurationSec}s` +
-      (isRetry ? ` (2-pass @ ${retryBitrate})` : ` (CRF ${crf})`)
-  );
+const isLowMemoryDevice = (): boolean => {
+  const dm = (navigator as any).deviceMemory as number | undefined;
+  if (typeof dm === "number" && dm > 0 && dm <= 4) return true;
+  return false;
+};
 
-  const baseArgs = [
+// -----------------------
+// Localization guard (ENERGIA)
+// -----------------------
+
+const energiaReplacementForLang = (lang?: string): string | null => {
+  switch ((lang || "").toLowerCase()) {
+    case "en":
+      return "energy";
+    case "de":
+      return "energie";
+    case "pl":
+      return "Energia";
+    default:
+      return null;
+  }
+};
+
+const applyEnergiaRuleToSlides = (slides: Slide[]): Slide[] => {
+  const replacement = energiaReplacementForLang(slides?.[0]?.language);
+  if (!replacement) return slides;
+  return slides.map((s) => ({
+    ...s,
+    title: (s.title || "").replace(/ENERGIA/gi, replacement),
+    body: s.body ? s.body.replace(/ENERGIA/gi, replacement) : s.body,
+  }));
+};
+
+// -----------------------
+// FFmpeg encoding: stable 30fps CFR, hard trim 15.0s, scale/crop, timestamp reset
+// -----------------------
+
+type EncodeOptions = {
+  useFaststart: boolean;
+  profile: "main" | "high";
+  preset: "superfast" | "veryfast" | "fast" | "medium";
+  crf: number;
+  durationSec: number;
+};
+
+const buildEncodeArgs = (inputName: string, opts: EncodeOptions): string[] => {
+  const vf =
+    "scale=1080:1920:force_original_aspect_ratio=increase,crop=1080:1920,setsar=1,fps=30";
+
+  const args = [
+    // Input frame rate hint (helps when PTS are messy)
+    "-r",
+    "30",
     "-i",
     inputName,
 
-    // Reset / regenerate timestamps (prevents slow-motion & end stutters)
+    // Reset/generate sane timestamps
     "-fflags",
     "+genpts",
     "-avoid_negative_ts",
     "make_zero",
 
-    // Hard trim output
+    // Hard trim BOTH streams
     "-t",
-    `${targetDurationSec}`,
+    opts.durationSec.toFixed(1),
 
     // Video
     "-vf",
-    "fps=30,scale=1080:1920:flags=lanczos,setpts=N/(30*TB)",
+    vf,
     "-c:v",
     "libx264",
     "-preset",
-    "medium",
+    opts.preset,
     "-profile:v",
-    "high",
-    "-level:v",
-    "4.1",
+    opts.profile,
     "-pix_fmt",
     "yuv420p",
-    "-r",
-    "30",
     "-vsync",
     "cfr",
+    "-r",
+    "30",
+    "-fpsmax",
+    "30",
 
-    // Audio
+    // Quality / size
+    "-crf",
+    String(opts.crf),
+
+    // Audio (keep it light but stable)
     "-map",
     "0:v:0",
     "-map",
@@ -222,245 +302,72 @@ const convertToMp4 = async (
     "-ar",
     "48000",
     "-b:a",
-    "192k",
+    "160k",
     "-af",
-    "aresample=48000,asetpts=N/SR/TB",
+    `atrim=0:${opts.durationSec.toFixed(1)},asetpts=PTS-STARTPTS`,
 
-    // Mux / container
-    "-shortest",
+    // Safer muxing
     "-max_muxing_queue_size",
     "4096",
-    "-movflags",
-    "+faststart",
   ];
 
-  if (isRetry) {
-    // Retry: 2-pass bitrate mode (more stable muxing/finalization than CRF on some devices)
-    await withTimeout(
-      ffmpeg.exec([
-        ...baseArgs,
-        "-b:v",
-        retryBitrate,
-        "-pass",
-        "1",
-        "-passlogfile",
-        "fflog",
-        "-an",
-        "-f",
-        "mp4",
-        "pass1.mp4",
-      ]),
-      300_000,
-      "FFmpeg convert pass1"
-    );
-
-    await withTimeout(
-      ffmpeg.exec([
-        ...baseArgs,
-        "-b:v",
-        retryBitrate,
-        "-pass",
-        "2",
-        "-passlogfile",
-        "fflog",
-        "output.mp4",
-      ]),
-      300_000,
-      "FFmpeg convert pass2"
-    );
-
-    // Best-effort cleanup of 2-pass artifacts
-    try { await ffmpeg.deleteFile("pass1.mp4"); } catch { /* ignore */ }
-    try { await ffmpeg.deleteFile("fflog-0.log"); } catch { /* ignore */ }
-    try { await ffmpeg.deleteFile("fflog-0.log.mbtree"); } catch { /* ignore */ }
-  } else {
-    await withTimeout(
-      ffmpeg.exec([
-        ...baseArgs,
-        "-crf",
-        crf,
-        "output.mp4",
-      ]),
-      300_000,
-      "FFmpeg convert"
-    );
+  if (opts.useFaststart) {
+    args.push("-movflags", "+faststart");
   }
 
-  onProgress(99, "Finalizing MP4...");
+  // Keep output EXACTLY 15.0s even if one stream drifts
+  args.push("-shortest");
 
-  console.log("[FFmpeg] Reading output file...");
-  const data = await ffmpeg.readFile("output.mp4");
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const mp4Blob = new Blob([data as any], { type: "video/mp4" });
-
-  console.log(
-    "[FFmpeg] Conversion complete! MP4 size:",
-    (mp4Blob.size / 1024 / 1024).toFixed(2),
-    "MB"
-  );
-
-  // Clean up
-  await ffmpeg.deleteFile(inputName);
-  await ffmpeg.deleteFile("output.mp4");
-
-  return mp4Blob;
+  return args;
 };
 
-const normalizeMp4 = async (
-  mp4Blob: Blob,
+const encodeToMp4 = async (
+  inputBlob: Blob,
   onProgress: (progress: number, message: string) => void,
-  isRetry: boolean = false
+  opts: EncodeOptions,
+  inputExtHint: "webm" | "mp4" = "webm"
 ): Promise<Blob> => {
-  console.log(
-    "[FFmpeg] Normalizing MP4 (re-encode for stable timestamps), size:",
-    (mp4Blob.size / 1024 / 1024).toFixed(2),
-    "MB"
-  );
-  onProgress(96, "Optimizing MP4 playback...");
-
+  onProgress(96, "Encoding MP4...");
   const ffmpeg = await getFFmpeg();
 
-  onProgress(97, "Re-encoding MP4 (H.264, 30fps, trim 15s)...");
+  const inputName = `input.${inputExtHint}`;
+  await ffmpeg.writeFile(inputName, await fetchFile(inputBlob));
 
-  const inputData = await fetchFile(mp4Blob);
-  await ffmpeg.writeFile("input.mp4", inputData);
-
-  const targetDurationSec = 15;
-  const crf = "20";
-  const retryBitrate = "10M";
-
-  const baseArgs = [
-    "-i",
-    "input.mp4",
-
-    // Reset / regenerate timestamps (prevents slow-motion & end stutters)
-    "-fflags",
-    "+genpts",
-    "-avoid_negative_ts",
-    "make_zero",
-
-    // Hard trim output
-    "-t",
-    `${targetDurationSec}`,
-
-    // Video
-    "-vf",
-    "fps=30,scale=1080:1920:flags=lanczos,setpts=N/(30*TB)",
-    "-c:v",
-    "libx264",
-    "-preset",
-    "medium",
-    "-profile:v",
-    "high",
-    "-level:v",
-    "4.1",
-    "-pix_fmt",
-    "yuv420p",
-    "-r",
-    "30",
-    "-vsync",
-    "cfr",
-
-    // Audio
-    "-map",
-    "0:v:0",
-    "-map",
-    "0:a?",
-    "-c:a",
-    "aac",
-    "-ar",
-    "48000",
-    "-b:a",
-    "192k",
-    "-af",
-    "aresample=48000,asetpts=N/SR/TB",
-
-    // Mux / container
-    "-shortest",
-    "-max_muxing_queue_size",
-    "4096",
-    "-movflags",
-    "+faststart",
-  ];
-
-  if (isRetry) {
+  try {
+    onProgress(97, "Re-encoding H.264 (30fps, trim 15.0s)...");
     await withTimeout(
-      ffmpeg.exec([
-        ...baseArgs,
-        "-b:v",
-        retryBitrate,
-        "-pass",
-        "1",
-        "-passlogfile",
-        "fflog",
-        "-an",
-        "-f",
-        "mp4",
-        "pass1.mp4",
-      ]),
-      300_000,
-      "FFmpeg normalize pass1"
+      ffmpeg.exec([...buildEncodeArgs(inputName, opts), "output.mp4"]),
+      420_000,
+      "FFmpeg encode"
     );
 
-    await withTimeout(
-      ffmpeg.exec([
-        ...baseArgs,
-        "-b:v",
-        retryBitrate,
-        "-pass",
-        "2",
-        "-passlogfile",
-        "fflog",
-        "output.mp4",
-      ]),
-      300_000,
-      "FFmpeg normalize pass2"
-    );
-
-    try { await ffmpeg.deleteFile("pass1.mp4"); } catch { /* ignore */ }
-    try { await ffmpeg.deleteFile("fflog-0.log"); } catch { /* ignore */ }
-    try { await ffmpeg.deleteFile("fflog-0.log.mbtree"); } catch { /* ignore */ }
-  } else {
-    await withTimeout(
-      ffmpeg.exec([
-        ...baseArgs,
-        "-crf",
-        crf,
-        "output.mp4",
-      ]),
-      300_000,
-      "FFmpeg normalize"
-    );
+    onProgress(99, "Finalizing...");
+    const data = await ffmpeg.readFile("output.mp4");
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    return new Blob([data as any], { type: "video/mp4" });
+  } finally {
+    // Best-effort cleanup
+    try {
+      await ffmpeg.deleteFile(inputName);
+    } catch {
+      // ignore
+    }
+    try {
+      await ffmpeg.deleteFile("output.mp4");
+    } catch {
+      // ignore
+    }
   }
-
-  onProgress(99, "Finalizing MP4...");
-
-  const data = await ffmpeg.readFile("output.mp4");
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const outBlob = new Blob([data as any], { type: "video/mp4" });
-
-  console.log(
-    "[FFmpeg] Normalization complete! MP4 size:",
-    (outBlob.size / 1024 / 1024).toFixed(2),
-    "MB"
-  );
-
-  await ffmpeg.deleteFile("input.mp4");
-  await ffmpeg.deleteFile("output.mp4");
-
-  return outBlob;
 };
 
 const prepareCanvasContext = (canvas: HTMLCanvasElement): CanvasRenderingContext2D | null => {
   const ctx = canvas.getContext("2d", {
     alpha: false,
-    // Hint to browser this canvas is used for realtime capture
     desynchronized: true,
     willReadFrequently: false,
   });
   if (!ctx) return null;
 
-  // Enable high-quality rendering once
   ctx.imageSmoothingEnabled = true;
   ctx.imageSmoothingQuality = "high";
   (ctx as any).textRendering = "geometricPrecision";
@@ -476,7 +383,6 @@ const renderSlideToCanvas = (
   transitionProgress?: number,
   globalOverlay?: number
 ): void => {
-  // Calculate transition effects
   const progress = transitionProgress ?? 1;
   let opacity = 1;
   let offsetX = 0;
@@ -498,7 +404,6 @@ const renderSlideToCanvas = (
         opacity = progress;
         break;
       case "sunlight":
-        // Sunlight flash: intense white flash at start, then fade in
         if (progress < 0.2) {
           filterValue = `brightness(${1 + (5 - (progress / 0.2) * 5)})`;
           opacity = progress / 0.2;
@@ -515,21 +420,18 @@ const renderSlideToCanvas = (
     }
   }
 
-  // Clear once per frame
   ctx.setTransform(1, 0, 0, 1, 0, 0);
   ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-  // Save context for transitions
   ctx.save();
   ctx.globalAlpha = opacity;
   ctx.translate(offsetX, 0);
   ctx.filter = filterValue;
 
-  // Draw background (video or image)
   if (backgroundMedia) {
     ctx.drawImage(backgroundMedia, 0, 0, canvas.width, canvas.height);
   } else {
-    // Gradient fallback
+    // Keep existing fallback (not part of current request to redesign)
     const gradient = ctx.createLinearGradient(0, 0, canvas.width, canvas.height);
     gradient.addColorStop(0, "#581c87");
     gradient.addColorStop(0.5, "#1e3a8a");
@@ -538,9 +440,6 @@ const renderSlideToCanvas = (
     ctx.fillRect(0, 0, canvas.width, canvas.height);
   }
 
-  // Apply overlay
-  // Prefer per-slide preset overlay (slide.style.overlay.opacity in range 0..1)
-  // Fallback to globalOverlay (0..100, default 30)
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const styleOverlay = (slide.style as any)?.overlay?.opacity;
   const overlayOpacity =
@@ -551,15 +450,13 @@ const renderSlideToCanvas = (
   ctx.fillStyle = `rgba(0, 0, 0, ${overlayOpacity})`;
   ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-  // Use unified text rendering
   renderSlideText(ctx, slide, canvas);
 
-  // Restore context after transitions
   ctx.restore();
 };
 
 export const exportVideo = async (
-  slides: Slide[],
+  slidesInput: Slide[],
   backgroundAsset: Asset | null,
   onProgress: (progress: number, message: string) => void,
   backgroundMusicUrl?: string,
@@ -567,326 +464,201 @@ export const exportVideo = async (
 ): Promise<Blob> => {
   onProgress(5, "Initializing video recorder...");
 
-  console.log("exportVideo called with:", {
-    slidesCount: slides.length,
-    backgroundAsset: backgroundAsset ? { id: backgroundAsset.id, url: backgroundAsset.url?.substring(0, 50) + "...", type: backgroundAsset.type } : null,
-    hasMusicUrl: !!backgroundMusicUrl,
-    globalOverlay,
-  });
+  const slides = applyEnergiaRuleToSlides(slidesInput);
 
   const canvas = document.createElement("canvas");
   canvas.width = 1080;
   canvas.height = 1920;
 
   const ctx = prepareCanvasContext(canvas);
-  if (!ctx) {
-    throw new Error("Failed to initialize canvas context");
-  }
+  if (!ctx) throw new Error("Failed to initialize canvas context");
+
+  // Preload all assets BEFORE starting render (Promise.all)
+  onProgress(8, "Loading assets...");
+
+  const needBackgroundVideo = !!(backgroundAsset?.url && backgroundAsset?.type !== "image");
+
+  const backgroundVideoPromise = needBackgroundVideo
+    ? fetchAsBlob(backgroundAsset!.url, "Background video")
+    : Promise.resolve<LoadedBlob | null>(null);
+
+  const backgroundMusicPromise = backgroundMusicUrl
+    ? fetchAsBlob(backgroundMusicUrl, "Background audio")
+    : Promise.resolve<LoadedBlob | null>(null);
+
+  const [bgVideoBlob, bgAudioBlob] = await Promise.all([backgroundVideoPromise, backgroundMusicPromise]);
 
   let backgroundVideo: HTMLVideoElement | undefined;
   let backgroundAudio: HTMLAudioElement | undefined;
-  
-  // Load background video if available
-  if (backgroundAsset && backgroundAsset.url) {
-    console.log("Loading background video from:", backgroundAsset.url);
-    backgroundVideo = document.createElement("video");
-    backgroundVideo.src = backgroundAsset.url;
-    backgroundVideo.muted = true;
-    backgroundVideo.playsInline = true;
-    backgroundVideo.preload = "auto";
-    backgroundVideo.loop = true;
 
-    // Keep decoder active during capture: attach as hidden element.
-    backgroundVideo.style.position = "fixed";
-    backgroundVideo.style.left = "-99999px";
-    backgroundVideo.style.top = "-99999px";
-    backgroundVideo.style.width = "1px";
-    backgroundVideo.style.height = "1px";
-    backgroundVideo.style.opacity = "0";
-    backgroundVideo.style.pointerEvents = "none";
-    document.body.appendChild(backgroundVideo);
-
-    if (!backgroundAsset.url.startsWith("blob:")) {
-      backgroundVideo.crossOrigin = "anonymous";
+  try {
+    if (bgVideoBlob) {
+      backgroundVideo = createHiddenVideo(bgVideoBlob.objectUrl);
+      await waitForEvent(backgroundVideo, "loadeddata", 20_000, "Background video load");
     }
-
-    try {
-      await new Promise((resolve, reject) => {
-        const timeout = setTimeout(() => {
-          console.warn("Video loading timeout after 10s");
-          reject(new Error("Video loading timeout"));
-        }, 10000);
-
-        backgroundVideo!.onloadeddata = () => {
-          clearTimeout(timeout);
-          console.log("Background video loaded successfully");
-          resolve(null);
-        };
-        backgroundVideo!.onerror = (e) => {
-          clearTimeout(timeout);
-          console.error("Video loading error:", e);
-          reject(new Error("Failed to load background video"));
-        };
-        backgroundVideo!.load();
-      });
-    } catch (videoError) {
-      console.error("Failed to load background video, continuing without it:", videoError);
-      try {
-        backgroundVideo?.remove();
-      } catch {
-        // ignore
-      }
-      backgroundVideo = undefined;
+  } catch (e) {
+    // Per instruction: if background video isn't loaded, DO NOT start rendering
+    if (needBackgroundVideo) {
+      throw e instanceof Error ? e : new Error(String(e));
     }
-  } else {
-    console.warn("No background asset provided, will use gradient fallback");
   }
 
-  // Load background music if available
-  if (backgroundMusicUrl) {
-    try {
-      backgroundAudio = document.createElement("audio");
-      backgroundAudio.src = backgroundMusicUrl;
-      backgroundAudio.loop = true;
-      // Don't set crossOrigin for blob URLs as it causes CORS issues
-      if (!backgroundMusicUrl.startsWith('blob:')) {
-        backgroundAudio.crossOrigin = "anonymous";
-      }
-      await new Promise((resolve, reject) => {
-        const timeout = setTimeout(() => {
-          console.warn("Audio loading timeout, continuing without music");
-          backgroundAudio = undefined;
-          resolve(null);
-        }, 5000); // 5 second timeout
-        
-        backgroundAudio!.onloadeddata = () => {
-          clearTimeout(timeout);
-          console.log("Background music loaded successfully:", backgroundMusicUrl);
-          resolve(null);
-        };
-        backgroundAudio!.onerror = (e) => {
-          clearTimeout(timeout);
-          console.error("Audio loading failed:", e, "URL:", backgroundMusicUrl);
-          backgroundAudio = undefined; // Clear failed audio
-          resolve(null); // Continue without music instead of failing
-        };
-        backgroundAudio!.load();
-      });
-    } catch (error) {
-      console.warn("Failed to load background music, continuing without it:", error);
-      backgroundAudio = undefined;
+  try {
+    if (bgAudioBlob) {
+      backgroundAudio = createAudio(bgAudioBlob.objectUrl);
+      await waitForEvent(backgroundAudio as any, "loadeddata", 20_000, "Background audio load");
     }
+  } catch {
+    // Audio is optional; continue without it.
+    backgroundAudio = undefined;
   }
 
   onProgress(10, "Starting recording...");
 
-  // Calculate total duration early (we also use it to choose the most stable recording mode)
-  const rawDuration = slides.reduce((sum, s) => sum + s.durationSec, 0);
+  // Always render EXACT 15.0s (hard cut)
+  const TARGET_DURATION_SEC = 15.0;
+  const fps = 30;
+  const frameMs = 1000 / fps;
+  const totalFrames = Math.round(TARGET_DURATION_SEC * fps);
 
-  // EMERGENCY FIX: Hard-trim export to EXACTLY 15.0 seconds (no more, no less)
-  const TARGET_DURATION_SEC = 15;
-  const totalDuration = Math.min(rawDuration, TARGET_DURATION_SEC);
+  // Preload FFmpeg in background (best effort)
+  void getFFmpeg().catch((e) => console.warn("[FFmpeg] Preload failed (will retry later):", e));
 
-  // ALWAYS use MP4 with H.264 - NO WebM fallback
-  // Try native MP4 recording first, then use WebM only as intermediate for FFmpeg conversion
   const mp4MimeTypes = [
-    "video/mp4;codecs=avc1.64001E,mp4a.40.2", // H.264 High + AAC (best quality)
-    "video/mp4;codecs=avc1.4D401E,mp4a.40.2", // H.264 Main + AAC
-    "video/mp4;codecs=avc1.42E01E,mp4a.40.2", // H.264 Baseline + AAC
-    "video/mp4", // Generic MP4
+    "video/mp4;codecs=avc1.64001E,mp4a.40.2",
+    "video/mp4;codecs=avc1.4D401E,mp4a.40.2",
+    "video/mp4;codecs=avc1.42E01E,mp4a.40.2",
+    "video/mp4",
   ];
 
   let mimeType = "";
   let recordingAsMp4 = false;
 
-  // Always try MP4 first
   for (const mt of mp4MimeTypes) {
     if (MediaRecorder.isTypeSupported(mt)) {
       mimeType = mt;
       recordingAsMp4 = true;
-      console.log("Using native MP4 recording:", mt);
       break;
     }
   }
 
-  // If browser doesn't support MP4 recording, use WebM as intermediate (will convert to MP4)
   if (!mimeType) {
-    if (MediaRecorder.isTypeSupported("video/webm;codecs=vp9,opus")) {
-      mimeType = "video/webm;codecs=vp9,opus";  // VP9 for better quality intermediate
-    } else if (MediaRecorder.isTypeSupported("video/webm;codecs=vp8,opus")) {
-      mimeType = "video/webm;codecs=vp8,opus";
-    } else if (MediaRecorder.isTypeSupported("video/webm")) {
-      mimeType = "video/webm";
-    } else {
-      throw new Error("No supported video format found");
-    }
-    console.log("Using WebM as intermediate (will convert to MP4):", mimeType);
+    // Intermediate only
+    if (MediaRecorder.isTypeSupported("video/webm;codecs=vp9,opus")) mimeType = "video/webm;codecs=vp9,opus";
+    else if (MediaRecorder.isTypeSupported("video/webm;codecs=vp8,opus")) mimeType = "video/webm;codecs=vp8,opus";
+    else if (MediaRecorder.isTypeSupported("video/webm")) mimeType = "video/webm";
+    else throw new Error("No supported video format found");
   }
 
-  console.log("Recording format:", mimeType, "| Native MP4:", recordingAsMp4);
-
-  // Start loading FFmpeg in background (we'll always need it for high-quality encoding)
-  void getFFmpeg().catch((e) => console.warn("[FFmpeg] Preload failed (will retry later):", e));
-
-  // Create MediaRecorder with HIGH QUALITY settings
-  // Resolution: 1080x1920, 30 FPS, 8-10 Mbps target
-  const videoStream = canvas.captureStream(30); // Stable 30 FPS
+  const videoStream = canvas.captureStream(30);
   const chunks: Blob[] = [];
-  
-  // Combine video and audio streams if music is available
-  let combinedStream: MediaStream;
+
+  let combinedStream: MediaStream = videoStream;
   let audioContext: AudioContext | undefined;
-  
+
   if (backgroundAudio) {
     try {
-      // Use 48kHz sample rate for high quality audio
       audioContext = new AudioContext({ sampleRate: 48000 });
       const audioSource = audioContext.createMediaElementSource(backgroundAudio);
       const gainNode = audioContext.createGain();
       const audioDestination = audioContext.createMediaStreamDestination();
-      
-      // Connect: source -> gain -> destination
       audioSource.connect(gainNode);
       gainNode.connect(audioDestination);
-      gainNode.gain.value = 0.8; // Set volume
-      
-      combinedStream = new MediaStream([
-        ...videoStream.getVideoTracks(),
-        ...audioDestination.stream.getAudioTracks()
-      ]);
-      
-      console.log("Audio stream added (48kHz):", audioDestination.stream.getAudioTracks().length, "tracks");
+      gainNode.gain.value = 0.8;
+
+      combinedStream = new MediaStream([...videoStream.getVideoTracks(), ...audioDestination.stream.getAudioTracks()]);
     } catch (error) {
-      console.error("Failed to setup audio stream:", error);
+      console.warn("Failed to setup audio stream, continuing without audio:", error);
       combinedStream = videoStream;
       backgroundAudio = undefined;
     }
-  } else {
-    combinedStream = videoStream;
   }
-
-  // Recording quality: keep high, but final delivery is CRF-based in FFmpeg.
-  const videoBitrate = 12000000; // 12 Mbps capture to avoid huge intermediate blobs
-  const audioBitrate = 192000;   // 192 kbps
 
   const recorderOptions: any = {
     mimeType,
-    videoBitsPerSecond: videoBitrate,
-    audioBitsPerSecond: audioBitrate,
+    // Keep intermediate moderate to reduce RAM spikes; final output quality is via FFmpeg CRF
+    videoBitsPerSecond: 8_000_000,
+    audioBitsPerSecond: 160_000,
   };
-  
+
   const mediaRecorder = new MediaRecorder(combinedStream, recorderOptions);
-  console.log('MediaRecorder configured:', recorderOptions);
 
   mediaRecorder.ondataavailable = (e) => {
-    if (e.data.size > 0) {
-      chunks.push(e.data);
-      console.log(`Recording chunk: ${(e.data.size / 1024 / 1024).toFixed(2)} MB, Total chunks: ${chunks.length}`);
-    }
+    if (e.data.size > 0) chunks.push(e.data);
   };
 
   const recordingPromise = new Promise<Blob>((resolve, reject) => {
     mediaRecorder.onstop = () => {
       try {
-        // Stop any remaining media tracks to avoid leaking resources between exports
         combinedStream.getTracks().forEach((t) => t.stop());
       } catch {
         // ignore
       }
+      if (audioContext) void audioContext.close();
 
-      // Clean up audio context
-      if (audioContext) {
-        audioContext.close();
-      }
-
-      const blob = new Blob(chunks, { type: mimeType });
-      console.log(`Final video size: ${(blob.size / 1024 / 1024).toFixed(2)} MB`);
-      console.log(`Video format: ${mimeType}`);
-      console.log(`Total chunks: ${chunks.length}`);
-      resolve(blob);
+      resolve(new Blob(chunks, { type: mimeType }));
     };
-    mediaRecorder.onerror = (e) => {
-      console.error("MediaRecorder error:", e);
-      reject(e);
-    };
+    mediaRecorder.onerror = (e) => reject(e);
   });
 
-  // Start background video and audio FIRST - before recording
+  // Start media first (reduces frozen-first-frame issues)
   if (backgroundVideo) {
     backgroundVideo.currentTime = 0;
-    await backgroundVideo.play();
-    // Wait for video to actually start playing
-    await new Promise((resolve) => setTimeout(resolve, 100));
-    console.log("Background video playing at:", backgroundVideo.currentTime);
+    try {
+      await backgroundVideo.play();
+    } catch {
+      // Some browsers block play() without gesture; we can still draw frames if loaded.
+    }
   }
   if (backgroundAudio) {
     backgroundAudio.currentTime = 0;
-    await backgroundAudio.play();
-    await new Promise((resolve) => setTimeout(resolve, 100));
-    console.log("Background audio playing at:", backgroundAudio.currentTime);
+    try {
+      await backgroundAudio.play();
+    } catch {
+      // ignore
+    }
   }
 
-  // Now start recording after media is playing
-  // IMPORTANT: do not use timeslice/chunking here — some players stutter on fragmented recordings.
   mediaRecorder.start();
-  console.log("MediaRecorder started with format:", mimeType, "bitrate:", videoBitrate);
+
+  const slidesTotalDuration = slides.reduce((sum, s) => sum + s.durationSec, 0);
+  const getSlideAtTime = (tSec: number) => {
+    // If slides are shorter than 15s, hold the last slide.
+    const t = slidesTotalDuration > 0 ? Math.min(tSec, Math.max(0, slidesTotalDuration - 1e-6)) : 0;
+    let acc = 0;
+    for (let i = 0; i < slides.length; i++) {
+      const d = slides[i].durationSec;
+      if (t < acc + d) return { index: i, start: acc };
+      acc += d;
+    }
+    return { index: Math.max(0, slides.length - 1), start: Math.max(0, slidesTotalDuration - 1e-6) };
+  };
 
   const startTime = performance.now();
-  let currentSlideIndex = 0;
-  let slideStartTime = 0;
 
-  const fps = 30;
-  const frameMs = 1000 / fps;
-
-  // Render EXACT duration - hard-trimmed to 15.0 seconds (see TARGET_DURATION_SEC above)
-  const effectiveDuration = totalDuration;
-  const totalFrames = Math.max(1, Math.round(effectiveDuration * fps));
-
-  // Render loop:
-  // Drive rendering by frame index (not performance.now-derived elapsed) so timing is deterministic
-  // and the captured stream is closer to constant-frame-rate.
   const runFixedFpsRenderLoop = async () => {
     for (let frame = 0; frame < totalFrames; frame++) {
       const targetAt = startTime + frame * frameMs;
       const waitMs = Math.max(0, targetAt - performance.now());
-      if (waitMs > 0) {
-        await new Promise((r) => setTimeout(r, waitMs));
-      } else {
-        // If we're behind, yield to avoid blocking the main thread.
-        await new Promise((r) => setTimeout(r, 0));
-      }
+      if (waitMs > 0) await new Promise((r) => setTimeout(r, waitMs));
+      else await new Promise((r) => setTimeout(r, 0));
 
       const elapsed = frame / fps;
 
-      // Update progress (throttle a bit)
-      if (frame % Math.max(1, Math.floor(fps / 2)) === 0) {
-        const progressPercent = (elapsed / effectiveDuration) * 100;
-        onProgress(10 + progressPercent * 0.85, `Recording slide ${currentSlideIndex + 1}/${slides.length}...`);
+      if (frame % 15 === 0) {
+        const percent = (elapsed / TARGET_DURATION_SEC) * 100;
+        onProgress(10 + percent * 0.85, `Recording... ${percent.toFixed(0)}%`);
       }
 
-      // Find current slide
-      let accumulatedTime = 0;
-      for (let i = 0; i < slides.length; i++) {
-        if (elapsed < accumulatedTime + slides[i].durationSec) {
-          currentSlideIndex = i;
-          slideStartTime = accumulatedTime;
-          break;
-        }
-        accumulatedTime += slides[i].durationSec;
-      }
-
-      // Render slide with transition
+      const { index: currentSlideIndex, start: slideStartTime } = getSlideAtTime(elapsed);
       const slideElapsed = elapsed - slideStartTime;
       const transitionDuration = 0.5;
       const transitionProgress = Math.min(slideElapsed / transitionDuration, 1);
 
-      // Keep background video looping without stutter in the recording.
-      // IMPORTANT: Avoid seeking every frame (that causes immediate stutter).
-      // We only pre-emptively wrap very close to the end where browsers often freeze the last frame.
+      // Keep background video from freezing at end
       if (backgroundVideo && Number.isFinite(backgroundVideo.duration) && backgroundVideo.duration > 0) {
         const d = backgroundVideo.duration;
         const nearEnd = backgroundVideo.currentTime >= d - 0.15;
-
         if (backgroundVideo.ended || nearEnd) {
           try {
             backgroundVideo.currentTime = 0;
@@ -907,69 +679,88 @@ export const exportVideo = async (
     }
 
     if (backgroundVideo) {
-      backgroundVideo.pause();
+      try {
+        backgroundVideo.pause();
+      } catch {
+        // ignore
+      }
       try {
         backgroundVideo.remove();
       } catch {
         // ignore
       }
     }
-    if (backgroundAudio) backgroundAudio.pause();
 
-    // Give the recorder a tiny moment to flush the last painted frame
+    if (backgroundAudio) {
+      try {
+        backgroundAudio.pause();
+      } catch {
+        // ignore
+      }
+    }
+
+    // Flush last frame
     await new Promise((r) => setTimeout(r, 150));
     mediaRecorder.stop();
-
-    console.log("Recording completed at:", (totalFrames / fps).toFixed(2), "seconds");
   };
 
-  // Start render loop
   void runFixedFpsRenderLoop();
 
   onProgress(95, "Finalizing recording...");
   const recordedBlob = await recordingPromise;
 
-  // ALWAYS produce high-quality MP4 with H.264
-  // Re-encode through FFmpeg for consistent quality and format
-  console.log(`Recorded blob: ${(recordedBlob.size / 1024 / 1024).toFixed(2)} MB, type: ${recordedBlob.type}`);
-  
-  const processWithFFmpeg = async (isRetry: boolean = false): Promise<Blob> => {
-    try {
-      if (recordingAsMp4) {
-        // Re-encode native MP4 for stable 30fps + timestamps + exact 15s trim
-        console.log("Re-encoding MP4 (H.264 High, 30fps, reset timestamps, trim 15s)...");
-        return await normalizeMp4(recordedBlob, onProgress, isRetry);
-      } else {
-        // Convert WebM to MP4 with stable timing and exact duration
-        console.log("Converting to MP4 (H.264 High, 30fps, reset timestamps, trim 15s)...");
-        return await convertToMp4(recordedBlob, onProgress, isRetry);
-      }
-      } catch (err) {
-      if (!isRetry) {
-        console.warn("First encoding attempt failed, retrying with 2-pass bitrate mode...", err);
-        // Clear FFmpeg cache and retry with 2-pass mode
-        ffmpegInstance = null;
-        ffmpegLoading = null;
-        return await processWithFFmpeg(true);
-      }
-      throw err;
-    }
+  const lowMem = isLowMemoryDevice() || recordedBlob.size > 140 * 1024 * 1024;
+
+  const baseOpts: EncodeOptions = {
+    useFaststart: !lowMem,
+    profile: lowMem ? "main" : "high",
+    preset: "superfast",
+    crf: 22,
+    durationSec: TARGET_DURATION_SEC,
   };
 
   try {
-    const mp4Blob = await processWithFFmpeg(false);
-    console.log(`Final MP4: ${(mp4Blob.size / 1024 / 1024).toFixed(2)} MB`);
+    const mp4Blob = await encodeToMp4(
+      recordedBlob,
+      onProgress,
+      baseOpts,
+      recordingAsMp4 ? "mp4" : "webm"
+    );
     onProgress(100, "Complete!");
     return mp4Blob;
   } catch (err) {
-    console.error("MP4 encoding failed:", err);
-    // If FFmpeg completely fails and we have native MP4, return it as fallback
-    if (recordingAsMp4) {
-      console.warn("Returning native MP4 recording as fallback");
-      onProgress(100, "Complete (native MP4)");
-      return recordedBlob;
+    console.warn("FFmpeg encode failed, retrying with safer settings (no faststart + main profile)...", err);
+    ffmpegInstance = null;
+    ffmpegLoading = null;
+
+    const retryOpts: EncodeOptions = {
+      ...baseOpts,
+      useFaststart: false,
+      profile: "main",
+      preset: "superfast",
+      crf: 22,
+    };
+
+    const mp4Blob = await encodeToMp4(
+      recordedBlob,
+      onProgress,
+      retryOpts,
+      recordingAsMp4 ? "mp4" : "webm"
+    );
+    onProgress(100, "Complete!");
+    return mp4Blob;
+  } finally {
+    // Release object URLs to avoid leaks between exports
+    try {
+      if (bgVideoBlob?.objectUrl) URL.revokeObjectURL(bgVideoBlob.objectUrl);
+    } catch {
+      // ignore
     }
-    throw new Error(`Failed to create MP4: ${err instanceof Error ? err.message : String(err)}`);
+    try {
+      if (bgAudioBlob?.objectUrl) URL.revokeObjectURL(bgAudioBlob.objectUrl);
+    } catch {
+      // ignore
+    }
   }
 };
 
@@ -991,13 +782,13 @@ export const exportPhotos = async (
   }
 
   let backgroundImage: HTMLImageElement | undefined;
-  
+
   // Load background image if available
-  if (backgroundAsset && backgroundAsset.type === 'image') {
+  if (backgroundAsset && backgroundAsset.type === "image") {
     onProgress(10, "Loading background image...");
     backgroundImage = document.createElement("img");
     backgroundImage.src = backgroundAsset.url;
-    if (!backgroundAsset.url.startsWith('blob:')) {
+    if (!backgroundAsset.url.startsWith("blob:")) {
       backgroundImage.crossOrigin = "anonymous";
     }
     await new Promise((resolve, reject) => {
@@ -1016,37 +807,33 @@ export const exportPhotos = async (
 
   for (let i = 0; i < slides.length; i++) {
     const slide = slides[i];
-    const progressPercent = 20 + ((i / totalSlides) * 70);
+    const progressPercent = 20 + (i / totalSlides) * 70;
     onProgress(progressPercent, `Rendering slide ${i + 1}/${totalSlides}...`);
 
-    // Render slide to canvas
     renderSlideToCanvas(ctx, slide, canvas, backgroundImage, 1, globalOverlay);
 
-    // Convert canvas to blob
     const blob = await new Promise<Blob>((resolve, reject) => {
       canvas.toBlob(
         (b) => {
           if (b) resolve(b);
           else reject(new Error("Failed to create image blob"));
         },
-        'image/png',
+        "image/png",
         1.0
       );
     });
 
-    // Add to ZIP with slide number
-    const fileName = `slide_${String(i + 1).padStart(3, '0')}.png`;
+    const fileName = `slide_${String(i + 1).padStart(3, "0")}.png`;
     zip.file(fileName, blob);
   }
 
   onProgress(90, "Creating ZIP archive...");
-  const zipBlob = await zip.generateAsync({ 
+  const zipBlob = await zip.generateAsync({
     type: "blob",
     compression: "DEFLATE",
-    compressionOptions: { level: 6 }
+    compressionOptions: { level: 6 },
   });
 
   onProgress(100, "Complete!");
   return zipBlob;
 };
-
