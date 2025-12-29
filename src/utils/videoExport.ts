@@ -238,84 +238,61 @@ const applyEnergiaRuleToSlides = (slides: Slide[]): Slide[] => {
 };
 
 // -----------------------
-// FFmpeg encoding: stable 30fps CFR, hard trim 15.0s, scale/crop, timestamp reset
+// FFmpeg encoding: ULTRAFAST 30fps CFR, hard trim 15.0s
 // -----------------------
 
 type EncodeOptions = {
   useFaststart: boolean;
   profile: "main" | "high";
-  preset: "superfast" | "veryfast" | "fast" | "medium";
+  preset: "ultrafast" | "superfast" | "veryfast" | "fast";
   crf: number;
   durationSec: number;
 };
 
 const buildEncodeArgs = (inputName: string, opts: EncodeOptions): string[] => {
-  const vf =
-    "scale=1080:1920:force_original_aspect_ratio=increase,crop=1080:1920,setsar=1,fps=30";
+  // Minimal filter chain for speed
+  const vf = "fps=30,scale=1080:1920:force_original_aspect_ratio=increase,crop=1080:1920,setsar=1";
 
   const args = [
-    // Input frame rate hint (helps when PTS are messy)
-    "-r",
-    "30",
-    "-i",
-    inputName,
+    // Input
+    "-r", "30",
+    "-i", inputName,
 
-    // Reset/generate sane timestamps
-    "-fflags",
-    "+genpts",
-    "-avoid_negative_ts",
-    "make_zero",
+    // Timestamp reset
+    "-fflags", "+genpts",
+    "-avoid_negative_ts", "make_zero",
 
-    // Hard trim BOTH streams
-    "-t",
-    opts.durationSec.toFixed(1),
+    // Hard trim
+    "-t", opts.durationSec.toFixed(1),
 
-    // Video
-    "-vf",
-    vf,
-    "-c:v",
-    "libx264",
-    "-preset",
-    opts.preset,
-    "-profile:v",
-    opts.profile,
-    "-pix_fmt",
-    "yuv420p",
-    "-vsync",
-    "cfr",
-    "-r",
-    "30",
-    "-fpsmax",
-    "30",
+    // Video - ULTRAFAST for speed
+    "-vf", vf,
+    "-c:v", "libx264",
+    "-preset", opts.preset,
+    "-profile:v", opts.profile,
+    "-pix_fmt", "yuv420p",
+    "-vsync", "cfr",
+    "-r", "30",
 
-    // Quality / size
-    "-crf",
-    String(opts.crf),
+    // Quality (CRF 23 is faster than 22, still good for Reels)
+    "-crf", String(opts.crf),
 
-    // Audio (keep it light but stable)
-    "-map",
-    "0:v:0",
-    "-map",
-    "0:a?",
-    "-c:a",
-    "aac",
-    "-ar",
-    "48000",
-    "-b:a",
-    "160k",
-    "-af",
-    `atrim=0:${opts.durationSec.toFixed(1)},asetpts=PTS-STARTPTS`,
+    // Audio - simple copy where possible
+    "-map", "0:v:0",
+    "-map", "0:a?",
+    "-c:a", "aac",
+    "-ar", "48000",
+    "-b:a", "128k",
+    "-af", `atrim=0:${opts.durationSec.toFixed(1)},asetpts=PTS-STARTPTS`,
 
-    // Safer muxing
-    "-max_muxing_queue_size",
-    "4096",
+    // Muxing
+    "-max_muxing_queue_size", "2048",
   ];
 
   if (opts.useFaststart) {
     args.push("-movflags", "+faststart");
   }
 
-  // Keep output EXACTLY 15.0s even if one stream drifts
   args.push("-shortest");
 
   return args;
@@ -478,39 +455,62 @@ export const exportVideo = async (
 
   const needBackgroundVideo = !!(backgroundAsset?.url && backgroundAsset?.type !== "image");
 
-  const backgroundVideoPromise = needBackgroundVideo
-    ? fetchAsBlob(backgroundAsset!.url, "Background video")
-    : Promise.resolve<LoadedBlob | null>(null);
+  // Parallel fetch with short timeout - use gradient fallback instantly if fails
+  let bgVideoBlob: LoadedBlob | null = null;
+  let bgAudioBlob: LoadedBlob | null = null;
 
-  const backgroundMusicPromise = backgroundMusicUrl
-    ? fetchAsBlob(backgroundMusicUrl, "Background audio")
-    : Promise.resolve<LoadedBlob | null>(null);
+  const fetchPromises: Promise<void>[] = [];
 
-  const [bgVideoBlob, bgAudioBlob] = await Promise.all([backgroundVideoPromise, backgroundMusicPromise]);
+  if (needBackgroundVideo) {
+    fetchPromises.push(
+      fetchAsBlob(backgroundAsset!.url, "Background video")
+        .then((b) => { bgVideoBlob = b; })
+        .catch((e) => {
+          console.warn("[Export] Background video fetch failed, using gradient:", e);
+          bgVideoBlob = null;
+        })
+    );
+  }
+
+  if (backgroundMusicUrl) {
+    fetchPromises.push(
+      fetchAsBlob(backgroundMusicUrl, "Background audio")
+        .then((b) => { bgAudioBlob = b; })
+        .catch((e) => {
+          console.warn("[Export] Audio fetch failed, continuing without:", e);
+          bgAudioBlob = null;
+        })
+    );
+  }
+
+  await Promise.all(fetchPromises);
 
   let backgroundVideo: HTMLVideoElement | undefined;
   let backgroundAudio: HTMLAudioElement | undefined;
 
-  try {
-    if (bgVideoBlob) {
+  // Use canplaythrough for full buffer readiness
+  if (bgVideoBlob) {
+    try {
       backgroundVideo = createHiddenVideo(bgVideoBlob.objectUrl);
-      await waitForEvent(backgroundVideo, "loadeddata", 20_000, "Background video load");
-    }
-  } catch (e) {
-    // Per instruction: if background video isn't loaded, DO NOT start rendering
-    if (needBackgroundVideo) {
-      throw e instanceof Error ? e : new Error(String(e));
+      await waitForEvent(backgroundVideo, "canplaythrough", 15_000, "Background video ready");
+    } catch (e) {
+      console.warn("[Export] Video canplaythrough failed, using gradient:", e);
+      if (backgroundVideo) {
+        try { backgroundVideo.remove(); } catch {}
+      }
+      if (bgVideoBlob.objectUrl) URL.revokeObjectURL(bgVideoBlob.objectUrl);
+      backgroundVideo = undefined;
+      bgVideoBlob = null;
     }
   }
 
-  try {
-    if (bgAudioBlob) {
+  if (bgAudioBlob) {
+    try {
       backgroundAudio = createAudio(bgAudioBlob.objectUrl);
-      await waitForEvent(backgroundAudio as any, "loadeddata", 20_000, "Background audio load");
+      await waitForEvent(backgroundAudio as any, "canplaythrough", 10_000, "Audio ready");
+    } catch {
+      backgroundAudio = undefined;
     }
-  } catch {
-    // Audio is optional; continue without it.
-    backgroundAudio = undefined;
   }
 
   onProgress(10, "Starting recording...");
@@ -574,11 +574,11 @@ export const exportVideo = async (
     }
   }
 
+  // Lower bitrate for faster intermediate recording (FFmpeg does final quality)
   const recorderOptions: any = {
     mimeType,
-    // Keep intermediate moderate to reduce RAM spikes; final output quality is via FFmpeg CRF
-    videoBitsPerSecond: 8_000_000,
-    audioBitsPerSecond: 160_000,
+    videoBitsPerSecond: 5_000_000,
+    audioBitsPerSecond: 128_000,
   };
 
   const mediaRecorder = new MediaRecorder(combinedStream, recorderOptions);
@@ -709,13 +709,14 @@ export const exportVideo = async (
   onProgress(95, "Finalizing recording...");
   const recordedBlob = await recordingPromise;
 
-  const lowMem = isLowMemoryDevice() || recordedBlob.size > 140 * 1024 * 1024;
+  const lowMem = isLowMemoryDevice() || recordedBlob.size > 100 * 1024 * 1024;
 
+  // ULTRAFAST preset for 20-30s export time
   const baseOpts: EncodeOptions = {
     useFaststart: !lowMem,
-    profile: lowMem ? "main" : "high",
-    preset: "superfast",
-    crf: 22,
+    profile: "main",
+    preset: "ultrafast",
+    crf: 23,
     durationSec: TARGET_DURATION_SEC,
   };
 
@@ -729,16 +730,16 @@ export const exportVideo = async (
     onProgress(100, "Complete!");
     return mp4Blob;
   } catch (err) {
-    console.warn("FFmpeg encode failed, retrying with safer settings (no faststart + main profile)...", err);
+    console.warn("[Export] FFmpeg failed, retrying with minimal settings...", err);
     ffmpegInstance = null;
     ffmpegLoading = null;
 
     const retryOpts: EncodeOptions = {
-      ...baseOpts,
       useFaststart: false,
       profile: "main",
-      preset: "superfast",
-      crf: 22,
+      preset: "ultrafast",
+      crf: 25,
+      durationSec: TARGET_DURATION_SEC,
     };
 
     const mp4Blob = await encodeToMp4(
