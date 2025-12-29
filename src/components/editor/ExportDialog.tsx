@@ -226,10 +226,10 @@ export const ExportDialog = ({ open, onClose, projects, assets }: ExportDialogPr
       throw new Error(`No slides found for language: ${language}`);
     }
     
-    // Get the background asset for the first slide
+    // Get the background asset for the first slide (robust: if missing in assets list, fall back)
     const firstSlide = langSlides[0];
-    const backgroundAsset = firstSlide?.assetId 
-      ? assets.find(a => a.id === firstSlide.assetId) || null
+    const backgroundAsset = firstSlide?.assetId
+      ? assets.find((a) => a.id === firstSlide.assetId) || assets.find((a) => a.type === "video" || !a.type) || null
       : null;
 
     // Check if this is a photo carousel (all slides use image assets)
