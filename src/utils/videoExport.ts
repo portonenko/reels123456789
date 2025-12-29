@@ -145,10 +145,11 @@ const getFFmpeg = async (): Promise<FFmpeg> => {
 
 const convertToMp4 = async (
   webmBlob: Blob,
-  onProgress: (progress: number, message: string) => void
+  onProgress: (progress: number, message: string) => void,
+  isRetry: boolean = false
 ): Promise<Blob> => {
   console.log(
-    "[FFmpeg] Starting MP4 conversion, WebM size:",
+    "[FFmpeg] Starting MP4 conversion, input size:",
     (webmBlob.size / 1024 / 1024).toFixed(2),
     "MB"
   );
@@ -156,37 +157,51 @@ const convertToMp4 = async (
 
   const ffmpeg = await getFFmpeg();
 
-  onProgress(97, "Converting to MP4...");
+  onProgress(97, "Converting to MP4 (H.264)...");
 
   console.log("[FFmpeg] Writing input file...");
   const inputData = await fetchFile(webmBlob);
-  await ffmpeg.writeFile("input.webm", inputData);
+  const inputName = webmBlob.type.includes("webm") ? "input.webm" : "input.mp4";
+  await ffmpeg.writeFile(inputName, inputData);
 
-  console.log("[FFmpeg] Running conversion...");
-  // Convert WebM to MP4 with H.264 codec
+  // High quality settings: H.264, CRF 18-20, 8-10 Mbps, 30 FPS, AAC 48kHz 192kbps
+  // Use lower bitrate on retry if file was too heavy
+  const bitrate = isRetry ? "6M" : "8M";
+  const crf = isRetry ? "20" : "18";
+
+  console.log(`[FFmpeg] Running conversion with bitrate=${bitrate}, crf=${crf}...`);
+  
   await withTimeout(
     ffmpeg.exec([
       "-i",
-      "input.webm",
+      inputName,
       "-c:v",
       "libx264",
       "-preset",
-      "fast",
+      "medium",  // Better quality than "fast"
       "-crf",
-      "23",
+      crf,
+      "-b:v",
+      bitrate,
+      "-maxrate",
+      isRetry ? "8M" : "10M",
+      "-bufsize",
+      isRetry ? "12M" : "20M",
       "-pix_fmt",
       "yuv420p",
       "-r",
       "30",
       "-c:a",
       "aac",
+      "-ar",
+      "48000",  // 48kHz audio
       "-b:a",
-      "128k",
+      "192k",   // 192kbps audio
       "-movflags",
       "+faststart",
       "output.mp4",
     ]),
-    180_000,
+    300_000,  // 5 minutes timeout
     "FFmpeg convert"
   );
 
@@ -204,7 +219,7 @@ const convertToMp4 = async (
   );
 
   // Clean up
-  await ffmpeg.deleteFile("input.webm");
+  await ffmpeg.deleteFile(inputName);
   await ffmpeg.deleteFile("output.mp4");
 
   return mp4Blob;
@@ -212,7 +227,8 @@ const convertToMp4 = async (
 
 const normalizeMp4 = async (
   mp4Blob: Blob,
-  onProgress: (progress: number, message: string) => void
+  onProgress: (progress: number, message: string) => void,
+  isRetry: boolean = false
 ): Promise<Blob> => {
   console.log(
     "[FFmpeg] Normalizing MP4 (re-encode for stable timestamps), size:",
@@ -223,10 +239,14 @@ const normalizeMp4 = async (
 
   const ffmpeg = await getFFmpeg();
 
-  onProgress(97, "Re-encoding MP4...");
+  onProgress(97, "Re-encoding MP4 (H.264)...");
 
   const inputData = await fetchFile(mp4Blob);
   await ffmpeg.writeFile("input.mp4", inputData);
+
+  // High quality settings: H.264, CRF 18-20, 8-10 Mbps, 30 FPS, AAC 48kHz 192kbps
+  const bitrate = isRetry ? "6M" : "8M";
+  const crf = isRetry ? "20" : "18";
 
   await withTimeout(
     ffmpeg.exec([
@@ -235,22 +255,30 @@ const normalizeMp4 = async (
       "-c:v",
       "libx264",
       "-preset",
-      "fast",
+      "medium",
       "-crf",
-      "23",
+      crf,
+      "-b:v",
+      bitrate,
+      "-maxrate",
+      isRetry ? "8M" : "10M",
+      "-bufsize",
+      isRetry ? "12M" : "20M",
       "-pix_fmt",
       "yuv420p",
       "-r",
       "30",
       "-c:a",
       "aac",
+      "-ar",
+      "48000",
       "-b:a",
-      "128k",
+      "192k",
       "-movflags",
       "+faststart",
       "output.mp4",
     ]),
-    240_000,
+    300_000,
     "FFmpeg normalize"
   );
 
@@ -259,6 +287,12 @@ const normalizeMp4 = async (
   const data = await ffmpeg.readFile("output.mp4");
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const outBlob = new Blob([data as any], { type: "video/mp4" });
+
+  console.log(
+    "[FFmpeg] Normalization complete! MP4 size:",
+    (outBlob.size / 1024 / 1024).toFixed(2),
+    "MB"
+  );
 
   await ffmpeg.deleteFile("input.mp4");
   await ffmpeg.deleteFile("output.mp4");
@@ -498,56 +532,50 @@ export const exportVideo = async (
   // Calculate total duration early (we also use it to choose the most stable recording mode)
   const totalDuration = slides.reduce((sum, s) => sum + s.durationSec, 0);
 
-  // Native MP4 from MediaRecorder is known to produce broken timestamps on longer recordings
-  // in some browsers, which can freeze playback around ~15s. Prefer WebM and convert when possible.
-  const preferWebmForStability = totalDuration >= 12;
-
-  // Try to record directly as MP4 (H.264) only for short clips
-  // Otherwise prefer WebM (more stable), then convert to MP4 when converter is available.
+  // ALWAYS use MP4 with H.264 - NO WebM fallback
+  // Try native MP4 recording first, then use WebM only as intermediate for FFmpeg conversion
   const mp4MimeTypes = [
-    "video/mp4;codecs=avc1.42E01E,mp4a.40.2", // H.264 Baseline + AAC
+    "video/mp4;codecs=avc1.64001E,mp4a.40.2", // H.264 High + AAC (best quality)
     "video/mp4;codecs=avc1.4D401E,mp4a.40.2", // H.264 Main + AAC
-    "video/mp4;codecs=avc1.64001E,mp4a.40.2", // H.264 High + AAC
+    "video/mp4;codecs=avc1.42E01E,mp4a.40.2", // H.264 Baseline + AAC
     "video/mp4", // Generic MP4
   ];
 
   let mimeType = "";
   let recordingAsMp4 = false;
 
-  if (!preferWebmForStability) {
-    for (const mt of mp4MimeTypes) {
-      if (MediaRecorder.isTypeSupported(mt)) {
-        mimeType = mt;
-        recordingAsMp4 = true;
-        console.log("Browser supports native MP4 recording:", mt);
-        break;
-      }
+  // Always try MP4 first
+  for (const mt of mp4MimeTypes) {
+    if (MediaRecorder.isTypeSupported(mt)) {
+      mimeType = mt;
+      recordingAsMp4 = true;
+      console.log("Using native MP4 recording:", mt);
+      break;
     }
-  } else {
-    console.log("Preferring WebM for stability (duration:", totalDuration, "s)");
   }
 
-  // Fallback to WebM if MP4 not selected/supported
+  // If browser doesn't support MP4 recording, use WebM as intermediate (will convert to MP4)
   if (!mimeType) {
-    if (MediaRecorder.isTypeSupported("video/webm;codecs=vp8,opus")) {
+    if (MediaRecorder.isTypeSupported("video/webm;codecs=vp9,opus")) {
+      mimeType = "video/webm;codecs=vp9,opus";  // VP9 for better quality intermediate
+    } else if (MediaRecorder.isTypeSupported("video/webm;codecs=vp8,opus")) {
       mimeType = "video/webm;codecs=vp8,opus";
     } else if (MediaRecorder.isTypeSupported("video/webm")) {
       mimeType = "video/webm";
     } else {
       throw new Error("No supported video format found");
     }
-    console.log("Using WebM format:", mimeType);
+    console.log("Using WebM as intermediate (will convert to MP4):", mimeType);
   }
 
-  console.log("Using video format:", mimeType, "| Native MP4:", recordingAsMp4);
+  console.log("Recording format:", mimeType, "| Native MP4:", recordingAsMp4);
 
-  // If we will need FFmpeg conversion later, start loading it in the background while we record.
-  if (!recordingAsMp4) {
-    void getFFmpeg().catch((e) => console.warn("[FFmpeg] Preload failed (will retry later):", e));
-  }
+  // Start loading FFmpeg in background (we'll always need it for high-quality encoding)
+  void getFFmpeg().catch((e) => console.warn("[FFmpeg] Preload failed (will retry later):", e));
 
-  // Create MediaRecorder with optimized settings for high quality
-  const videoStream = canvas.captureStream(30); // 30 FPS for smooth, high-quality video
+  // Create MediaRecorder with HIGH QUALITY settings
+  // Resolution: 1080x1920, 30 FPS, 8-10 Mbps target
+  const videoStream = canvas.captureStream(30); // Stable 30 FPS
   const chunks: Blob[] = [];
   
   // Combine video and audio streams if music is available
@@ -556,7 +584,8 @@ export const exportVideo = async (
   
   if (backgroundAudio) {
     try {
-      audioContext = new AudioContext();
+      // Use 48kHz sample rate for high quality audio
+      audioContext = new AudioContext({ sampleRate: 48000 });
       const audioSource = audioContext.createMediaElementSource(backgroundAudio);
       const gainNode = audioContext.createGain();
       const audioDestination = audioContext.createMediaStreamDestination();
@@ -571,7 +600,7 @@ export const exportVideo = async (
         ...audioDestination.stream.getAudioTracks()
       ]);
       
-      console.log("Audio stream added:", audioDestination.stream.getAudioTracks().length, "tracks");
+      console.log("Audio stream added (48kHz):", audioDestination.stream.getAudioTracks().length, "tracks");
     } catch (error) {
       console.error("Failed to setup audio stream:", error);
       combinedStream = videoStream;
@@ -580,14 +609,15 @@ export const exportVideo = async (
   } else {
     combinedStream = videoStream;
   }
-  // totalDuration is calculated earlier (used for stability + adaptive settings)
-  // Adaptive bitrate based on video duration
-  const videoBitrate = totalDuration > 30 ? 4000000 : totalDuration > 15 ? 6000000 : 8000000;
+
+  // HIGH QUALITY: Always use 8+ Mbps for recording, FFmpeg will handle final encoding
+  const videoBitrate = 10000000; // 10 Mbps for high quality capture
+  const audioBitrate = 192000;   // 192 kbps AAC
 
   const recorderOptions: any = {
     mimeType,
     videoBitsPerSecond: videoBitrate,
-    audioBitsPerSecond: 128000,
+    audioBitsPerSecond: audioBitrate,
   };
   
   const mediaRecorder = new MediaRecorder(combinedStream, recorderOptions);
@@ -741,26 +771,48 @@ export const exportVideo = async (
   onProgress(95, "Finalizing recording...");
   const recordedBlob = await recordingPromise;
 
-  // If we recorded as MP4, normalize it for stable playback (fixes stutter on some players)
-  if (recordingAsMp4) {
-    console.log(`Recorded native MP4: ${(recordedBlob.size / 1024 / 1024).toFixed(2)} MB`);
+  // ALWAYS produce high-quality MP4 with H.264
+  // Re-encode through FFmpeg for consistent quality and format
+  console.log(`Recorded blob: ${(recordedBlob.size / 1024 / 1024).toFixed(2)} MB, type: ${recordedBlob.type}`);
+  
+  const processWithFFmpeg = async (isRetry: boolean = false): Promise<Blob> => {
     try {
-      const normalized = await normalizeMp4(recordedBlob, onProgress);
-      onProgress(100, "Complete!");
-      return normalized;
+      if (recordingAsMp4) {
+        // Re-encode native MP4 for high quality H.264
+        console.log("Re-encoding MP4 for high quality (H.264, 8Mbps, AAC 48kHz)...");
+        return await normalizeMp4(recordedBlob, onProgress, isRetry);
+      } else {
+        // Convert WebM to high quality MP4
+        console.log("Converting to MP4 (H.264, 8Mbps, AAC 48kHz)...");
+        return await convertToMp4(recordedBlob, onProgress, isRetry);
+      }
     } catch (err) {
-      console.warn("MP4 normalization failed, returning original MP4:", err);
-      onProgress(100, "Complete!");
+      if (!isRetry) {
+        console.warn("First encoding attempt failed, retrying with lower bitrate (6Mbps)...", err);
+        // Clear FFmpeg cache and retry with lower bitrate
+        ffmpegInstance = null;
+        ffmpegLoading = null;
+        return await processWithFFmpeg(true);
+      }
+      throw err;
+    }
+  };
+
+  try {
+    const mp4Blob = await processWithFFmpeg(false);
+    console.log(`Final MP4: ${(mp4Blob.size / 1024 / 1024).toFixed(2)} MB`);
+    onProgress(100, "Complete!");
+    return mp4Blob;
+  } catch (err) {
+    console.error("MP4 encoding failed:", err);
+    // If FFmpeg completely fails and we have native MP4, return it as fallback
+    if (recordingAsMp4) {
+      console.warn("Returning native MP4 recording as fallback");
+      onProgress(100, "Complete (native MP4)");
       return recordedBlob;
     }
+    throw new Error(`Failed to create MP4: ${err instanceof Error ? err.message : String(err)}`);
   }
-
-  // Convert WebM to MP4 (required for quality)
-  console.log("Converting WebM to MP4...");
-  const mp4Blob = await convertToMp4(recordedBlob, onProgress);
-  console.log(`Converted to MP4: ${(mp4Blob.size / 1024 / 1024).toFixed(2)} MB`);
-  onProgress(100, "Complete!");
-  return mp4Blob;
 };
 
 export const exportPhotos = async (
