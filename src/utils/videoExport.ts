@@ -508,6 +508,16 @@ export const exportVideo = async (
 
     onProgress(10, "Starting recording...");
 
+    // Prevent text/layout jitter in canvas: wait for fonts to be ready (best-effort).
+    try {
+      const fonts = (document as any).fonts as FontFaceSet | undefined;
+      if (fonts?.ready) {
+        await withTimeout(Promise.resolve(fonts.ready as any), 5_000, "Fonts ready");
+      }
+    } catch {
+      // ignore
+    }
+
     // Preload FFmpeg in background (best effort)
     void getFFmpeg().catch((e) => console.warn("[FFmpeg] Preload failed (will retry later):", e));
 
@@ -612,7 +622,8 @@ export const exportVideo = async (
       }
     }
 
-    mediaRecorder.start();
+    // Flush chunks periodically to prevent long-recording stalls (common ~15s freeze on some browsers)
+    mediaRecorder.start(1000);
 
     const getSlideAtTime = (tSec: number) => {
       const t = totalDuration > 0 ? Math.min(tSec, totalDuration - 0.001) : 0;
@@ -627,6 +638,8 @@ export const exportVideo = async (
 
     const startTime = performance.now();
 
+    const videoTrack = videoStream.getVideoTracks()[0];
+
     const runFixedFpsRenderLoop = async () => {
       for (let frame = 0; frame < totalFrames; frame++) {
         const targetAt = startTime + frame * frameMs;
@@ -635,6 +648,24 @@ export const exportVideo = async (
         else await new Promise((r) => setTimeout(r, 0));
 
         const elapsed = frame / fps;
+
+        // Keep MediaRecorder active on long exports
+        if (frame % 30 === 0) {
+          try {
+            (mediaRecorder as any).requestData?.();
+          } catch {
+            // ignore
+          }
+        }
+
+        // Force a frame capture on browsers that support it
+        if (frame % 2 === 0) {
+          try {
+            (videoTrack as any)?.requestFrame?.();
+          } catch {
+            // ignore
+          }
+        }
 
         // Update progress every half-second (15 frames)
         if (frame % 15 === 0) {
@@ -647,12 +678,11 @@ export const exportVideo = async (
         const transitionDuration = 0.5;
         const transitionProgress = Math.min(slideElapsed / transitionDuration, 1);
 
-        // Seamless video looping: let browser handle native loop, only restart if truly stuck
+        // Seamless video looping: let browser handle native loop
         if (backgroundVideo) {
           if (backgroundVideo.readyState < 4) {
             throw new Error("Видео еще загружается");
           }
-          // If paused for some reason, resume (but don't manually reset currentTime - loop=true handles it)
           if (backgroundVideo.paused && !backgroundVideo.ended) {
             try {
               void backgroundVideo.play();
