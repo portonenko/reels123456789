@@ -164,21 +164,39 @@ const convertToMp4 = async (
   const inputName = webmBlob.type.includes("webm") ? "input.webm" : "input.mp4";
   await ffmpeg.writeFile(inputName, inputData);
 
-  // HIGH QUALITY settings (MP4/H.264 only):
-  // - 1080x1920, 30 FPS CFR
-  // - H.264 High Profile Level 4.1
-  // - Fast Start (moov atom first)
-  // - CBR 15 Mbps for maximum quality
-  // - Sync video/audio duration exactly using -shortest
-  // If retrying: use 2-pass @ 12 Mbps for stable finalization.
-  const bitrate = isRetry ? "12M" : "15M";
-  const bufsize = isRetry ? "24M" : "30M";
+  // Export fixes for Reels/Shorts stability:
+  // - Force 1080x1920, 30 FPS CFR
+  // - Reset/normalize timestamps to avoid slow-motion (bad PTS/DTS)
+  // - Hard trim to EXACTLY 15.0s
+  // - MP4 + H.264 High Profile Level 4.1 + faststart
+  // - Prefer CRF 20 (high quality, smaller file) for delivery stability
+  // If retrying: switch to 2-pass bitrate mode to reduce finalization stalls.
+  const targetDurationSec = 15;
+  const crf = "20";
+  const retryBitrate = "10M";
 
-  console.log(`[FFmpeg] Running conversion with bitrate=${bitrate}${isRetry ? " (2-pass)" : ""}...`);
+  console.log(
+    `[FFmpeg] Running conversion: 30fps + reset timestamps + trim ${targetDurationSec}s` +
+      (isRetry ? ` (2-pass @ ${retryBitrate})` : ` (CRF ${crf})`)
+  );
 
   const baseArgs = [
     "-i",
     inputName,
+
+    // Reset / regenerate timestamps (prevents slow-motion & end stutters)
+    "-fflags",
+    "+genpts",
+    "-avoid_negative_ts",
+    "make_zero",
+
+    // Hard trim output
+    "-t",
+    `${targetDurationSec}`,
+
+    // Video
+    "-vf",
+    "fps=30,scale=1080:1920:flags=lanczos,setpts=N/(30*TB)",
     "-c:v",
     "libx264",
     "-preset",
@@ -193,36 +211,41 @@ const convertToMp4 = async (
     "30",
     "-vsync",
     "cfr",
-    "-b:v",
-    bitrate,
-    "-minrate",
-    bitrate,
-    "-maxrate",
-    bitrate,
-    "-bufsize",
-    bufsize,
-    "-g",
-    "60",
-    "-keyint_min",
-    "60",
-    "-sc_threshold",
-    "0",
+
+    // Audio
+    "-map",
+    "0:v:0",
+    "-map",
+    "0:a?",
+    "-c:a",
+    "aac",
+    "-ar",
+    "48000",
+    "-b:a",
+    "192k",
+    "-af",
+    "aresample=48000,asetpts=N/SR/TB",
+
+    // Mux / container
+    "-shortest",
     "-max_muxing_queue_size",
     "4096",
+    "-movflags",
+    "+faststart",
   ];
 
   if (isRetry) {
-    // 2-pass encoding (video first, then video+audio) to reduce risk of mux finalization hangs.
+    // Retry: 2-pass bitrate mode (more stable muxing/finalization than CRF on some devices)
     await withTimeout(
       ffmpeg.exec([
         ...baseArgs,
+        "-b:v",
+        retryBitrate,
         "-pass",
         "1",
         "-passlogfile",
         "fflog",
         "-an",
-        "-movflags",
-        "+faststart",
         "-f",
         "mp4",
         "pass1.mp4",
@@ -234,21 +257,12 @@ const convertToMp4 = async (
     await withTimeout(
       ffmpeg.exec([
         ...baseArgs,
+        "-b:v",
+        retryBitrate,
         "-pass",
         "2",
         "-passlogfile",
         "fflog",
-        "-c:a",
-        "aac",
-        "-ar",
-        "48000",
-        "-b:a",
-        "192k",
-        "-shortest", // Ensure video/audio end at same time
-        "-fflags",
-        "+shortest",
-        "-movflags",
-        "+faststart",
         "output.mp4",
       ]),
       300_000,
@@ -263,17 +277,8 @@ const convertToMp4 = async (
     await withTimeout(
       ffmpeg.exec([
         ...baseArgs,
-        "-c:a",
-        "aac",
-        "-ar",
-        "48000",
-        "-b:a",
-        "192k",
-        "-shortest", // Ensure video/audio streams end together - no frozen frames
-        "-fflags",
-        "+shortest",
-        "-movflags",
-        "+faststart",
+        "-crf",
+        crf,
         "output.mp4",
       ]),
       300_000,
@@ -315,19 +320,32 @@ const normalizeMp4 = async (
 
   const ffmpeg = await getFFmpeg();
 
-  onProgress(97, "Re-encoding MP4 (H.264 15Mbps)...");
+  onProgress(97, "Re-encoding MP4 (H.264, 30fps, trim 15s)...");
 
   const inputData = await fetchFile(mp4Blob);
   await ffmpeg.writeFile("input.mp4", inputData);
 
-  // HIGH QUALITY: CBR 15 Mbps for maximum clarity
-  // Retry uses 12 Mbps for stability
-  const bitrate = isRetry ? "12M" : "15M";
-  const bufsize = isRetry ? "24M" : "30M";
+  const targetDurationSec = 15;
+  const crf = "20";
+  const retryBitrate = "10M";
 
   const baseArgs = [
     "-i",
     "input.mp4",
+
+    // Reset / regenerate timestamps (prevents slow-motion & end stutters)
+    "-fflags",
+    "+genpts",
+    "-avoid_negative_ts",
+    "make_zero",
+
+    // Hard trim output
+    "-t",
+    `${targetDurationSec}`,
+
+    // Video
+    "-vf",
+    "fps=30,scale=1080:1920:flags=lanczos,setpts=N/(30*TB)",
     "-c:v",
     "libx264",
     "-preset",
@@ -342,35 +360,40 @@ const normalizeMp4 = async (
     "30",
     "-vsync",
     "cfr",
-    "-b:v",
-    bitrate,
-    "-minrate",
-    bitrate,
-    "-maxrate",
-    bitrate,
-    "-bufsize",
-    bufsize,
-    "-g",
-    "60",
-    "-keyint_min",
-    "60",
-    "-sc_threshold",
-    "0",
+
+    // Audio
+    "-map",
+    "0:v:0",
+    "-map",
+    "0:a?",
+    "-c:a",
+    "aac",
+    "-ar",
+    "48000",
+    "-b:a",
+    "192k",
+    "-af",
+    "aresample=48000,asetpts=N/SR/TB",
+
+    // Mux / container
+    "-shortest",
     "-max_muxing_queue_size",
     "4096",
+    "-movflags",
+    "+faststart",
   ];
 
   if (isRetry) {
     await withTimeout(
       ffmpeg.exec([
         ...baseArgs,
+        "-b:v",
+        retryBitrate,
         "-pass",
         "1",
         "-passlogfile",
         "fflog",
         "-an",
-        "-movflags",
-        "+faststart",
         "-f",
         "mp4",
         "pass1.mp4",
@@ -382,21 +405,12 @@ const normalizeMp4 = async (
     await withTimeout(
       ffmpeg.exec([
         ...baseArgs,
+        "-b:v",
+        retryBitrate,
         "-pass",
         "2",
         "-passlogfile",
         "fflog",
-        "-c:a",
-        "aac",
-        "-ar",
-        "48000",
-        "-b:a",
-        "192k",
-        "-shortest", // Sync video/audio end times
-        "-fflags",
-        "+shortest",
-        "-movflags",
-        "+faststart",
         "output.mp4",
       ]),
       300_000,
@@ -410,17 +424,8 @@ const normalizeMp4 = async (
     await withTimeout(
       ffmpeg.exec([
         ...baseArgs,
-        "-c:a",
-        "aac",
-        "-ar",
-        "48000",
-        "-b:a",
-        "192k",
-        "-shortest", // Ensure video ends exactly with audio - no frozen frames at end
-        "-fflags",
-        "+shortest",
-        "-movflags",
-        "+faststart",
+        "-crf",
+        crf,
         "output.mp4",
       ]),
       300_000,
@@ -676,7 +681,11 @@ export const exportVideo = async (
   onProgress(10, "Starting recording...");
 
   // Calculate total duration early (we also use it to choose the most stable recording mode)
-  const totalDuration = slides.reduce((sum, s) => sum + s.durationSec, 0);
+  const rawDuration = slides.reduce((sum, s) => sum + s.durationSec, 0);
+
+  // EMERGENCY FIX: Hard-trim export to EXACTLY 15.0 seconds (no more, no less)
+  const TARGET_DURATION_SEC = 15;
+  const totalDuration = Math.min(rawDuration, TARGET_DURATION_SEC);
 
   // ALWAYS use MP4 with H.264 - NO WebM fallback
   // Try native MP4 recording first, then use WebM only as intermediate for FFmpeg conversion
@@ -756,9 +765,9 @@ export const exportVideo = async (
     combinedStream = videoStream;
   }
 
-  // HIGH QUALITY: Use 15+ Mbps for recording, FFmpeg will handle final encoding at 15 Mbps CBR
-  const videoBitrate = 15000000; // 15 Mbps for maximum quality capture
-  const audioBitrate = 192000;   // 192 kbps AAC
+  // Recording quality: keep high, but final delivery is CRF-based in FFmpeg.
+  const videoBitrate = 12000000; // 12 Mbps capture to avoid huge intermediate blobs
+  const audioBitrate = 192000;   // 192 kbps
 
   const recorderOptions: any = {
     mimeType,
@@ -829,9 +838,7 @@ export const exportVideo = async (
   const fps = 30;
   const frameMs = 1000 / fps;
 
-  // IMPORTANT: Render EXACT duration - no padding!
-  // -shortest flag in FFmpeg will sync video/audio streams
-  // This ensures video doesn't freeze at the end
+  // Render EXACT duration - hard-trimmed to 15.0 seconds (see TARGET_DURATION_SEC above)
   const effectiveDuration = totalDuration;
   const totalFrames = Math.max(1, Math.round(effectiveDuration * fps));
 
@@ -853,7 +860,7 @@ export const exportVideo = async (
 
       // Update progress (throttle a bit)
       if (frame % Math.max(1, Math.floor(fps / 2)) === 0) {
-        const progressPercent = (elapsed / totalDuration) * 100;
+        const progressPercent = (elapsed / effectiveDuration) * 100;
         onProgress(10 + progressPercent * 0.85, `Recording slide ${currentSlideIndex + 1}/${slides.length}...`);
       }
 
@@ -929,18 +936,18 @@ export const exportVideo = async (
   const processWithFFmpeg = async (isRetry: boolean = false): Promise<Blob> => {
     try {
       if (recordingAsMp4) {
-        // Re-encode native MP4 for high quality H.264
-        console.log("Re-encoding MP4 for high quality (H.264, 8Mbps, AAC 48kHz)...");
+        // Re-encode native MP4 for stable 30fps + timestamps + exact 15s trim
+        console.log("Re-encoding MP4 (H.264 High, 30fps, reset timestamps, trim 15s)...");
         return await normalizeMp4(recordedBlob, onProgress, isRetry);
       } else {
-        // Convert WebM to high quality MP4
-        console.log("Converting to MP4 (H.264, 8Mbps, AAC 48kHz)...");
+        // Convert WebM to MP4 with stable timing and exact duration
+        console.log("Converting to MP4 (H.264 High, 30fps, reset timestamps, trim 15s)...");
         return await convertToMp4(recordedBlob, onProgress, isRetry);
       }
-    } catch (err) {
+      } catch (err) {
       if (!isRetry) {
-        console.warn("First encoding attempt failed, retrying with lower bitrate (6Mbps)...", err);
-        // Clear FFmpeg cache and retry with lower bitrate
+        console.warn("First encoding attempt failed, retrying with 2-pass bitrate mode...", err);
+        // Clear FFmpeg cache and retry with 2-pass mode
         ffmpegInstance = null;
         ffmpegLoading = null;
         return await processWithFFmpeg(true);
