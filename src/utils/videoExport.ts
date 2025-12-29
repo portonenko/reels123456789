@@ -164,15 +164,15 @@ const convertToMp4 = async (
   const inputName = webmBlob.type.includes("webm") ? "input.webm" : "input.mp4";
   await ffmpeg.writeFile(inputName, inputData);
 
-  // High quality settings (MP4/H.264 only):
+  // HIGH QUALITY settings (MP4/H.264 only):
   // - 1080x1920, 30 FPS CFR
   // - H.264 High Profile Level 4.1
   // - Fast Start (moov atom first)
-  // - Increased muxing queue size (helps avoid hangs during finalization)
-  // - CBR-style rate control (minrate=maxrate=b:v)
-  // If retrying: use 2-pass @ 6 Mbps for more stable finalization.
-  const bitrate = isRetry ? "6M" : "8M";
-  const bufsize = isRetry ? "12M" : "16M";
+  // - CBR 15 Mbps for maximum quality
+  // - Sync video/audio duration exactly using -shortest
+  // If retrying: use 2-pass @ 12 Mbps for stable finalization.
+  const bitrate = isRetry ? "12M" : "15M";
+  const bufsize = isRetry ? "24M" : "30M";
 
   console.log(`[FFmpeg] Running conversion with bitrate=${bitrate}${isRetry ? " (2-pass)" : ""}...`);
 
@@ -244,6 +244,9 @@ const convertToMp4 = async (
         "48000",
         "-b:a",
         "192k",
+        "-shortest", // Ensure video/audio end at same time
+        "-fflags",
+        "+shortest",
         "-movflags",
         "+faststart",
         "output.mp4",
@@ -266,6 +269,9 @@ const convertToMp4 = async (
         "48000",
         "-b:a",
         "192k",
+        "-shortest", // Ensure video/audio streams end together - no frozen frames
+        "-fflags",
+        "+shortest",
         "-movflags",
         "+faststart",
         "output.mp4",
@@ -309,14 +315,15 @@ const normalizeMp4 = async (
 
   const ffmpeg = await getFFmpeg();
 
-  onProgress(97, "Re-encoding MP4 (H.264)...");
+  onProgress(97, "Re-encoding MP4 (H.264 15Mbps)...");
 
   const inputData = await fetchFile(mp4Blob);
   await ffmpeg.writeFile("input.mp4", inputData);
 
-  // High quality settings (MP4/H.264 only): see convertToMp4() for rationale.
-  const bitrate = isRetry ? "6M" : "8M";
-  const bufsize = isRetry ? "12M" : "16M";
+  // HIGH QUALITY: CBR 15 Mbps for maximum clarity
+  // Retry uses 12 Mbps for stability
+  const bitrate = isRetry ? "12M" : "15M";
+  const bufsize = isRetry ? "24M" : "30M";
 
   const baseArgs = [
     "-i",
@@ -385,6 +392,9 @@ const normalizeMp4 = async (
         "48000",
         "-b:a",
         "192k",
+        "-shortest", // Sync video/audio end times
+        "-fflags",
+        "+shortest",
         "-movflags",
         "+faststart",
         "output.mp4",
@@ -406,6 +416,9 @@ const normalizeMp4 = async (
         "48000",
         "-b:a",
         "192k",
+        "-shortest", // Ensure video ends exactly with audio - no frozen frames at end
+        "-fflags",
+        "+shortest",
         "-movflags",
         "+faststart",
         "output.mp4",
@@ -743,8 +756,8 @@ export const exportVideo = async (
     combinedStream = videoStream;
   }
 
-  // HIGH QUALITY: Always use 8+ Mbps for recording, FFmpeg will handle final encoding
-  const videoBitrate = 10000000; // 10 Mbps for high quality capture
+  // HIGH QUALITY: Use 15+ Mbps for recording, FFmpeg will handle final encoding at 15 Mbps CBR
+  const videoBitrate = 15000000; // 15 Mbps for maximum quality capture
   const audioBitrate = 192000;   // 192 kbps AAC
 
   const recorderOptions: any = {
@@ -816,10 +829,10 @@ export const exportVideo = async (
   const fps = 30;
   const frameMs = 1000 / fps;
 
-  // End-of-file safety: stop rendering slightly early to avoid heavy transitions/effects
-  // overlapping the very last frames (helps prevent mux/finalization stalls).
-  const endPaddingSec = 0.5;
-  const effectiveDuration = Math.max(0, totalDuration - endPaddingSec);
+  // IMPORTANT: Render EXACT duration - no padding!
+  // -shortest flag in FFmpeg will sync video/audio streams
+  // This ensures video doesn't freeze at the end
+  const effectiveDuration = totalDuration;
   const totalFrames = Math.max(1, Math.round(effectiveDuration * fps));
 
   // Render loop:
