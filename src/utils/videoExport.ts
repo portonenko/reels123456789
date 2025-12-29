@@ -454,12 +454,12 @@ export const exportVideo = async (
   // DYNAMIC DURATION: total length = sum of all slide durations
   const totalDuration = slides.reduce((sum, s) => sum + s.durationSec, 0);
   // Fallback minimum 1 second to avoid zero-length exports
-  const TARGET_DURATION_SEC = Math.max(1, totalDuration);
+  const durationSec = Math.max(1, totalDuration);
   const fps = 30;
   const frameMs = 1000 / fps;
-  const totalFrames = Math.round(TARGET_DURATION_SEC * fps);
+  const totalFrames = Math.round(durationSec * fps);
 
-  console.log(`[Export] Dynamic duration: ${TARGET_DURATION_SEC}s (${totalFrames} frames @ ${fps}fps)`);
+  console.log(`[Export] Dynamic duration: ${durationSec}s (${totalFrames} frames @ ${fps}fps)`);
 
   const needBackgroundVideo = !!(backgroundAsset?.url && backgroundAsset?.type !== "image");
 
@@ -477,6 +477,7 @@ export const exportVideo = async (
       bgVideoBlob = await withTimeout(fetchAsBlob(url, "Background video"), 3_000, "Background video");
 
       backgroundVideo = createHiddenVideo(bgVideoBlob.objectUrl);
+      backgroundVideo.loop = true;
       await waitForEvent(backgroundVideo, "canplaythrough", 3_000, "Background video ready");
     }
 
@@ -485,6 +486,7 @@ export const exportVideo = async (
       try {
         bgAudioBlob = await withTimeout(fetchAsBlob(backgroundMusicUrl, "Background audio"), 5_000, "Background audio");
         backgroundAudio = createAudio(bgAudioBlob.objectUrl);
+        backgroundAudio.loop = true;
         await waitForEvent(backgroundAudio as any, "canplaythrough", 5_000, "Audio ready");
       } catch {
         bgAudioBlob = null;
@@ -603,7 +605,7 @@ export const exportVideo = async (
 
     mediaRecorder.start();
 
-    const slidesTotalDuration = slides.reduce((sum, s) => sum + s.durationSec, 0);
+    const slidesTotalDuration = durationSec;
     const getSlideAtTime = (tSec: number) => {
       const t = slidesTotalDuration > 0 ? Math.min(tSec, Math.max(0, slidesTotalDuration - 1e-6)) : 0;
       let acc = 0;
@@ -628,8 +630,8 @@ export const exportVideo = async (
 
         // Update progress every half-second (15 frames)
         if (frame % 15 === 0) {
-          const percent = (elapsed / TARGET_DURATION_SEC) * 100;
-          onProgress(10 + percent * 0.85, `Запись... ${percent.toFixed(0)}% (${elapsed.toFixed(1)}s / ${TARGET_DURATION_SEC.toFixed(1)}s)`);
+          const percent = (elapsed / durationSec) * 100;
+          onProgress(10 + percent * 0.85, `Запись... ${percent.toFixed(0)}% (${elapsed.toFixed(1)}s / ${durationSec.toFixed(1)}s)`);
         }
 
         const { index: currentSlideIndex, start: slideStartTime } = getSlideAtTime(elapsed);
@@ -701,7 +703,7 @@ export const exportVideo = async (
     }
 
     // Otherwise convert webm -> mp4 via FFmpeg (single-pass)
-    const mp4Blob = await convertToMp4(recordedBlob, onProgress, { durationSec: TARGET_DURATION_SEC }, "webm");
+    const mp4Blob = await convertToMp4(recordedBlob, onProgress, { durationSec }, "webm");
     onProgress(100, "Complete!");
     return mp4Blob;
   } finally {
