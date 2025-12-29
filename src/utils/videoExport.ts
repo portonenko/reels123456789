@@ -164,46 +164,116 @@ const convertToMp4 = async (
   const inputName = webmBlob.type.includes("webm") ? "input.webm" : "input.mp4";
   await ffmpeg.writeFile(inputName, inputData);
 
-  // High quality settings: H.264, CRF 18-20, 8-10 Mbps, 30 FPS, AAC 48kHz 192kbps
-  // Use lower bitrate on retry if file was too heavy
+  // High quality settings (MP4/H.264 only):
+  // - 1080x1920, 30 FPS CFR
+  // - H.264 High Profile Level 4.1
+  // - Fast Start (moov atom first)
+  // - Increased muxing queue size (helps avoid hangs during finalization)
+  // - CBR-style rate control (minrate=maxrate=b:v)
+  // If retrying: use 2-pass @ 6 Mbps for more stable finalization.
   const bitrate = isRetry ? "6M" : "8M";
-  const crf = isRetry ? "20" : "18";
+  const bufsize = isRetry ? "12M" : "16M";
 
-  console.log(`[FFmpeg] Running conversion with bitrate=${bitrate}, crf=${crf}...`);
-  
-  await withTimeout(
-    ffmpeg.exec([
-      "-i",
-      inputName,
-      "-c:v",
-      "libx264",
-      "-preset",
-      "medium",  // Better quality than "fast"
-      "-crf",
-      crf,
-      "-b:v",
-      bitrate,
-      "-maxrate",
-      isRetry ? "8M" : "10M",
-      "-bufsize",
-      isRetry ? "12M" : "20M",
-      "-pix_fmt",
-      "yuv420p",
-      "-r",
-      "30",
-      "-c:a",
-      "aac",
-      "-ar",
-      "48000",  // 48kHz audio
-      "-b:a",
-      "192k",   // 192kbps audio
-      "-movflags",
-      "+faststart",
-      "output.mp4",
-    ]),
-    300_000,  // 5 minutes timeout
-    "FFmpeg convert"
-  );
+  console.log(`[FFmpeg] Running conversion with bitrate=${bitrate}${isRetry ? " (2-pass)" : ""}...`);
+
+  const baseArgs = [
+    "-i",
+    inputName,
+    "-c:v",
+    "libx264",
+    "-preset",
+    "medium",
+    "-profile:v",
+    "high",
+    "-level:v",
+    "4.1",
+    "-pix_fmt",
+    "yuv420p",
+    "-r",
+    "30",
+    "-vsync",
+    "cfr",
+    "-b:v",
+    bitrate,
+    "-minrate",
+    bitrate,
+    "-maxrate",
+    bitrate,
+    "-bufsize",
+    bufsize,
+    "-g",
+    "60",
+    "-keyint_min",
+    "60",
+    "-sc_threshold",
+    "0",
+    "-max_muxing_queue_size",
+    "4096",
+  ];
+
+  if (isRetry) {
+    // 2-pass encoding (video first, then video+audio) to reduce risk of mux finalization hangs.
+    await withTimeout(
+      ffmpeg.exec([
+        ...baseArgs,
+        "-pass",
+        "1",
+        "-passlogfile",
+        "fflog",
+        "-an",
+        "-movflags",
+        "+faststart",
+        "-f",
+        "mp4",
+        "pass1.mp4",
+      ]),
+      300_000,
+      "FFmpeg convert pass1"
+    );
+
+    await withTimeout(
+      ffmpeg.exec([
+        ...baseArgs,
+        "-pass",
+        "2",
+        "-passlogfile",
+        "fflog",
+        "-c:a",
+        "aac",
+        "-ar",
+        "48000",
+        "-b:a",
+        "192k",
+        "-movflags",
+        "+faststart",
+        "output.mp4",
+      ]),
+      300_000,
+      "FFmpeg convert pass2"
+    );
+
+    // Best-effort cleanup of 2-pass artifacts
+    try { await ffmpeg.deleteFile("pass1.mp4"); } catch { /* ignore */ }
+    try { await ffmpeg.deleteFile("fflog-0.log"); } catch { /* ignore */ }
+    try { await ffmpeg.deleteFile("fflog-0.log.mbtree"); } catch { /* ignore */ }
+  } else {
+    await withTimeout(
+      ffmpeg.exec([
+        ...baseArgs,
+        "-c:a",
+        "aac",
+        "-ar",
+        "48000",
+        "-b:a",
+        "192k",
+        "-movflags",
+        "+faststart",
+        "output.mp4",
+      ]),
+      300_000,
+      "FFmpeg convert"
+    );
+  }
 
   onProgress(99, "Finalizing MP4...");
 
@@ -244,43 +314,106 @@ const normalizeMp4 = async (
   const inputData = await fetchFile(mp4Blob);
   await ffmpeg.writeFile("input.mp4", inputData);
 
-  // High quality settings: H.264, CRF 18-20, 8-10 Mbps, 30 FPS, AAC 48kHz 192kbps
+  // High quality settings (MP4/H.264 only): see convertToMp4() for rationale.
   const bitrate = isRetry ? "6M" : "8M";
-  const crf = isRetry ? "20" : "18";
+  const bufsize = isRetry ? "12M" : "16M";
 
-  await withTimeout(
-    ffmpeg.exec([
-      "-i",
-      "input.mp4",
-      "-c:v",
-      "libx264",
-      "-preset",
-      "medium",
-      "-crf",
-      crf,
-      "-b:v",
-      bitrate,
-      "-maxrate",
-      isRetry ? "8M" : "10M",
-      "-bufsize",
-      isRetry ? "12M" : "20M",
-      "-pix_fmt",
-      "yuv420p",
-      "-r",
-      "30",
-      "-c:a",
-      "aac",
-      "-ar",
-      "48000",
-      "-b:a",
-      "192k",
-      "-movflags",
-      "+faststart",
-      "output.mp4",
-    ]),
-    300_000,
-    "FFmpeg normalize"
-  );
+  const baseArgs = [
+    "-i",
+    "input.mp4",
+    "-c:v",
+    "libx264",
+    "-preset",
+    "medium",
+    "-profile:v",
+    "high",
+    "-level:v",
+    "4.1",
+    "-pix_fmt",
+    "yuv420p",
+    "-r",
+    "30",
+    "-vsync",
+    "cfr",
+    "-b:v",
+    bitrate,
+    "-minrate",
+    bitrate,
+    "-maxrate",
+    bitrate,
+    "-bufsize",
+    bufsize,
+    "-g",
+    "60",
+    "-keyint_min",
+    "60",
+    "-sc_threshold",
+    "0",
+    "-max_muxing_queue_size",
+    "4096",
+  ];
+
+  if (isRetry) {
+    await withTimeout(
+      ffmpeg.exec([
+        ...baseArgs,
+        "-pass",
+        "1",
+        "-passlogfile",
+        "fflog",
+        "-an",
+        "-movflags",
+        "+faststart",
+        "-f",
+        "mp4",
+        "pass1.mp4",
+      ]),
+      300_000,
+      "FFmpeg normalize pass1"
+    );
+
+    await withTimeout(
+      ffmpeg.exec([
+        ...baseArgs,
+        "-pass",
+        "2",
+        "-passlogfile",
+        "fflog",
+        "-c:a",
+        "aac",
+        "-ar",
+        "48000",
+        "-b:a",
+        "192k",
+        "-movflags",
+        "+faststart",
+        "output.mp4",
+      ]),
+      300_000,
+      "FFmpeg normalize pass2"
+    );
+
+    try { await ffmpeg.deleteFile("pass1.mp4"); } catch { /* ignore */ }
+    try { await ffmpeg.deleteFile("fflog-0.log"); } catch { /* ignore */ }
+    try { await ffmpeg.deleteFile("fflog-0.log.mbtree"); } catch { /* ignore */ }
+  } else {
+    await withTimeout(
+      ffmpeg.exec([
+        ...baseArgs,
+        "-c:a",
+        "aac",
+        "-ar",
+        "48000",
+        "-b:a",
+        "192k",
+        "-movflags",
+        "+faststart",
+        "output.mp4",
+      ]),
+      300_000,
+      "FFmpeg normalize"
+    );
+  }
 
   onProgress(99, "Finalizing MP4...");
 
@@ -682,7 +815,12 @@ export const exportVideo = async (
 
   const fps = 30;
   const frameMs = 1000 / fps;
-  const totalFrames = Math.max(1, Math.round(totalDuration * fps));
+
+  // End-of-file safety: stop rendering slightly early to avoid heavy transitions/effects
+  // overlapping the very last frames (helps prevent mux/finalization stalls).
+  const endPaddingSec = 0.5;
+  const effectiveDuration = Math.max(0, totalDuration - endPaddingSec);
+  const totalFrames = Math.max(1, Math.round(effectiveDuration * fps));
 
   // Render loop:
   // Drive rendering by frame index (not performance.now-derived elapsed) so timing is deterministic
