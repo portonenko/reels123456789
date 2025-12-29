@@ -292,7 +292,8 @@ const buildEncodeArgs = (inputName: string, opts: EncodeOptions): string[] => {
     "-t",
     opts.durationSec.toFixed(1),
 
-    "-shortest",
+    // IMPORTANT: do NOT use -shortest here; it can cut the output early if the input audio track ends.
+    // Duration is controlled by -t above.
   ];
 };
 
@@ -478,6 +479,18 @@ export const exportVideo = async (
 
       backgroundVideo = createHiddenVideo(bgVideoBlob.objectUrl);
       backgroundVideo.loop = true;
+      backgroundVideo.addEventListener(
+        "ended",
+        () => {
+          try {
+            backgroundVideo!.currentTime = 0;
+            void backgroundVideo!.play();
+          } catch {
+            // ignore
+          }
+        },
+        { passive: true }
+      );
       await waitForEvent(backgroundVideo, "canplaythrough", 3_000, "Background video ready");
     }
 
@@ -487,6 +500,18 @@ export const exportVideo = async (
         bgAudioBlob = await withTimeout(fetchAsBlob(backgroundMusicUrl, "Background audio"), 5_000, "Background audio");
         backgroundAudio = createAudio(bgAudioBlob.objectUrl);
         backgroundAudio.loop = true;
+        backgroundAudio.addEventListener(
+          "ended",
+          () => {
+            try {
+              backgroundAudio!.currentTime = 0;
+              void backgroundAudio!.play();
+            } catch {
+              // ignore
+            }
+          },
+          { passive: true }
+        );
         await waitForEvent(backgroundAudio as any, "canplaythrough", 5_000, "Audio ready");
       } catch {
         bgAudioBlob = null;
