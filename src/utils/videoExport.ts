@@ -206,25 +206,29 @@ export const exportVideo = async (
 
   onProgress(10, "Starting recording...");
 
-  // Use H.264 for maximum compatibility - works on all devices
-  let mimeType = 'video/mp4;codecs=avc1.42E01E,mp4a.40.2'; // H.264 Baseline + AAC
-  
-  // Fallback to WebM VP8 if H.264 not supported
+  // Prefer WebM for smooth playback (MediaRecorder MP4 is often VFR and can stutter in players)
+  let mimeType = "video/webm;codecs=vp9,opus";
+
+  // Fallbacks
   if (!MediaRecorder.isTypeSupported(mimeType)) {
-    mimeType = 'video/webm;codecs=vp8,opus'; // VP8 - widely supported
+    mimeType = "video/webm;codecs=vp8,opus";
   }
-  
+
+  // Last resort: MP4 (H.264 Baseline + AAC)
+  if (!MediaRecorder.isTypeSupported(mimeType)) {
+    mimeType = "video/mp4;codecs=avc1.42E01E,mp4a.40.2";
+  }
+
   // Final fallback
   if (!MediaRecorder.isTypeSupported(mimeType)) {
-    mimeType = 'video/webm'; // Let browser choose codecs
+    mimeType = "video/webm";
   }
 
-  console.log('Using video format:', mimeType);
+  console.log("Using video format:", mimeType);
 
   // Create MediaRecorder with optimized settings for high quality
-  // NOTE: 24 FPS is significantly more stable across devices during MediaRecorder export
-  // (fewer dropped frames => smoother playback) while still looking smooth.
-  const exportFps = 24;
+  // Use 30 FPS to match preview smoothness.
+  const exportFps = 30;
   const videoStream = canvas.captureStream(exportFps);
   const chunks: Blob[] = [];
   
@@ -262,13 +266,13 @@ export const exportVideo = async (
   // Calculate total duration for adaptive settings
   const totalDuration = slides.reduce((sum, s) => sum + s.durationSec, 0);
 
-  // Adaptive bitrate based on video duration
-  const videoBitrate = totalDuration > 30 ? 4000000 : totalDuration > 15 ? 6000000 : 8000000;
+  // Keep bitrate high and constant to match preview sharpness and reduce motion artifacts.
+  const videoBitrate = 12000000; // 12 Mbps
 
   const recorderOptions: any = {
     mimeType,
     videoBitsPerSecond: videoBitrate,
-    audioBitsPerSecond: 128000,
+    audioBitsPerSecond: 192000,
   };
   
   const mediaRecorder = new MediaRecorder(combinedStream, recorderOptions);
