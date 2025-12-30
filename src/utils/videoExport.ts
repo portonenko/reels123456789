@@ -8,10 +8,10 @@ let ffmpegInstance: FFmpeg | null = null;
 
 const FFMPEG_CORE_VERSION = "0.12.6";
 
-// Use CDN only - wasm files are too large to bundle locally
+// Use CDN files from the UMD build (the ESM build for this version doesn't ship the worker file).
 const CDN_SOURCES = [
-  `https://cdn.jsdelivr.net/npm/@ffmpeg/core@${FFMPEG_CORE_VERSION}/dist/esm`,
-  `https://unpkg.com/@ffmpeg/core@${FFMPEG_CORE_VERSION}/dist/esm`,
+  `https://cdn.jsdelivr.net/npm/@ffmpeg/core@${FFMPEG_CORE_VERSION}/dist/umd`,
+  `https://unpkg.com/@ffmpeg/core@${FFMPEG_CORE_VERSION}/dist/umd`,
 ];
 
 type GetFFmpegOptions = {
