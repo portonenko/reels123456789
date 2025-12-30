@@ -35,25 +35,40 @@ const getFFmpeg = async (): Promise<FFmpeg> => {
   console.log("[FFmpeg] Starting fresh load...");
 
   ffmpegLoadPromise = (async (): Promise<FFmpeg> => {
-    const ffmpeg = new FFmpeg();
+    const sources = [
+      {
+        name: "jsdelivr",
+        coreURL: "https://cdn.jsdelivr.net/npm/@ffmpeg/core@0.12.10/dist/esm/ffmpeg-core.js",
+        wasmURL: "https://cdn.jsdelivr.net/npm/@ffmpeg/core@0.12.10/dist/esm/ffmpeg-core.wasm",
+      },
+      {
+        name: "unpkg",
+        coreURL: "https://unpkg.com/@ffmpeg/core@0.12.10/dist/esm/ffmpeg-core.js",
+        wasmURL: "https://unpkg.com/@ffmpeg/core@0.12.10/dist/esm/ffmpeg-core.wasm",
+      },
+    ] as const;
 
-    // Use jsdelivr CDN - most reliable
-    const coreURL = "https://cdn.jsdelivr.net/npm/@ffmpeg/core@0.12.10/dist/esm/ffmpeg-core.js";
-    const wasmURL = "https://cdn.jsdelivr.net/npm/@ffmpeg/core@0.12.10/dist/esm/ffmpeg-core.wasm";
+    let lastErr: unknown = null;
 
-    console.log("[FFmpeg] Loading core from jsdelivr...");
-    
-    try {
-      await ffmpeg.load({ coreURL, wasmURL });
-      console.log("[FFmpeg] Loaded successfully!");
-      ffmpegInstance = ffmpeg;
-      return ffmpeg;
-    } catch (e) {
-      console.error("[FFmpeg] Load failed:", e);
-      ffmpegLoadPromise = null;
-      ffmpegInstance = null;
-      throw new Error(`FFmpeg load failed: ${e instanceof Error ? e.message : String(e)}`);
+    for (const src of sources) {
+      const ffmpeg = new FFmpeg();
+      console.log(`[FFmpeg] Loading core from ${src.name}...`);
+
+      try {
+        await withTimeout(ffmpeg.load({ coreURL: src.coreURL, wasmURL: src.wasmURL }), 120_000, "FFmpeg shared load");
+        console.log("[FFmpeg] Loaded successfully!");
+        ffmpegInstance = ffmpeg;
+        return ffmpeg;
+      } catch (e) {
+        lastErr = e;
+        console.warn(`[FFmpeg] Load from ${src.name} failed:`, e);
+      }
     }
+
+    ffmpegInstance = null;
+    throw new Error(
+      `FFmpeg load failed: ${lastErr instanceof Error ? lastErr.message : String(lastErr)}`
+    );
   })();
 
   try {
