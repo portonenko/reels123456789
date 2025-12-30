@@ -150,7 +150,8 @@ export const ExportDialog = ({ open, onClose, projects, assets }: ExportDialogPr
       onClose();
     } catch (error) {
       console.error("Export error:", error);
-      toast.error("Export failed. Please try again.");
+      const message = error instanceof Error ? error.message : "Export failed. Please try again.";
+      toast.error(message);
     } finally {
       setIsExporting(false);
       setProgress(0);
