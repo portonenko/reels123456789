@@ -1,6 +1,34 @@
 import { Slide, Asset } from "@/types";
 import { renderSlideText } from "./canvasTextRenderer";
 import JSZip from "jszip";
+import { FFmpeg } from "@ffmpeg/ffmpeg";
+import { fetchFile } from "@ffmpeg/util";
+
+let ffmpegInstance: FFmpeg | null = null;
+
+const getFFmpeg = async (onProgress?: (msg: string) => void): Promise<FFmpeg> => {
+  if (ffmpegInstance && ffmpegInstance.loaded) {
+    return ffmpegInstance;
+  }
+
+  const ffmpeg = new FFmpeg();
+
+  ffmpeg.on("log", ({ message }) => {
+    console.log("[FFmpeg]", message);
+  });
+
+  ffmpeg.on("progress", ({ progress }) => {
+    if (onProgress) onProgress(`Converting: ${Math.round(progress * 100)}%`);
+  });
+
+  await ffmpeg.load({
+    coreURL: "https://unpkg.com/@ffmpeg/core@0.12.6/dist/umd/ffmpeg-core.js",
+    wasmURL: "https://unpkg.com/@ffmpeg/core@0.12.6/dist/umd/ffmpeg-core.wasm",
+  });
+
+  ffmpegInstance = ffmpeg;
+  return ffmpeg;
+};
 
 const prepareCanvasContext = (canvas: HTMLCanvasElement): CanvasRenderingContext2D | null => {
   const ctx = canvas.getContext("2d", {
@@ -434,13 +462,56 @@ export const exportVideo = async (
   // Start render loop
   void runFixedFpsRenderLoop();
 
-  onProgress(95, "Finalizing video...");
-  const videoBlob = await recordingPromise;
-  
-  console.log(`Final video size: ${(videoBlob.size / 1024 / 1024).toFixed(2)} MB`);
+  onProgress(90, "Finishing recording...");
+  const rawBlob = await recordingPromise;
+
+  if (!crossOriginIsolated) {
+    throw new Error(
+      "MP4 export requires Cross-Origin Isolation (COOP/COEP). Please refresh the page and try again."
+    );
+  }
+
+  onProgress(92, "Loading video converter...");
+  const ffmpeg = await getFFmpeg((msg) => onProgress(93, msg));
+
+  const inputName = "input.webm";
+  const outputName = "output.mp4";
+
+  await ffmpeg.writeFile(inputName, await fetchFile(rawBlob));
+
+  onProgress(94, "Converting to MP4...");
+  await ffmpeg.exec([
+    "-i",
+    inputName,
+    "-c:v",
+    "libx264",
+    "-preset",
+    "fast",
+    "-crf",
+    "18",
+    "-r",
+    String(fps),
+    "-pix_fmt",
+    "yuv420p",
+    "-c:a",
+    "aac",
+    "-b:a",
+    "192k",
+    "-movflags",
+    "+faststart",
+    outputName,
+  ]);
+
+  const data = await ffmpeg.readFile(outputName);
+  const mp4Blob = new Blob([data as unknown as BlobPart], { type: "video/mp4" });
+
+  await ffmpeg.deleteFile(inputName);
+  await ffmpeg.deleteFile(outputName);
+
+  console.log(`Final MP4 size: ${(mp4Blob.size / 1024 / 1024).toFixed(2)} MB`);
 
   onProgress(100, "Complete!");
-  return videoBlob;
+  return mp4Blob;
 };
 
 export const exportPhotos = async (
