@@ -4,9 +4,6 @@ import JSZip from "jszip";
 import { FFmpeg } from "@ffmpeg/ffmpeg";
 import { fetchFile } from "@ffmpeg/util";
 
-let ffmpegInstance: FFmpeg | null = null;
-let ffmpegLoading: Promise<FFmpeg> | null = null;
-
 const withTimeout = async <T,>(p: Promise<T>, ms: number, label: string): Promise<T> => {
   let t: number | undefined;
   const timeout = new Promise<T>((_, reject) => {
@@ -19,33 +16,8 @@ const withTimeout = async <T,>(p: Promise<T>, ms: number, label: string): Promis
   }
 };
 
-// Try multiple CDNs to fetch FFmpeg core files
-const fetchToBlobURL = async (urls: string[], mimeType: string): Promise<string> => {
-  let lastError: Error | null = null;
-
-  for (const url of urls) {
-    try {
-      console.log(`[FFmpeg] Trying: ${url}`);
-
-      const controller = new AbortController();
-      // Some CDNs are slow for large .wasm files; keep this generous.
-      const t = window.setTimeout(() => controller.abort(), 120_000);
-
-      const response = await fetch(url, { signal: controller.signal });
-      window.clearTimeout(t);
-
-      if (!response.ok) throw new Error(`HTTP ${response.status}`);
-      const blob = await response.blob();
-      console.log(`[FFmpeg] Success: ${url}`);
-      return URL.createObjectURL(new Blob([blob], { type: mimeType }));
-    } catch (e) {
-      console.warn(`[FFmpeg] Failed ${url}:`, e);
-      lastError = e instanceof Error ? e : new Error(String(e));
-    }
-  }
-
-  throw lastError || new Error("All CDN sources failed");
-};
+let ffmpegInstance: FFmpeg | null = null;
+let ffmpegLoadPromise: Promise<FFmpeg> | null = null;
 
 const getFFmpeg = async (): Promise<FFmpeg> => {
   // Already loaded
@@ -54,81 +26,41 @@ const getFFmpeg = async (): Promise<FFmpeg> => {
     return ffmpegInstance;
   }
 
-  // Loading in progress - wait for it (but don't allow an infinite hang)
-  if (ffmpegLoading) {
-    console.log("[FFmpeg] Waiting for loading in progress...");
-    try {
-      return await withTimeout(ffmpegLoading, 180_000, "FFmpeg shared load");
-    } catch (e) {
-      // If the shared load got stuck, allow a clean retry.
-      console.warn("[FFmpeg] Shared load timed out/failed; resetting loader state", e);
-      ffmpegLoading = null;
-      ffmpegInstance = null;
-      throw e instanceof Error ? e : new Error(String(e));
-    }
+  // Loading in progress - just wait for it
+  if (ffmpegLoadPromise) {
+    console.log("[FFmpeg] Waiting for existing load...");
+    return ffmpegLoadPromise;
   }
 
   console.log("[FFmpeg] Starting fresh load...");
 
-  const loadFFmpeg = async (): Promise<FFmpeg> => {
+  ffmpegLoadPromise = (async (): Promise<FFmpeg> => {
     const ffmpeg = new FFmpeg();
 
-    const coreVersion = "0.12.10";
-    const coreSources = [
-      `https://cdn.jsdelivr.net/npm/@ffmpeg/core@${coreVersion}/dist/esm/ffmpeg-core.js`,
-      `https://unpkg.com/@ffmpeg/core@${coreVersion}/dist/esm/ffmpeg-core.js`,
-      `https://cdn.jsdelivr.net/npm/@ffmpeg/core@${coreVersion}/dist/umd/ffmpeg-core.js`,
-      `https://unpkg.com/@ffmpeg/core@${coreVersion}/dist/umd/ffmpeg-core.js`,
-    ];
-    const wasmSources = [
-      `https://cdn.jsdelivr.net/npm/@ffmpeg/core@${coreVersion}/dist/esm/ffmpeg-core.wasm`,
-      `https://unpkg.com/@ffmpeg/core@${coreVersion}/dist/esm/ffmpeg-core.wasm`,
-      `https://cdn.jsdelivr.net/npm/@ffmpeg/core@${coreVersion}/dist/umd/ffmpeg-core.wasm`,
-      `https://unpkg.com/@ffmpeg/core@${coreVersion}/dist/umd/ffmpeg-core.wasm`,
-    ];
-    console.log("[FFmpeg] Preparing core config...");
+    // Use jsdelivr CDN - most reliable
+    const coreURL = "https://cdn.jsdelivr.net/npm/@ffmpeg/core@0.12.10/dist/esm/ffmpeg-core.js";
+    const wasmURL = "https://cdn.jsdelivr.net/npm/@ffmpeg/core@0.12.10/dist/esm/ffmpeg-core.wasm";
 
-    const directConfig = {
-      coreURL: coreSources[0],
-      wasmURL: wasmSources[0],
-    };
-
+    console.log("[FFmpeg] Loading core from jsdelivr...");
+    
     try {
-      console.log("[FFmpeg] Loading FFmpeg core (direct URLs)...", directConfig);
-      await withTimeout(ffmpeg.load(directConfig), 600_000, "FFmpeg load");
-      console.log("[FFmpeg] Loaded successfully (direct URLs)!");
-      ffmpegInstance = ffmpeg;
-      return ffmpeg;
-    } catch (e) {
-      console.warn("[FFmpeg] Direct URL load failed, falling back to blob URLs:", e);
-    }
-
-    console.log("[FFmpeg] Fetching core files (blob fallback)...");
-    const [coreURL, wasmURL] = await Promise.all([
-      fetchToBlobURL(coreSources, "text/javascript"),
-      fetchToBlobURL(wasmSources, "application/wasm"),
-    ]);
-
-    try {
-      console.log("[FFmpeg] Loading FFmpeg core (blob URLs)...", { coreURL, wasmURL });
-      await withTimeout(ffmpeg.load({ coreURL, wasmURL }), 600_000, "FFmpeg load");
-      console.log("[FFmpeg] Loaded successfully (blob URLs)!");
+      await ffmpeg.load({ coreURL, wasmURL });
+      console.log("[FFmpeg] Loaded successfully!");
       ffmpegInstance = ffmpeg;
       return ffmpeg;
     } catch (e) {
       console.error("[FFmpeg] Load failed:", e);
+      ffmpegLoadPromise = null;
       ffmpegInstance = null;
-      const msg = e instanceof Error ? e.message : String(e);
-      throw new Error(`FFmpeg load failed: ${msg}`);
+      throw new Error(`FFmpeg load failed: ${e instanceof Error ? e.message : String(e)}`);
     }
-  };
-
-  ffmpegLoading = loadFFmpeg();
+  })();
 
   try {
-    return await ffmpegLoading;
-  } finally {
-    ffmpegLoading = null;
+    return await ffmpegLoadPromise;
+  } catch (e) {
+    ffmpegLoadPromise = null;
+    throw e;
   }
 };
 
