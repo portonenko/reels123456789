@@ -2,8 +2,7 @@ import { Slide, Asset } from "@/types";
 import { renderSlideText } from "./canvasTextRenderer";
 import JSZip from "jszip";
 import { FFmpeg } from "@ffmpeg/ffmpeg";
-import { fetchFile, toBlobURL } from "@ffmpeg/util";
-
+import { fetchFile } from "@ffmpeg/util";
 let ffmpegInstance: FFmpeg | null = null;
 
 const FFMPEG_CORE_VERSION = "0.12.6";
@@ -30,32 +29,43 @@ const withTimeout = async <T,>(p: Promise<T>, ms: number, label: string): Promis
   }
 };
 
-// Try to load a resource from multiple CDN sources
-const loadFromCDN = async (
-  filename: string,
-  mimeType: string,
-  timeoutMs: number
-): Promise<string> => {
+// Resolve a resource URL from multiple CDN sources.
+// NOTE: We intentionally return direct HTTPS URLs (not blob:), because some CSP/iframe policies
+// block blob-based Workers, causing ffmpeg.load() to hang until timeout.
+const resolveFromCDN = async (filename: string, timeoutMs: number): Promise<string> => {
   let lastError: Error | null = null;
-  
+
   for (const baseUrl of CDN_SOURCES) {
+    const url = `${baseUrl}/${filename}`;
     try {
-      const url = `${baseUrl}/${filename}`;
-      console.log(`Trying to load ${filename} from ${baseUrl}...`);
-      const blobUrl = await withTimeout(
-        toBlobURL(url, mimeType),
-        timeoutMs,
-        filename
-      );
-      console.log(`Successfully loaded ${filename} from ${baseUrl}`);
-      return blobUrl;
+      console.log(`Trying to resolve ${filename} from ${baseUrl}...`);
+
+      // Use HEAD for a fast existence check when supported; fall back to GET.
+      const controller = new AbortController();
+      const timer = window.setTimeout(() => controller.abort(), timeoutMs);
+      try {
+        const head = await fetch(url, { method: "HEAD", signal: controller.signal, cache: "no-store" });
+        if (head.ok) {
+          console.log(`Resolved ${filename} from ${baseUrl}`);
+          return url;
+        }
+        // Some CDNs/proxies may not allow HEAD
+        const get = await fetch(url, { method: "GET", signal: controller.signal, cache: "no-store" });
+        if (get.ok) {
+          console.log(`Resolved ${filename} from ${baseUrl}`);
+          return url;
+        }
+        throw new Error(`HTTP ${head.status || get.status}`);
+      } finally {
+        window.clearTimeout(timer);
+      }
     } catch (e) {
-      console.warn(`Failed to load ${filename} from ${baseUrl}:`, e);
+      console.warn(`Failed to resolve ${filename} from ${baseUrl}:`, e);
       lastError = e instanceof Error ? e : new Error(String(e));
     }
   }
-  
-  throw lastError || new Error(`Failed to load ${filename} from all CDN sources`);
+
+  throw lastError || new Error(`Failed to resolve ${filename} from all CDN sources`);
 };
 
 const getFFmpeg = async (opts: GetFFmpegOptions = {}): Promise<FFmpeg> => {
@@ -76,13 +86,12 @@ const getFFmpeg = async (opts: GetFFmpegOptions = {}): Promise<FFmpeg> => {
   try {
     console.log("FFmpeg env", { crossOriginIsolated });
 
-    // Load all resources with fallback CDN support (WASM can be slow on some networks)
     if (opts.onProgress) opts.onProgress("Загрузка MP4-конвертера…");
 
     const [coreURL, wasmURL, workerURL] = await Promise.all([
-      loadFromCDN("ffmpeg-core.js", "text/javascript", 45000),
-      loadFromCDN("ffmpeg-core.wasm", "application/wasm", 120000),
-      loadFromCDN("ffmpeg-core.worker.js", "text/javascript", 45000),
+      resolveFromCDN("ffmpeg-core.js", 45000),
+      resolveFromCDN("ffmpeg-core.wasm", 120000),
+      resolveFromCDN("ffmpeg-core.worker.js", 45000),
     ]);
 
     if (opts.onProgress) opts.onProgress("Инициализация MP4-конвертера…");
