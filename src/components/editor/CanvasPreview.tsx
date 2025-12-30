@@ -1,6 +1,5 @@
-import { useEffect, useState, useRef } from "react";
+import { useEffect, useState, useRef, memo } from "react";
 import { Slide } from "@/types";
-import { cn } from "@/lib/utils";
 import { useEditorStore } from "@/store/useEditorStore";
 import { Button } from "@/components/ui/button";
 import { Play, Pause, RotateCcw } from "lucide-react";
@@ -11,10 +10,10 @@ interface CanvasPreviewProps {
   slide: Slide | null;
   globalOverlay: number;
   showTextBoxControls?: boolean;
-  lang?: 'en' | 'ru';
+  lang?: "en" | "ru";
 }
 
-export const CanvasPreview = ({ slide, globalOverlay, showTextBoxControls = false, lang = 'en' }: CanvasPreviewProps) => {
+export const CanvasPreview = memo(({ slide, globalOverlay, showTextBoxControls = false, lang = "en" }: CanvasPreviewProps) => {
   const { assets, slides, updateSlide, backgroundMusicUrl } = useEditorStore();
   const [isPlaying, setIsPlaying] = useState(false);
   const [currentSlideIndex, setCurrentSlideIndex] = useState(0);
@@ -41,28 +40,61 @@ export const CanvasPreview = ({ slide, globalOverlay, showTextBoxControls = fals
   }, [slide, slides, isPlaying]);
 
   // Ensure background video shows (autoplay muted) even when timeline isn't playing
+  // Also: pause decoding when preview is offscreen.
   useEffect(() => {
-    if (!videoRef.current) return;
     const el = videoRef.current;
+    if (!el) return;
 
-    // Force reload when src changes
+    const io = new IntersectionObserver(
+      (entries) => {
+        const isVisible = entries.some((e) => e.isIntersecting);
+        if (!isVisible) {
+          el.pause();
+          return;
+        }
+
+        // Autoplay to render frames in preview (Safari often needs muted)
+        void el.play().catch((e) => {
+          // Not fatal; user can still hit Play Timeline
+          console.warn("Preview video autoplay blocked:", e);
+        });
+      },
+      { threshold: 0.15 }
+    );
+
+    io.observe(el);
+
+    return () => {
+      io.disconnect();
+    };
+  }, [currentSlide?.assetId]);
+
+  // Keep element attributes in sync when src/slide changes (including looping rules)
+  useEffect(() => {
+    const el = videoRef.current;
+    if (!el) return;
+
     try {
       el.muted = true;
       el.playsInline = true;
-      el.loop = true;
       el.preload = "auto";
+
+      const backgroundAsset = assets.find((a) => a.id === currentSlide?.assetId);
+      const assetDuration = backgroundAsset?.type !== "image" ? backgroundAsset?.duration : undefined;
+      const slideDuration = currentSlide?.durationSec;
+
+      // Loop only when slide is longer than the source video (so it never stops mid-slide).
+      const shouldLoop =
+        !!assetDuration && !!slideDuration && isFinite(assetDuration) && slideDuration > assetDuration;
+      el.loop = shouldLoop;
+
+      // Force reload when src changes
       el.currentTime = 0;
       el.load();
-
-      // Autoplay to render frames in preview (Safari often needs muted)
-      void el.play().catch((e) => {
-        // Not fatal; user can still hit Play Timeline
-        console.warn("Preview video autoplay blocked:", e);
-      });
     } catch (e) {
       console.warn("Preview video init failed:", e);
     }
-  }, [assets, currentSlide?.assetId]);
+  }, [assets, currentSlide?.assetId, currentSlide?.durationSec]);
 
   // Animate slide time for transitions - optimized with throttling
   useEffect(() => {
@@ -226,7 +258,7 @@ export const CanvasPreview = ({ slide, globalOverlay, showTextBoxControls = fals
     );
   }
 
-  const overlayOpacity = globalOverlay / 100;
+  const overlayOpacity = Math.max(0, Math.min(0.7, globalOverlay / 100));
   const backgroundAsset = assets.find((a) => a.id === currentSlide.assetId);
 
   // Calculate transition effects
@@ -343,7 +375,6 @@ export const CanvasPreview = ({ slide, globalOverlay, showTextBoxControls = fals
               ref={videoRef}
               src={backgroundAsset.url}
               className="absolute inset-0 w-full h-full object-cover"
-              loop
               muted
               playsInline
               autoPlay
@@ -387,4 +418,4 @@ export const CanvasPreview = ({ slide, globalOverlay, showTextBoxControls = fals
       </div>
     </div>
   );
-};
+});

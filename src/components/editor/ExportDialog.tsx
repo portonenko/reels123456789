@@ -211,12 +211,9 @@ export const ExportDialog = ({ open, onClose, projects, assets }: ExportDialogPr
     const a = document.createElement("a");
     a.href = url;
 
-    const isWebm = blob.type.includes("webm");
-    const videoExt = isWebm ? "webm" : "mp4";
-
     a.download = isPhotoCarousel 
       ? `photos-${language}-${Date.now()}.zip`
-      : `video-${language}-${Date.now()}.${videoExt}`;
+      : `video-${language}-${Date.now()}.mp4`;
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
