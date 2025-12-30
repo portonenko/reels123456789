@@ -5,12 +5,13 @@ import { FFmpeg } from "@ffmpeg/ffmpeg";
 import { fetchFile } from "@ffmpeg/util";
 let ffmpegInstance: FFmpeg | null = null;
 
-const FFMPEG_CORE_VERSION = "0.12.6";
+const FFMPEG_CORE_VERSION = "0.12.4";
 
-// Use CDN files from the UMD build (the ESM build for this version doesn't ship the worker file).
+// Use CDN files from @ffmpeg/core. Different versions/CDNs may expose slightly different paths,
+// so we resolve using multiple candidate paths (incl. worker).
 const CDN_SOURCES = [
-  `https://cdn.jsdelivr.net/npm/@ffmpeg/core@${FFMPEG_CORE_VERSION}/dist/umd`,
-  `https://unpkg.com/@ffmpeg/core@${FFMPEG_CORE_VERSION}/dist/umd`,
+  `https://cdn.jsdelivr.net/npm/@ffmpeg/core@${FFMPEG_CORE_VERSION}`,
+  `https://unpkg.com/@ffmpeg/core@${FFMPEG_CORE_VERSION}`,
 ];
 
 type GetFFmpegOptions = {
@@ -88,10 +89,25 @@ const getFFmpeg = async (opts: GetFFmpegOptions = {}): Promise<FFmpeg> => {
 
     if (opts.onProgress) opts.onProgress("Загрузка MP4-конвертера…");
 
+    const resolveAny = async (candidates: string[], timeoutMs: number) => {
+      let last: unknown;
+      for (const p of candidates) {
+        try {
+          return await resolveFromCDN(p, timeoutMs);
+        } catch (e) {
+          last = e;
+        }
+      }
+      throw last instanceof Error ? last : new Error(String(last));
+    };
+
     const [coreURL, wasmURL, workerURL] = await Promise.all([
-      resolveFromCDN("ffmpeg-core.js", 45000),
-      resolveFromCDN("ffmpeg-core.wasm", 120000),
-      resolveFromCDN("ffmpeg-core.worker.js", 45000),
+      resolveAny(["dist/umd/ffmpeg-core.js", "dist/ffmpeg-core.js", "ffmpeg-core.js"], 45000),
+      resolveAny(["dist/umd/ffmpeg-core.wasm", "dist/ffmpeg-core.wasm", "ffmpeg-core.wasm"], 120000),
+      resolveAny(
+        ["dist/umd/ffmpeg-core.worker.js", "dist/ffmpeg-core.worker.js", "ffmpeg-core.worker.js"],
+        45000
+      ),
     ]);
 
     if (opts.onProgress) opts.onProgress("Инициализация MP4-конвертера…");
