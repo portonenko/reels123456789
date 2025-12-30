@@ -8,8 +8,9 @@ let ffmpegInstance: FFmpeg | null = null;
 
 const FFMPEG_CORE_VERSION = "0.12.6";
 
-// Multiple CDN sources for reliability
+// Prefer local vendored files first (avoids CDN/proxy/CSP flakiness), then fall back to CDNs.
 const CDN_SOURCES = [
+  `${window.location.origin}/vendor/ffmpeg`,
   `https://cdn.jsdelivr.net/npm/@ffmpeg/core@${FFMPEG_CORE_VERSION}/dist/umd`,
   `https://unpkg.com/@ffmpeg/core@${FFMPEG_CORE_VERSION}/dist/umd`,
 ];
@@ -76,19 +77,22 @@ const getFFmpeg = async (opts: GetFFmpegOptions = {}): Promise<FFmpeg> => {
   try {
     console.log("FFmpeg env", { crossOriginIsolated });
 
-    // Load all resources with fallback CDN support
+    // Load all resources with fallback CDN support (WASM can be slow on some networks)
+    if (opts.onProgress) opts.onProgress("Загрузка MP4-конвертера…");
+
     const [coreURL, wasmURL, workerURL] = await Promise.all([
-      loadFromCDN("ffmpeg-core.js", "text/javascript", 20000),
-      loadFromCDN("ffmpeg-core.wasm", "application/wasm", 30000),
-      loadFromCDN("ffmpeg-core.worker.js", "text/javascript", 20000),
+      loadFromCDN("ffmpeg-core.js", "text/javascript", 45000),
+      loadFromCDN("ffmpeg-core.wasm", "application/wasm", 120000),
+      loadFromCDN("ffmpeg-core.worker.js", "text/javascript", 45000),
     ]);
 
-    await withTimeout(ffmpeg.load({ coreURL, wasmURL, workerURL }), 30000, "FFmpeg load");
+    if (opts.onProgress) opts.onProgress("Инициализация MP4-конвертера…");
+    await withTimeout(ffmpeg.load({ coreURL, wasmURL, workerURL }), 180000, "FFmpeg load");
   } catch (e) {
     console.error("FFmpeg load failed from all CDN sources", { error: e });
     const raw = e instanceof Error ? e.message : String(e);
     throw new Error(
-      `Конвертер MP4 не загрузился: ${raw}. Попробуйте отключить блокировщик рекламы или VPN.`
+      `Конвертер MP4 не загрузился: ${raw}. Это часто бывает из-за медленной сети/прокси/ограничений CSP (не обязательно из-за блокировщика).`
     );
   }
 
@@ -112,6 +116,7 @@ const prepareCanvasContext = (canvas: HTMLCanvasElement): CanvasRenderingContext
 
   return ctx;
 };
+
 
 const renderSlideToCanvas = (
   ctx: CanvasRenderingContext2D,
@@ -662,7 +667,7 @@ export const exportPhotos = async (
     compression: "DEFLATE",
     compressionOptions: { level: 6 }
   });
-
+ 
   onProgress(100, "Complete!");
   return zipBlob;
 };
