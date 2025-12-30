@@ -40,6 +40,30 @@ export const CanvasPreview = ({ slide, globalOverlay, showTextBoxControls = fals
     }
   }, [slide, slides, isPlaying]);
 
+  // Ensure background video shows (autoplay muted) even when timeline isn't playing
+  useEffect(() => {
+    if (!videoRef.current) return;
+    const el = videoRef.current;
+
+    // Force reload when src changes
+    try {
+      el.muted = true;
+      el.playsInline = true;
+      el.loop = true;
+      el.preload = "auto";
+      el.currentTime = 0;
+      el.load();
+
+      // Autoplay to render frames in preview (Safari often needs muted)
+      void el.play().catch((e) => {
+        // Not fatal; user can still hit Play Timeline
+        console.warn("Preview video autoplay blocked:", e);
+      });
+    } catch (e) {
+      console.warn("Preview video init failed:", e);
+    }
+  }, [assets, currentSlide?.assetId]);
+
   // Animate slide time for transitions - optimized with throttling
   useEffect(() => {
     if (isPlaying && slides.length > 0) {
@@ -322,6 +346,8 @@ export const CanvasPreview = ({ slide, globalOverlay, showTextBoxControls = fals
               loop
               muted
               playsInline
+              autoPlay
+              preload="auto"
             />
           )
         ) : (

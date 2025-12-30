@@ -13,6 +13,18 @@ type GetFFmpegOptions = {
   onProgress?: (msg: string) => void;
 };
 
+const withTimeout = async <T,>(p: Promise<T>, ms: number, label: string): Promise<T> => {
+  let t: number | undefined;
+  const timeout = new Promise<T>((_, reject) => {
+    t = window.setTimeout(() => reject(new Error(`${label} timeout after ${ms}ms`)), ms);
+  });
+  try {
+    return await Promise.race([p, timeout]);
+  } finally {
+    if (t) window.clearTimeout(t);
+  }
+};
+
 const getFFmpeg = async (opts: GetFFmpegOptions = {}): Promise<FFmpeg> => {
   if (ffmpegInstance && ffmpegInstance.loaded) {
     return ffmpegInstance;
@@ -29,15 +41,25 @@ const getFFmpeg = async (opts: GetFFmpegOptions = {}): Promise<FFmpeg> => {
   });
 
   try {
-    // Use toBlobURL to bypass CORS restrictions when loading wasm
-    const coreURL = await toBlobURL(`${BASE_URL}/ffmpeg-core.js`, "text/javascript");
-    const wasmURL = await toBlobURL(`${BASE_URL}/ffmpeg-core.wasm`, "application/wasm");
+    console.log("FFmpeg env", { crossOriginIsolated });
 
-    await ffmpeg.load({ coreURL, wasmURL });
+    // toBlobURL fetches the resources and converts to blob: URLs (avoids CORS headaches)
+    const coreURL = await withTimeout(
+      toBlobURL(`${BASE_URL}/ffmpeg-core.js`, "text/javascript"),
+      15000,
+      "FFmpeg core"
+    );
+    const wasmURL = await withTimeout(
+      toBlobURL(`${BASE_URL}/ffmpeg-core.wasm`, "application/wasm"),
+      15000,
+      "FFmpeg wasm"
+    );
+
+    await withTimeout(ffmpeg.load({ coreURL, wasmURL }), 20000, "FFmpeg load");
   } catch (e) {
-    console.error("FFmpeg load failed", e);
+    console.error("FFmpeg load failed", { error: e, baseUrl: BASE_URL });
     throw new Error(
-      "Не удалось загрузить конвертер видео. Попробуйте обновить страницу и повторить экспорт."
+      "Конвертер MP4 не загрузился (часто из-за блокировщиков/сети). Попробуйте отключить AdBlock и обновить страницу."
     );
   }
 
