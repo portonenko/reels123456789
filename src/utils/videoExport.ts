@@ -222,7 +222,10 @@ export const exportVideo = async (
   console.log('Using video format:', mimeType);
 
   // Create MediaRecorder with optimized settings for high quality
-  const videoStream = canvas.captureStream(30); // 30 FPS for smooth, high-quality video
+  // NOTE: 24 FPS is significantly more stable across devices during MediaRecorder export
+  // (fewer dropped frames => smoother playback) while still looking smooth.
+  const exportFps = 24;
+  const videoStream = canvas.captureStream(exportFps);
   const chunks: Blob[] = [];
   
   // Combine video and audio streams if music is available
@@ -340,7 +343,7 @@ export const exportVideo = async (
   let currentSlideIndex = 0;
   let slideStartTime = 0;
 
-  const fps = 30;
+  const fps = exportFps;
   const frameMs = 1000 / fps;
   const totalFrames = Math.max(1, Math.round(totalDuration * fps));
 
