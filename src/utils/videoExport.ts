@@ -54,12 +54,19 @@ const getFFmpeg = async (opts: GetFFmpegOptions = {}): Promise<FFmpeg> => {
       15000,
       "FFmpeg wasm"
     );
+    // In 0.12.x a separate worker file is required; without it you can get "failed to import ffmpeg-core.js"
+    const workerURL = await withTimeout(
+      toBlobURL(`${BASE_URL}/ffmpeg-core.worker.js`, "text/javascript"),
+      15000,
+      "FFmpeg worker"
+    );
 
-    await withTimeout(ffmpeg.load({ coreURL, wasmURL }), 20000, "FFmpeg load");
+    await withTimeout(ffmpeg.load({ coreURL, wasmURL, workerURL }), 30000, "FFmpeg load");
   } catch (e) {
     console.error("FFmpeg load failed", { error: e, baseUrl: BASE_URL });
+    const raw = e instanceof Error ? e.message : String(e);
     throw new Error(
-      "Конвертер MP4 не загрузился (часто из-за блокировщиков/сети). Попробуйте отключить AdBlock и обновить страницу."
+      `Конвертер MP4 не загрузился: ${raw}. Часто причина — блокировщик, корпоративный прокси или CSP.`
     );
   }
 
