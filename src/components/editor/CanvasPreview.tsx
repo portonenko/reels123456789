@@ -39,62 +39,23 @@ export const CanvasPreview = memo(({ slide, globalOverlay, showTextBoxControls =
     }
   }, [slide, slides, isPlaying]);
 
-  // Ensure background video shows (autoplay muted) even when timeline isn't playing
-  // Also: pause decoding when preview is offscreen.
+  // Re-trigger video playback when asset changes
   useEffect(() => {
     const el = videoRef.current;
     if (!el) return;
 
-    const io = new IntersectionObserver(
-      (entries) => {
-        const isVisible = entries.some((e) => e.isIntersecting);
-        if (!isVisible) {
-          el.pause();
-          return;
-        }
+    // Reset and play
+    el.currentTime = 0;
+    el.muted = true;
+    el.playsInline = true;
+    el.loop = true; // Always loop in preview for smooth display
+    el.preload = "auto";
 
-        // Autoplay to render frames in preview (Safari often needs muted)
-        void el.play().catch((e) => {
-          // Not fatal; user can still hit Play Timeline
-          console.warn("Preview video autoplay blocked:", e);
-        });
-      },
-      { threshold: 0.15 }
-    );
-
-    io.observe(el);
-
-    return () => {
-      io.disconnect();
-    };
+    // Play immediately when visible
+    void el.play().catch((e) => {
+      console.warn("Preview video autoplay blocked:", e);
+    });
   }, [currentSlide?.assetId]);
-
-  // Keep element attributes in sync when src/slide changes (including looping rules)
-  useEffect(() => {
-    const el = videoRef.current;
-    if (!el) return;
-
-    try {
-      el.muted = true;
-      el.playsInline = true;
-      el.preload = "auto";
-
-      const backgroundAsset = assets.find((a) => a.id === currentSlide?.assetId);
-      const assetDuration = backgroundAsset?.type !== "image" ? backgroundAsset?.duration : undefined;
-      const slideDuration = currentSlide?.durationSec;
-
-      // Loop only when slide is longer than the source video (so it never stops mid-slide).
-      const shouldLoop =
-        !!assetDuration && !!slideDuration && isFinite(assetDuration) && slideDuration > assetDuration;
-      el.loop = shouldLoop;
-
-      // Force reload when src changes
-      el.currentTime = 0;
-      el.load();
-    } catch (e) {
-      console.warn("Preview video init failed:", e);
-    }
-  }, [assets, currentSlide?.assetId, currentSlide?.durationSec]);
 
   // Animate slide time for transitions - optimized with throttling
   useEffect(() => {
@@ -261,6 +222,13 @@ export const CanvasPreview = memo(({ slide, globalOverlay, showTextBoxControls =
   const overlayOpacity = Math.max(0, Math.min(0.7, globalOverlay / 100));
   const backgroundAsset = assets.find((a) => a.id === currentSlide.assetId);
 
+  // Debug: log asset lookup
+  console.log("CanvasPreview asset lookup:", {
+    assetId: currentSlide.assetId,
+    assetsCount: assets.length,
+    foundAsset: backgroundAsset ? { id: backgroundAsset.id, type: backgroundAsset.type, url: backgroundAsset.url?.slice(0, 60) } : null,
+  });
+
   // Calculate transition effects
   const transitionDuration = 0.5; // 0.5 seconds
   const transitionProgress = Math.min(slideTime / transitionDuration, 1);
@@ -362,19 +330,23 @@ export const CanvasPreview = memo(({ slide, globalOverlay, showTextBoxControls =
 
       {/* 9:16 aspect ratio container - scaled down 3x from export (1080x1920) */}
       <div className="relative bg-black rounded-lg overflow-hidden shadow-2xl" style={{ width: "360px", height: "640px" }}>
-        {/* Background video - plays continuously */}
+        {/* Layer 0: Background video/image - plays continuously */}
         {backgroundAsset ? (
-          backgroundAsset.type === 'image' ? (
+          backgroundAsset.type === "image" ? (
             <img
               src={backgroundAsset.url}
               className="absolute inset-0 w-full h-full object-cover"
+              style={{ zIndex: 0 }}
               alt="Background"
             />
           ) : (
             <video
+              key={backgroundAsset.id}
               ref={videoRef}
               src={backgroundAsset.url}
               className="absolute inset-0 w-full h-full object-cover"
+              style={{ zIndex: 0 }}
+              loop
               muted
               playsInline
               autoPlay
@@ -382,39 +354,48 @@ export const CanvasPreview = memo(({ slide, globalOverlay, showTextBoxControls =
             />
           )
         ) : (
-          <div className="absolute inset-0 bg-gradient-to-br from-purple-900 via-blue-900 to-cyan-900" />
+          <div
+            className="absolute inset-0 bg-gradient-to-br from-purple-900 via-blue-900 to-cyan-900"
+            style={{ zIndex: 0 }}
+          />
         )}
         
-        {/* Overlay */}
+        {/* Layer 1: Overlay (semi-transparent black) */}
         <div
-          className="absolute inset-0 bg-black"
-          style={{ opacity: overlayOpacity }}
+          className="absolute inset-0 pointer-events-none"
+          style={{
+            zIndex: 1,
+            backgroundColor: `rgba(0, 0, 0, ${overlayOpacity})`,
+          }}
         />
 
-        {/* Canvas overlay for text rendering */}
+        {/* Layer 2: Canvas for text rendering */}
         <canvas
           ref={canvasRef}
           width={1080}
           height={1920}
-          className="absolute inset-0 w-full h-full"
-          style={{ pointerEvents: 'none' }}
+          className="absolute inset-0 w-full h-full pointer-events-none"
+          style={{ zIndex: 2 }}
         />
 
-          {/* Duration indicator */}
-          <div className="absolute bottom-4 left-4 bg-black/70 text-white text-xs px-2 py-1 rounded">
-            {currentSlide.durationSec}s
-          </div>
+        {/* Layer 3: Duration indicator */}
+        <div
+          className="absolute bottom-4 left-4 bg-black/70 text-white text-xs px-2 py-1 rounded"
+          style={{ zIndex: 3 }}
+        >
+          {currentSlide.durationSec}s
+        </div>
 
-          {/* Draggable text box overlay (only for selected slide, not during playback) */}
-          {showTextBoxControls && slide && !isPlaying && (
-            <DraggableTextBox
-              slide={slide}
-              containerWidth={360}
-              containerHeight={640}
-              onUpdate={handleTextBoxUpdate}
-              lang={lang}
-            />
-          )}
+        {/* Layer 4: Draggable text box overlay (only for selected slide, not during playback) */}
+        {showTextBoxControls && slide && !isPlaying && (
+          <DraggableTextBox
+            slide={slide}
+            containerWidth={360}
+            containerHeight={640}
+            onUpdate={handleTextBoxUpdate}
+            lang={lang}
+          />
+        )}
       </div>
     </div>
   );
