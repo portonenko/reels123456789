@@ -246,8 +246,14 @@ type EncodeOptions = {
 };
 
 const buildEncodeArgs = (inputName: string, opts: EncodeOptions): string[] => {
-  // Keep ONLY essential transforms for Reels output; no setpts/asetpts.
-  const vf = "scale=1080:1920:force_original_aspect_ratio=increase,crop=1080:1920,setsar=1";
+  // Normalize timing to true CFR to avoid “заедание” caused by uneven frame timestamps.
+  // We intentionally force fps + setpts here.
+  const vf =
+    "scale=1080:1920:force_original_aspect_ratio=increase," +
+    "crop=1080:1920," +
+    "setsar=1," +
+    "fps=30," +
+    "setpts=N/30/TB";
 
   return [
     // Input
@@ -291,6 +297,10 @@ const buildEncodeArgs = (inputName: string, opts: EncodeOptions): string[] => {
     "128k",
     "-t",
     opts.durationSec.toFixed(1),
+
+    // Better playback start on mobile
+    "-movflags",
+    "+faststart",
 
     // IMPORTANT: do NOT use -shortest here; it can cut the output early if the input audio track ends.
     // Duration is controlled by -t above.
@@ -521,7 +531,13 @@ export const exportVideo = async (
     // Preload FFmpeg in background (best effort)
     void getFFmpeg().catch((e) => console.warn("[FFmpeg] Preload failed (will retry later):", e));
 
-    const mp4MimeTypes = [
+    // Prefer WebM recording for more stable timestamps; then re-encode to MP4 via FFmpeg.
+    // Direct MP4 MediaRecorder often produces jittery VFR output on some devices.
+    const preferredMimeTypes = [
+      "video/webm;codecs=vp9,opus",
+      "video/webm;codecs=vp8,opus",
+      "video/webm",
+      // Fallbacks
       "video/mp4;codecs=avc1.64001E,mp4a.40.2",
       "video/mp4;codecs=avc1.4D401E,mp4a.40.2",
       "video/mp4;codecs=avc1.42E01E,mp4a.40.2",
@@ -529,22 +545,15 @@ export const exportVideo = async (
     ];
 
     let mimeType = "";
-    let recordingAsMp4 = false;
 
-    for (const mt of mp4MimeTypes) {
+    for (const mt of preferredMimeTypes) {
       if (MediaRecorder.isTypeSupported(mt)) {
         mimeType = mt;
-        recordingAsMp4 = true;
         break;
       }
     }
 
-    if (!mimeType) {
-      if (MediaRecorder.isTypeSupported("video/webm;codecs=vp9,opus")) mimeType = "video/webm;codecs=vp9,opus";
-      else if (MediaRecorder.isTypeSupported("video/webm;codecs=vp8,opus")) mimeType = "video/webm;codecs=vp8,opus";
-      else if (MediaRecorder.isTypeSupported("video/webm")) mimeType = "video/webm";
-      else throw new Error("No supported video format found");
-    }
+    if (!mimeType) throw new Error("No supported video format found");
 
     const videoStream = canvas.captureStream(fps);
     const chunks: Blob[] = [];
@@ -741,15 +750,9 @@ export const exportVideo = async (
     onProgress(95, "Finalizing recording...");
     const recordedBlob = await recordingPromise;
 
-    // CRITICAL: remove normalizeMp4 behaviour – if MediaRecorder gave us MP4, return immediately.
-    if (recordingAsMp4 && recordedBlob.type.includes("mp4")) {
-      onProgress(100, "Complete!");
-      return recordedBlob;
-    }
-
-    // Otherwise convert webm -> mp4 via FFmpeg (single-pass)
-    // IMPORTANT: do NOT trim to a fixed 15s; use the full slides duration.
-    const mp4Blob = await encodeToMp4(recordedBlob, onProgress, { durationSec }, "webm");
+    // Always re-encode to MP4 with forced CFR timestamps to eliminate playback stutter.
+    const inputExtHint: "webm" | "mp4" = recordedBlob.type.includes("mp4") ? "mp4" : "webm";
+    const mp4Blob = await encodeToMp4(recordedBlob, onProgress, { durationSec }, inputExtHint);
     onProgress(100, "Complete!");
     return mp4Blob;
   } finally {
