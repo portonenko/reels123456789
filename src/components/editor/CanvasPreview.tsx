@@ -222,12 +222,15 @@ export const CanvasPreview = memo(({ slide, globalOverlay, showTextBoxControls =
   const overlayOpacity = Math.max(0, Math.min(0.7, globalOverlay / 100));
   const backgroundAsset = assets.find((a) => a.id === currentSlide.assetId);
 
-  // Debug: log asset lookup
-  console.log("CanvasPreview asset lookup:", {
-    assetId: currentSlide.assetId,
-    assetsCount: assets.length,
-    foundAsset: backgroundAsset ? { id: backgroundAsset.id, type: backgroundAsset.type, url: backgroundAsset.url?.slice(0, 60) } : null,
-  });
+  // Determine if asset is an image based on type OR url extension
+  const isImageAsset = backgroundAsset
+    ? backgroundAsset.type === "image" ||
+      /\.(jpg|jpeg|png|gif|webp|svg)$/i.test(backgroundAsset.url || "")
+    : false;
+
+  // Check if we have a valid video URL
+  const hasValidVideoUrl =
+    backgroundAsset && backgroundAsset.url && !isImageAsset;
 
   // Calculate transition effects
   const transitionDuration = 0.5; // 0.5 seconds
@@ -331,8 +334,8 @@ export const CanvasPreview = memo(({ slide, globalOverlay, showTextBoxControls =
       {/* 9:16 aspect ratio container - scaled down 3x from export (1080x1920) */}
       <div className="relative bg-black rounded-lg overflow-hidden shadow-2xl" style={{ width: "360px", height: "640px" }}>
         {/* Layer 0: Background video/image - plays continuously */}
-        {backgroundAsset ? (
-          backgroundAsset.type === "image" ? (
+        {backgroundAsset && backgroundAsset.url ? (
+          isImageAsset ? (
             <img
               src={backgroundAsset.url}
               className="absolute inset-0 w-full h-full object-cover"
