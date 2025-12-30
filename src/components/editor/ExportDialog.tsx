@@ -12,10 +12,11 @@ import { Progress } from "@/components/ui/progress";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
-import { Loader2, Download } from "lucide-react";
+import { Loader2, Download, Stethoscope, CheckCircle, XCircle, AlertCircle } from "lucide-react";
 import { Slide, Asset } from "@/types";
-import { exportVideo, exportPhotos } from "@/utils/videoExport";
+import { exportVideo, exportPhotos, diagnoseFFmpegUrls, FFmpegDiagnostics, DiagnosticResult } from "@/utils/videoExport";
 import { supabase } from "@/integrations/supabase/client";
+import { ScrollArea } from "@/components/ui/scroll-area";
 
 interface ProjectData {
   slides: Slide[];
@@ -37,6 +38,8 @@ export const ExportDialog = ({ open, onClose, projects, assets }: ExportDialogPr
   const [currentStep, setCurrentStep] = useState("");
   const [keepMusicAcrossLanguages, setKeepMusicAcrossLanguages] = useState(false);
   const [selectedLanguages, setSelectedLanguages] = useState<Set<string>>(new Set());
+  const [isDiagnosing, setIsDiagnosing] = useState(false);
+  const [diagnostics, setDiagnostics] = useState<FFmpegDiagnostics | null>(null);
 
   // Check if any project is a photo carousel
   const isPhotoCarousel = Object.values(projects).some(project => {
@@ -97,6 +100,45 @@ export const ExportDialog = ({ open, onClose, projects, assets }: ExportDialogPr
       return newSet;
     });
   };
+
+  const handleDiagnose = async () => {
+    setIsDiagnosing(true);
+    setDiagnostics(null);
+    try {
+      const result = await diagnoseFFmpegUrls();
+      setDiagnostics(result);
+    } catch (error) {
+      toast.error("Ошибка диагностики");
+    } finally {
+      setIsDiagnosing(false);
+    }
+  };
+
+  const renderDiagnosticResults = (results: DiagnosticResult[], label: string) => (
+    <div className="space-y-1">
+      <p className="text-xs font-medium text-muted-foreground">{label}:</p>
+      {results.map((r, i) => (
+        <div key={i} className="flex items-start gap-2 text-xs font-mono">
+          {r.status === "ok" ? (
+            <CheckCircle className="w-3 h-3 text-green-500 mt-0.5 shrink-0" />
+          ) : (
+            <XCircle className="w-3 h-3 text-red-500 mt-0.5 shrink-0" />
+          )}
+          <div className="break-all">
+            <span className={r.status === "ok" ? "text-green-400" : "text-red-400"}>
+              {r.url.replace('https://cdn.jsdelivr.net/npm/@ffmpeg/core@0.12.6/', 'jsdelivr:').replace('https://unpkg.com/@ffmpeg/core@0.12.6/', 'unpkg:')}
+            </span>
+            {r.status === "ok" && r.responseTime && (
+              <span className="text-muted-foreground ml-1">({r.responseTime}ms)</span>
+            )}
+            {r.status === "error" && (
+              <span className="text-red-400 ml-1">— {r.error}</span>
+            )}
+          </div>
+        </div>
+      ))}
+    </div>
+  );
 
   // projects is already organized by language
 
@@ -297,6 +339,52 @@ export const ExportDialog = ({ open, onClose, projects, assets }: ExportDialogPr
               }
             </p>
           </div>
+
+          {!isPhotoCarousel && (
+            <div className="space-y-2">
+              <Button 
+                variant="outline" 
+                size="sm" 
+                onClick={handleDiagnose} 
+                disabled={isDiagnosing}
+                className="w-full"
+              >
+                {isDiagnosing ? (
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                ) : (
+                  <Stethoscope className="w-4 h-4 mr-2" />
+                )}
+                Диагностика MP4
+              </Button>
+
+              {diagnostics && (
+                <div className="bg-secondary/50 border border-border rounded-lg p-3 space-y-3">
+                  <div className="flex items-center gap-2">
+                    {diagnostics.summary.startsWith("✅") ? (
+                      <CheckCircle className="w-4 h-4 text-green-500" />
+                    ) : diagnostics.summary.startsWith("⚠️") ? (
+                      <AlertCircle className="w-4 h-4 text-yellow-500" />
+                    ) : (
+                      <XCircle className="w-4 h-4 text-red-500" />
+                    )}
+                    <span className="text-sm font-medium">{diagnostics.summary}</span>
+                  </div>
+                  
+                  <div className="text-xs text-muted-foreground">
+                    crossOriginIsolated: {diagnostics.crossOriginIsolated ? "✅ true" : "❌ false"}
+                  </div>
+
+                  <ScrollArea className="h-48">
+                    <div className="space-y-3 pr-4">
+                      {renderDiagnosticResults(diagnostics.coreResults, "ffmpeg-core.js")}
+                      {renderDiagnosticResults(diagnostics.wasmResults, "ffmpeg-core.wasm")}
+                      {renderDiagnosticResults(diagnostics.workerResults, "ffmpeg-core.worker.js")}
+                    </div>
+                  </ScrollArea>
+                </div>
+              )}
+            </div>
+          )}
         </div>
 
         <div className="flex justify-end gap-2">

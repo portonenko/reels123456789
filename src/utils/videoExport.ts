@@ -14,8 +14,115 @@ const CDN_SOURCES = [
   `https://unpkg.com/@ffmpeg/core@${FFMPEG_CORE_VERSION}`,
 ];
 
+const CORE_PATHS = [
+  "dist/esm/ffmpeg-core.js",
+  "dist/umd/ffmpeg-core.js",
+  "dist/ffmpeg-core.js",
+  "ffmpeg-core.js",
+];
+
+const WASM_PATHS = [
+  "dist/esm/ffmpeg-core.wasm",
+  "dist/umd/ffmpeg-core.wasm",
+  "dist/ffmpeg-core.wasm",
+  "ffmpeg-core.wasm",
+];
+
+const WORKER_PATHS = [
+  "dist/esm/ffmpeg-core.worker.js",
+  "dist/umd/ffmpeg-core.worker.js",
+  "dist/ffmpeg-core.worker.js",
+  "ffmpeg-core.worker.js",
+];
+
 type GetFFmpegOptions = {
   onProgress?: (msg: string) => void;
+};
+
+export type DiagnosticResult = {
+  url: string;
+  status: "ok" | "error";
+  httpStatus?: number;
+  error?: string;
+  responseTime?: number;
+};
+
+export type FFmpegDiagnostics = {
+  coreResults: DiagnosticResult[];
+  wasmResults: DiagnosticResult[];
+  workerResults: DiagnosticResult[];
+  crossOriginIsolated: boolean;
+  summary: string;
+};
+
+// Diagnostic function to check all FFmpeg URLs
+export const diagnoseFFmpegUrls = async (): Promise<FFmpegDiagnostics> => {
+  const checkUrl = async (url: string): Promise<DiagnosticResult> => {
+    const start = performance.now();
+    try {
+      const controller = new AbortController();
+      const timer = window.setTimeout(() => controller.abort(), 10000);
+      
+      const response = await fetch(url, { 
+        method: "HEAD", 
+        signal: controller.signal,
+        cache: "no-store"
+      });
+      
+      window.clearTimeout(timer);
+      const responseTime = Math.round(performance.now() - start);
+      
+      if (response.ok) {
+        return { url, status: "ok", httpStatus: response.status, responseTime };
+      }
+      return { url, status: "error", httpStatus: response.status, error: `HTTP ${response.status}`, responseTime };
+    } catch (e) {
+      const responseTime = Math.round(performance.now() - start);
+      const errorMsg = e instanceof Error ? e.message : String(e);
+      return { url, status: "error", error: errorMsg, responseTime };
+    }
+  };
+
+  const checkPaths = async (paths: string[]): Promise<DiagnosticResult[]> => {
+    const results: DiagnosticResult[] = [];
+    for (const base of CDN_SOURCES) {
+      for (const path of paths) {
+        const url = `${base}/${path}`;
+        results.push(await checkUrl(url));
+      }
+    }
+    return results;
+  };
+
+  const [coreResults, wasmResults, workerResults] = await Promise.all([
+    checkPaths(CORE_PATHS),
+    checkPaths(WASM_PATHS),
+    checkPaths(WORKER_PATHS),
+  ]);
+
+  const coreOk = coreResults.some(r => r.status === "ok");
+  const wasmOk = wasmResults.some(r => r.status === "ok");
+  const workerOk = workerResults.some(r => r.status === "ok");
+
+  let summary = "";
+  if (coreOk && wasmOk) {
+    summary = workerOk 
+      ? "✅ Все файлы FFmpeg доступны" 
+      : "⚠️ Worker недоступен (будет использован однопоточный режим)";
+  } else {
+    const missing: string[] = [];
+    if (!coreOk) missing.push("ffmpeg-core.js");
+    if (!wasmOk) missing.push("ffmpeg-core.wasm");
+    summary = `❌ Не удалось загрузить: ${missing.join(", ")}. Проверьте сеть/VPN/прокси.`;
+  }
+
+  return {
+    coreResults,
+    wasmResults,
+    workerResults,
+    crossOriginIsolated: typeof crossOriginIsolated !== 'undefined' ? crossOriginIsolated : false,
+    summary,
+  };
 };
 
 const withTimeout = async <T,>(p: Promise<T>, ms: number, label: string): Promise<T> => {
