@@ -59,31 +59,61 @@ const Gallery = () => {
     const files = e.target.files;
     if (!files || files.length === 0) return;
 
-    const { data: { user } } = await supabase.auth.getUser();
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
 
     setUploading(true);
 
     try {
       for (const file of Array.from(files)) {
-        const url = URL.createObjectURL(file);
+        // Read metadata from local file
+        const tempUrl = URL.createObjectURL(file);
         const video = document.createElement("video");
-        video.src = url;
+        video.src = tempUrl;
 
         await new Promise((resolve) => {
           video.onloadedmetadata = async () => {
+            const assetId = crypto.randomUUID();
+
+            // If user is logged in, persist the file into storage and store a stable public URL.
+            // If not logged in, keep the local blob URL in memory only.
+            let finalUrl = tempUrl;
+
+            if (user) {
+              const { error: uploadError } = await supabase.storage
+                .from("video-assets")
+                .upload(`${user.id}/${assetId}`, file, {
+                  cacheControl: "3600",
+                  upsert: false,
+                });
+
+              if (uploadError) {
+                console.error("Upload error:", uploadError);
+                toast.error(`Failed to upload ${file.name}`);
+                URL.revokeObjectURL(tempUrl);
+                resolve(null);
+                return;
+              }
+
+              const { data: urlData } = supabase.storage
+                .from("video-assets")
+                .getPublicUrl(`${user.id}/${assetId}`);
+
+              finalUrl = urlData.publicUrl;
+            }
+
             const asset = {
-              id: crypto.randomUUID(),
-              url,
+              id: assetId,
+              url: finalUrl,
               duration: video.duration,
               width: video.videoWidth,
               height: video.videoHeight,
               createdAt: new Date(),
             };
 
-            // Save to store
             addAsset(asset);
 
-            // Save to database if logged in
             if (user) {
               const { error } = await supabase.from("assets").insert({
                 id: asset.id,
@@ -98,6 +128,11 @@ const Gallery = () => {
                 console.error("Error saving asset:", error);
                 toast.error("Failed to save to database");
               }
+            }
+
+            // Revoke local blob URL if we uploaded to storage
+            if (user) {
+              URL.revokeObjectURL(tempUrl);
             }
 
             resolve(null);
