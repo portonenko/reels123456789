@@ -49,17 +49,31 @@ export const PresetManager = ({ open, onOpenChange }: PresetManagerProps) => {
   }, [open]);
 
   const loadPresets = async () => {
-    const { data, error } = await supabase
-      .from("presets")
-      .select("*")
-      .order("created_at", { ascending: false });
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        // Silently return if not logged in - no error toast
+        setPresets([]);
+        return;
+      }
 
-    if (error) {
+      const { data, error } = await supabase
+        .from("presets")
+        .select("*")
+        .eq("user_id", user.id)
+        .order("created_at", { ascending: false });
+
+      if (error) {
+        console.error("Failed to load presets:", error);
+        toast.error("Failed to load presets");
+        return;
+      }
+
+      setPresets(data || []);
+    } catch (err) {
+      console.error("Error loading presets:", err);
       toast.error("Failed to load presets");
-      return;
     }
-
-    setPresets(data || []);
   };
 
   const saveCurrentAsPreset = async () => {
