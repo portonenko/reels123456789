@@ -5,10 +5,10 @@ import { FFmpeg } from "@ffmpeg/ffmpeg";
 import { fetchFile } from "@ffmpeg/util";
 let ffmpegInstance: FFmpeg | null = null;
 
-const FFMPEG_CORE_VERSION = "0.12.4";
+const FFMPEG_CORE_VERSION = "0.12.6";
 
-// Use CDN files from @ffmpeg/core. Different versions/CDNs may expose slightly different paths,
-// so we resolve using multiple candidate paths (incl. worker).
+// Load FFmpeg core assets from CDN. Different builds expose different paths (esm/umd),
+// so we try multiple candidates.
 const CDN_SOURCES = [
   `https://cdn.jsdelivr.net/npm/@ffmpeg/core@${FFMPEG_CORE_VERSION}`,
   `https://unpkg.com/@ffmpeg/core@${FFMPEG_CORE_VERSION}`,
@@ -101,17 +101,46 @@ const getFFmpeg = async (opts: GetFFmpegOptions = {}): Promise<FFmpeg> => {
       throw last instanceof Error ? last : new Error(String(last));
     };
 
-    const [coreURL, wasmURL, workerURL] = await Promise.all([
-      resolveAny(["dist/umd/ffmpeg-core.js", "dist/ffmpeg-core.js", "ffmpeg-core.js"], 45000),
-      resolveAny(["dist/umd/ffmpeg-core.wasm", "dist/ffmpeg-core.wasm", "ffmpeg-core.wasm"], 120000),
+    const [coreURL, wasmURL] = await Promise.all([
       resolveAny(
-        ["dist/umd/ffmpeg-core.worker.js", "dist/ffmpeg-core.worker.js", "ffmpeg-core.worker.js"],
+        [
+          "dist/esm/ffmpeg-core.js",
+          "dist/umd/ffmpeg-core.js",
+          "dist/ffmpeg-core.js",
+          "ffmpeg-core.js",
+        ],
         45000
+      ),
+      resolveAny(
+        [
+          "dist/esm/ffmpeg-core.wasm",
+          "dist/umd/ffmpeg-core.wasm",
+          "dist/ffmpeg-core.wasm",
+          "ffmpeg-core.wasm",
+        ],
+        120000
       ),
     ]);
 
+    // Worker may be absent in some builds/CDNs; try best-effort and fall back to single-thread.
+    let workerURL: string | undefined;
+    try {
+      workerURL = await resolveAny(
+        [
+          "dist/esm/ffmpeg-core.worker.js",
+          "dist/umd/ffmpeg-core.worker.js",
+          "dist/ffmpeg-core.worker.js",
+          "ffmpeg-core.worker.js",
+        ],
+        45000
+      );
+    } catch (e) {
+      console.warn("FFmpeg worker not found; continuing without worker", e);
+      workerURL = undefined;
+    }
+
     if (opts.onProgress) opts.onProgress("Инициализация MP4-конвертера…");
-    await withTimeout(ffmpeg.load({ coreURL, wasmURL, workerURL }), 180000, "FFmpeg load");
+    await withTimeout(ffmpeg.load({ coreURL, wasmURL, ...(workerURL ? { workerURL } : {}) }), 180000, "FFmpeg load");
   } catch (e) {
     console.error("FFmpeg load failed from all CDN sources", { error: e });
     const raw = e instanceof Error ? e.message : String(e);
