@@ -120,6 +120,7 @@ export const exportVideo = async (
   }
 
   let backgroundVideo: HTMLVideoElement | undefined;
+  let backgroundVideoAlt: HTMLVideoElement | undefined;
   let backgroundAudio: HTMLAudioElement | undefined;
   
   // Load background video if available
@@ -127,19 +128,44 @@ export const exportVideo = async (
     backgroundVideo = document.createElement("video");
     backgroundVideo.src = backgroundAsset.url;
     backgroundVideo.muted = true;
-    backgroundVideo.loop = true;
+    backgroundVideo.loop = false; // we'll handle looping ourselves to avoid playback hiccups
+    backgroundVideo.playsInline = true;
+
     // Don't set crossOrigin for blob URLs as it causes CORS issues
     if (!backgroundAsset.url.startsWith('blob:')) {
       backgroundVideo.crossOrigin = "anonymous";
     }
-    await new Promise((resolve, reject) => {
-      backgroundVideo!.onloadeddata = resolve;
-      backgroundVideo!.onerror = (e) => {
-        console.error("Video loading error:", e);
-        reject(new Error("Failed to load background video"));
-      };
-      backgroundVideo!.load();
-    });
+
+    // Preload a second instance for seamless looping during export
+    backgroundVideoAlt = document.createElement("video");
+    backgroundVideoAlt.src = backgroundAsset.url;
+    backgroundVideoAlt.muted = true;
+    backgroundVideoAlt.loop = false;
+    backgroundVideoAlt.playsInline = true;
+    if (!backgroundAsset.url.startsWith('blob:')) {
+      backgroundVideoAlt.crossOrigin = "anonymous";
+    }
+
+    await Promise.all([
+      new Promise<void>((resolve, reject) => {
+        backgroundVideo!.onloadeddata = () => resolve();
+        backgroundVideo!.onerror = (e) => {
+          console.error("Video loading error:", e);
+          reject(new Error("Failed to load background video"));
+        };
+        backgroundVideo!.load();
+      }),
+      new Promise<void>((resolve, reject) => {
+        backgroundVideoAlt!.onloadeddata = () => resolve();
+        backgroundVideoAlt!.onerror = (e) => {
+          console.error("Video loading error (alt):", e);
+          // If alt fails, continue with single video
+          backgroundVideoAlt = undefined;
+          resolve();
+        };
+        backgroundVideoAlt!.load();
+      }),
+    ]);
   }
 
   // Load background music if available
@@ -279,13 +305,25 @@ export const exportVideo = async (
   });
 
   // Start background video and audio FIRST - before recording
+  // For videos that need to loop within the export duration, we use two elements and swap,
+  // which avoids a hard seek on the same element right at the loop boundary (often causes a visible hitch).
+  const bgDuration = backgroundVideo?.duration && isFinite(backgroundVideo.duration) ? backgroundVideo.duration : undefined;
+
   if (backgroundVideo) {
     backgroundVideo.currentTime = 0;
     await backgroundVideo.play();
-    // Wait for video to actually start playing
     await new Promise((resolve) => setTimeout(resolve, 100));
-    console.log("Background video playing at:", backgroundVideo.currentTime);
+    console.log("Background video playing at:", backgroundVideo.currentTime, "duration:", bgDuration);
+
+    if (backgroundVideoAlt && bgDuration) {
+      backgroundVideoAlt.currentTime = 0;
+      // Start alt playing too so decoder is warm; we'll choose which one to draw per frame.
+      await backgroundVideoAlt.play();
+      await new Promise((resolve) => setTimeout(resolve, 100));
+      console.log("Background video (alt) playing at:", backgroundVideoAlt.currentTime);
+    }
   }
+
   if (backgroundAudio) {
     backgroundAudio.currentTime = 0;
     await backgroundAudio.play();
@@ -344,10 +382,39 @@ export const exportVideo = async (
       const transitionDuration = 0.5;
       const transitionProgress = Math.min(slideElapsed / transitionDuration, 1);
 
-      renderSlideToCanvas(ctx, slides[currentSlideIndex], canvas, backgroundVideo, transitionProgress, globalOverlay);
+      // Pick which background video element to draw to avoid loop-boundary hiccups
+      let activeBackgroundVideo: HTMLVideoElement | undefined = backgroundVideo;
+      if (backgroundVideo && backgroundVideoAlt && bgDuration && bgDuration > 0.1) {
+        const segmentIndex = Math.floor(elapsed / bgDuration);
+        const inSegmentTime = elapsed - segmentIndex * bgDuration;
+        activeBackgroundVideo = segmentIndex % 2 === 0 ? backgroundVideo : backgroundVideoAlt;
+
+        // If we just entered a new segment, reset the next video slightly ahead of time
+        // so we don't seek on the currently-drawn element at the exact boundary.
+        if (inSegmentTime < frameMs / 1000 + 0.01) {
+          const nextVideo = segmentIndex % 2 === 0 ? backgroundVideoAlt : backgroundVideo;
+          try {
+            // Ensure the next one is at the beginning and playing.
+            if (Math.abs(nextVideo.currentTime - 0) > 0.05) nextVideo.currentTime = 0;
+            if (nextVideo.paused) void nextVideo.play();
+          } catch {
+            // ignore
+          }
+        }
+      }
+
+      renderSlideToCanvas(
+        ctx,
+        slides[currentSlideIndex],
+        canvas,
+        activeBackgroundVideo,
+        transitionProgress,
+        globalOverlay
+      );
     }
 
     if (backgroundVideo) backgroundVideo.pause();
+    if (backgroundVideoAlt) backgroundVideoAlt.pause();
     if (backgroundAudio) backgroundAudio.pause();
 
     // Give the recorder a tiny moment to flush the last painted frame
