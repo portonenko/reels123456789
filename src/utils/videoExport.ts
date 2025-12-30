@@ -6,7 +6,18 @@ import { fetchFile } from "@ffmpeg/util";
 
 let ffmpegInstance: FFmpeg | null = null;
 
-const getFFmpeg = async (onProgress?: (msg: string) => void): Promise<FFmpeg> => {
+const FFMPEG_CORE_VERSION = "0.12.6";
+
+type GetFFmpegOptions = {
+  onProgress?: (msg: string) => void;
+  /**
+   * Single-thread core does not require Cross-Origin Isolation (SharedArrayBuffer),
+   * but is slower.
+   */
+  useSingleThread?: boolean;
+};
+
+const getFFmpeg = async (opts: GetFFmpegOptions = {}): Promise<FFmpeg> => {
   if (ffmpegInstance && ffmpegInstance.loaded) {
     return ffmpegInstance;
   }
@@ -18,13 +29,21 @@ const getFFmpeg = async (onProgress?: (msg: string) => void): Promise<FFmpeg> =>
   });
 
   ffmpeg.on("progress", ({ progress }) => {
-    if (onProgress) onProgress(`Converting: ${Math.round(progress * 100)}%`);
+    if (opts.onProgress) opts.onProgress(`Converting: ${Math.round(progress * 100)}%`);
   });
 
-  await ffmpeg.load({
-    coreURL: "https://unpkg.com/@ffmpeg/core@0.12.6/dist/umd/ffmpeg-core.js",
-    wasmURL: "https://unpkg.com/@ffmpeg/core@0.12.6/dist/umd/ffmpeg-core.wasm",
-  });
+  const corePkg = opts.useSingleThread ? "@ffmpeg/core-st" : "@ffmpeg/core";
+  const coreURL = `https://unpkg.com/${corePkg}@${FFMPEG_CORE_VERSION}/dist/umd/ffmpeg-core.js`;
+  const wasmURL = `https://unpkg.com/${corePkg}@${FFMPEG_CORE_VERSION}/dist/umd/ffmpeg-core.wasm`;
+
+  try {
+    await ffmpeg.load({ coreURL, wasmURL });
+  } catch (e) {
+    console.error("FFmpeg load failed", { coreURL, wasmURL, error: e });
+    throw new Error(
+      "Не удалось загрузить конвертер видео. Попробуйте обновить страницу и повторить экспорт."
+    );
+  }
 
   ffmpegInstance = ffmpeg;
   return ffmpeg;
@@ -465,14 +484,13 @@ export const exportVideo = async (
   onProgress(90, "Finishing recording...");
   const rawBlob = await recordingPromise;
 
-  if (!crossOriginIsolated) {
-    throw new Error(
-      "MP4 export requires Cross-Origin Isolation (COOP/COEP). Please refresh the page and try again."
-    );
-  }
+  const useSingleThread = !crossOriginIsolated;
 
-  onProgress(92, "Loading video converter...");
-  const ffmpeg = await getFFmpeg((msg) => onProgress(93, msg));
+  onProgress(92, useSingleThread ? "Loading video converter (single-thread)..." : "Loading video converter...");
+  const ffmpeg = await getFFmpeg({
+    useSingleThread,
+    onProgress: (msg) => onProgress(93, msg),
+  });
 
   const inputName = "input.webm";
   const outputName = "output.mp4";
