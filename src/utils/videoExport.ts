@@ -546,7 +546,7 @@ export const exportVideo = async (
       else throw new Error("No supported video format found");
     }
 
-    const videoStream = canvas.captureStream(30);
+    const videoStream = canvas.captureStream(fps);
     const chunks: Blob[] = [];
 
     let combinedStream: MediaStream = videoStream;
@@ -622,8 +622,8 @@ export const exportVideo = async (
       }
     }
 
-    // Flush chunks periodically to prevent long-recording stalls (common ~15s freeze on some browsers)
-    mediaRecorder.start(1000);
+    // Use a bigger timeslice to reduce main-thread churn (too-frequent flush can cause stutter in the final file)
+    mediaRecorder.start(5000);
 
     const getSlideAtTime = (tSec: number) => {
       const t = totalDuration > 0 ? Math.min(tSec, totalDuration - 0.001) : 0;
@@ -636,28 +636,39 @@ export const exportVideo = async (
       return { index: Math.max(0, slides.length - 1), start: Math.max(0, totalDuration - 0.001) };
     };
 
-    const startTime = performance.now();
-
     const videoTrack = videoStream.getVideoTracks()[0];
 
-    // Smooth render loop using requestAnimationFrame for consistent timing
-    const runSmoothRenderLoop = (): Promise<void> => {
+    // Fixed FPS render loop: schedules renders at exact frame boundaries.
+    // This reduces timing jitter in the recorded output compared to a pure rAF loop.
+    const runFixedFpsRenderLoop = (): Promise<void> => {
       return new Promise((resolve, reject) => {
         let frame = 0;
         let lastProgressUpdate = 0;
+        const startedAt = performance.now();
 
         const renderFrame = () => {
           try {
             if (frame >= totalFrames) {
-              // Finished all frames
               if (backgroundVideo) {
-                try { backgroundVideo.pause(); } catch { /* ignore */ }
-                try { backgroundVideo.remove(); } catch { /* ignore */ }
+                try {
+                  backgroundVideo.pause();
+                } catch {
+                  /* ignore */
+                }
+                try {
+                  backgroundVideo.remove();
+                } catch {
+                  /* ignore */
+                }
               }
               if (backgroundAudio) {
-                try { backgroundAudio.pause(); } catch { /* ignore */ }
+                try {
+                  backgroundAudio.pause();
+                } catch {
+                  /* ignore */
+                }
               }
-              // Small delay before stopping to ensure last frames are captured
+
               setTimeout(() => {
                 mediaRecorder.stop();
                 resolve();
@@ -667,16 +678,32 @@ export const exportVideo = async (
 
             const elapsed = frame / fps;
 
-            // Request data periodically to prevent stalls
-            if (frame % 30 === 0) {
-              try { (mediaRecorder as any).requestData?.(); } catch { /* ignore */ }
-            }
-
             // Update progress every 0.5 seconds
             if (elapsed - lastProgressUpdate >= 0.5) {
               lastProgressUpdate = elapsed;
               const percent = (elapsed / durationSec) * 100;
-              onProgress(10 + percent * 0.85, `Запись... ${percent.toFixed(0)}% (${elapsed.toFixed(1)}s / ${durationSec.toFixed(1)}s)`);
+              onProgress(
+                10 + percent * 0.85,
+                `Запись... ${percent.toFixed(0)}% (${elapsed.toFixed(1)}s / ${durationSec.toFixed(1)}s)`
+              );
+            }
+
+            // (Best-effort) keep background media playing; don't do this every frame.
+            if (frame % 30 === 0) {
+              if (backgroundVideo && backgroundVideo.paused && !backgroundVideo.ended) {
+                try {
+                  void backgroundVideo.play();
+                } catch {
+                  /* ignore */
+                }
+              }
+              if (backgroundAudio && backgroundAudio.paused) {
+                try {
+                  void backgroundAudio.play();
+                } catch {
+                  /* ignore */
+                }
+              }
             }
 
             const { index: currentSlideIndex, start: slideStartTime } = getSlideAtTime(elapsed);
@@ -684,39 +711,30 @@ export const exportVideo = async (
             const transitionDuration = 0.5;
             const transitionProgress = Math.min(slideElapsed / transitionDuration, 1);
 
-            // Ensure background video is playing
-            if (backgroundVideo) {
-              if (backgroundVideo.paused && !backgroundVideo.ended) {
-                try { void backgroundVideo.play(); } catch { /* ignore */ }
-              }
-            }
-
-            // Ensure background audio is playing
-            if (backgroundAudio && backgroundAudio.paused) {
-              try { void backgroundAudio.play(); } catch { /* ignore */ }
-            }
-
-            // Render current slide
             renderSlideToCanvas(ctx, slides[currentSlideIndex], canvas, backgroundVideo, transitionProgress, globalOverlay);
 
-            // Force frame capture
-            try { (videoTrack as any)?.requestFrame?.(); } catch { /* ignore */ }
+            // Force frame capture (supported in Chromium)
+            try {
+              (videoTrack as any)?.requestFrame?.();
+            } catch {
+              /* ignore */
+            }
 
             frame++;
 
-            // Use requestAnimationFrame for smoother timing, but control actual frame rate
-            requestAnimationFrame(renderFrame);
+            const nextAt = startedAt + frame * frameMs;
+            const delay = Math.max(0, nextAt - performance.now());
+            window.setTimeout(renderFrame, delay);
           } catch (err) {
             reject(err);
           }
         };
 
-        // Start the loop
-        requestAnimationFrame(renderFrame);
+        renderFrame();
       });
     };
 
-    void runSmoothRenderLoop();
+    void runFixedFpsRenderLoop();
 
     // runSmoothRenderLoop is already started above
 
