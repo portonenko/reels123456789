@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback } from "react";
+import { useState, useEffect } from "react";
 import { Checkbox } from "@/components/ui/checkbox";
 import {
   Dialog,
@@ -11,9 +11,8 @@ import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
-import { ScrollArea } from "@/components/ui/scroll-area";
 import { toast } from "sonner";
-import { Loader2, Download, Copy, ChevronDown, ChevronUp } from "lucide-react";
+import { Loader2, Download } from "lucide-react";
 import { Slide, Asset } from "@/types";
 import { exportVideo, exportPhotos } from "@/utils/videoExport";
 import { supabase } from "@/integrations/supabase/client";
@@ -25,12 +24,6 @@ interface ProjectData {
   projectName: string;
 }
 
-interface DownloadItem {
-  language: string;
-  filename: string;
-  url: string;
-}
-
 interface ExportDialogProps {
   open: boolean;
   onClose: () => void;
@@ -38,40 +31,12 @@ interface ExportDialogProps {
   assets: Asset[];
 }
 
-const MAX_LOG_ENTRIES = 50;
-
 export const ExportDialog = ({ open, onClose, projects, assets }: ExportDialogProps) => {
   const [isExporting, setIsExporting] = useState(false);
   const [progress, setProgress] = useState(0);
   const [currentStep, setCurrentStep] = useState("");
   const [keepMusicAcrossLanguages, setKeepMusicAcrossLanguages] = useState(false);
   const [selectedLanguages, setSelectedLanguages] = useState<Set<string>>(new Set());
-  const [downloadItems, setDownloadItems] = useState<DownloadItem[]>([]);
-  const [logEntries, setLogEntries] = useState<string[]>([]);
-  const [showLog, setShowLog] = useState(false);
-  const logEndRef = useRef<HTMLDivElement>(null);
-
-  const addLog = useCallback((message: string) => {
-    const timestamp = new Date().toLocaleTimeString("ru-RU", { hour12: false });
-    setLogEntries((prev) => {
-      const newEntries = [...prev, `[${timestamp}] ${message}`];
-      return newEntries.slice(-MAX_LOG_ENTRIES);
-    });
-  }, []);
-
-  const copyLog = () => {
-    const logText = logEntries.join("\n");
-    navigator.clipboard.writeText(logText).then(() => {
-      toast.success("Лог скопирован в буфер обмена");
-    });
-  };
-
-  // Auto-scroll to bottom when new log entries are added
-  useEffect(() => {
-    if (showLog && logEndRef.current) {
-      logEndRef.current.scrollIntoView({ behavior: "smooth" });
-    }
-  }, [logEntries, showLog]);
 
   // Check if any project is a photo carousel
   const isPhotoCarousel = Object.values(projects).some(project => {
@@ -87,17 +52,8 @@ export const ExportDialog = ({ open, onClose, projects, assets }: ExportDialogPr
   useEffect(() => {
     if (open) {
       setSelectedLanguages(new Set(Object.keys(projects)));
-      setDownloadItems([]);
-      setLogEntries([]);
-      setShowLog(false);
-      addLog("Диалог экспорта открыт");
-    } else {
-      // Cleanup object URLs when dialog closes
-      downloadItems.forEach((i) => URL.revokeObjectURL(i.url));
-      setDownloadItems([]);
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open, projects, addLog]);
+  }, [open, projects]);
 
   // Load user preference for keeping music
   useEffect(() => {
@@ -147,21 +103,16 @@ export const ExportDialog = ({ open, onClose, projects, assets }: ExportDialogPr
   const handleExportAll = async () => {
     setIsExporting(true);
     setProgress(0);
-    setShowLog(true);
     
-    addLog(`Начало экспорта: ${Object.keys(projects).join(", ")}`);
     console.log('Starting export for all projects:', Object.keys(projects));
     
     try {
       const languages = Object.keys(projects).filter(lang => selectedLanguages.has(lang));
       
       if (languages.length === 0) {
-        addLog("Ошибка: не выбран ни один язык");
         toast.error("Please select at least one language to export");
         return;
       }
-
-      addLog(`Выбранные языки: ${languages.join(", ")}`);
 
       // Use first project's music if keeping across languages
       const firstProject = Object.values(projects)[0];
@@ -172,48 +123,42 @@ export const ExportDialog = ({ open, onClose, projects, assets }: ExportDialogPr
         const project = projects[lang];
         
         setCurrentStep(`Exporting ${lang} (${i + 1}/${languages.length})...`);
-        addLog(`Экспорт ${lang} (${i + 1}/${languages.length})...`);
         console.log(`Processing export ${i + 1}/${languages.length}: ${lang}`);
         
         try {
           const musicUrl = sharedMusic || project.backgroundMusicUrl;
           await exportLanguageVideo(lang, { ...project, backgroundMusicUrl: musicUrl });
-          addLog(`✓ Экспорт ${lang} успешно завершён`);
           console.log(`Successfully exported ${lang}`);
           
           // Small delay between exports to ensure cleanup
           if (i < languages.length - 1) {
-            addLog("Пауза перед следующим экспортом...");
             console.log('Waiting before next export...');
             await new Promise(resolve => setTimeout(resolve, 2000));
           }
         } catch (error) {
-          const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-          addLog(`✗ Ошибка экспорта ${lang}: ${errorMessage}`);
           console.error(`Export failed for ${lang}:`, error);
+          const errorMessage = error instanceof Error ? error.message : 'Unknown error';
           toast.error(`Export failed for ${lang}: ${errorMessage}`);
+          // Don't continue on error - stop the export process
           throw error;
         }
         
         setProgress(((i + 1) / languages.length) * 100);
       }
       
-      setProgress(100);
-      addLog("Все экспорты завершены успешно");
-      setCurrentStep(isPhotoCarousel ? "Готово. Нажмите «Скачать» ниже." : 'Done. Click "Download" below.');
-      toast.success(isPhotoCarousel ? "Экспорт готов — скачайте файлы ниже" : "Export ready — download files below");
+      toast.success(`Export complete!`);
+      onClose();
     } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-      addLog(`Экспорт прерван с ошибкой: ${errorMessage}`);
       console.error("Export error:", error);
       toast.error("Export failed. Please try again.");
     } finally {
       setIsExporting(false);
+      setProgress(0);
+      setCurrentStep("");
     }
   };
 
   const exportLanguageVideo = async (language: string, project: ProjectData) => {
-    addLog(`[${language}] Начало обработки: ${project.slides.length} слайдов`);
     console.log(`Starting export for ${language}`, {
       slidesCount: project.slides.length,
       hasMusicUrl: !!project.backgroundMusicUrl
@@ -222,30 +167,27 @@ export const ExportDialog = ({ open, onClose, projects, assets }: ExportDialogPr
     const langSlides = project.slides;
     
     if (langSlides.length === 0) {
-      addLog(`[${language}] Ошибка: слайды не найдены`);
       throw new Error(`No slides found for language: ${language}`);
     }
     
-    // Get the background asset for the first slide (robust: if missing in assets list, fall back)
+    // Get the background asset for the first slide
     const firstSlide = langSlides[0];
-    const backgroundAsset = firstSlide?.assetId
-      ? assets.find((a) => a.id === firstSlide.assetId) || assets.find((a) => a.type === "video" || !a.type) || null
+    const backgroundAsset = firstSlide?.assetId 
+      ? assets.find(a => a.id === firstSlide.assetId) || null
       : null;
 
     // Check if this is a photo carousel (all slides use image assets)
-    const isPhotoCarouselExport = backgroundAsset?.type === 'image';
+    const isPhotoCarousel = backgroundAsset?.type === 'image';
 
-    addLog(`[${language}] Тип: ${isPhotoCarouselExport ? 'фото' : 'видео'}, музыка: ${project.backgroundMusicUrl ? 'да' : 'нет'}`);
-    console.log(`Calling ${isPhotoCarouselExport ? 'exportPhotos' : 'exportVideo'} for ${language}...`);
+    console.log(`Calling ${isPhotoCarousel ? 'exportPhotos' : 'exportVideo'} for ${language}...`);
     
-    const blob = isPhotoCarouselExport 
+    const blob = isPhotoCarousel 
       ? await exportPhotos(
           langSlides,
           backgroundAsset,
-          (progressValue, message) => {
-            addLog(`[${language}] ${progressValue}% - ${message}`);
-            console.log(`Export progress for ${language}: ${progressValue}% - ${message}`);
-            setProgress(progressValue);
+          (progress, message) => {
+            console.log(`Export progress for ${language}: ${progress}% - ${message}`);
+            setProgress(progress);
             setCurrentStep(`${language}: ${message}`);
           },
           project.globalOverlay
@@ -253,39 +195,37 @@ export const ExportDialog = ({ open, onClose, projects, assets }: ExportDialogPr
       : await exportVideo(
           langSlides,
           backgroundAsset,
-          (progressValue, message) => {
-            addLog(`[${language}] ${progressValue}% - ${message}`);
-            console.log(`Export progress for ${language}: ${progressValue}% - ${message}`);
-            setProgress(progressValue);
+          (progress, message) => {
+            console.log(`Export progress for ${language}: ${progress}% - ${message}`);
+            setProgress(progress);
             setCurrentStep(`${language}: ${message}`);
           },
           project.backgroundMusicUrl || undefined,
           project.globalOverlay
         );
 
-    addLog(`[${language}] Экспорт завершён, размер: ${(blob.size / 1024 / 1024).toFixed(2)} MB`);
-    console.log(`Export complete for ${language}, preparing download...`);
-
+    console.log(`Export complete for ${language}, downloading...`);
+    // Download the file (video or zip)
     const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+
     const isWebm = blob.type.includes("webm");
     const videoExt = isWebm ? "webm" : "mp4";
 
-    const filename = isPhotoCarouselExport
+    a.download = isPhotoCarousel 
       ? `photos-${language}-${Date.now()}.zip`
       : `video-${language}-${Date.now()}.${videoExt}`;
-
-    addLog(`[${language}] Готово к скачиванию: ${filename}`);
-
-    // Important: many browsers block automatic downloads after long async work.
-    // We store the result and let the user click a Download button (user gesture).
-    setDownloadItems((prev) => [...prev, { language, filename, url }]);
-
-    console.log(`Download ready for ${language}: ${filename}`);
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    
+    console.log(`Download triggered for ${language}`);
   };
 
   return (
     <Dialog open={open} onOpenChange={onClose}>
-      <DialogContent className="sm:max-w-md max-h-[90vh] overflow-y-auto">
+      <DialogContent className="sm:max-w-md">
         <DialogHeader>
           <DialogTitle>
             {isPhotoCarousel ? 'Экспорт фото' : 'Export Videos'}
@@ -344,96 +284,10 @@ export const ExportDialog = ({ open, onClose, projects, assets }: ExportDialogPr
             ))}
           </div>
 
-          {(isExporting || logEntries.length > 0) && (
+          {isExporting && (
             <div className="space-y-2">
-              {isExporting && (
-                <>
-                  <p className="text-sm text-muted-foreground">{currentStep}</p>
-                  <Progress value={progress} />
-                </>
-              )}
-              
-              <div className="border rounded-lg overflow-hidden">
-                <button
-                  type="button"
-                  onClick={() => setShowLog(!showLog)}
-                  className="w-full flex items-center justify-between p-2 bg-secondary/50 hover:bg-secondary transition-colors text-sm"
-                >
-                  <span className="font-medium">Лог экспорта ({logEntries.length})</span>
-                  <div className="flex items-center gap-2">
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="sm"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        copyLog();
-                      }}
-                      className="h-6 px-2"
-                    >
-                      <Copy className="w-3 h-3 mr-1" />
-                      Копировать
-                    </Button>
-                    {showLog ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
-                  </div>
-                </button>
-                
-                {showLog && (
-                  <ScrollArea className="h-40 bg-background">
-                    <div className="p-2 font-mono text-xs space-y-0.5">
-                      {logEntries.length === 0 ? (
-                        <p className="text-muted-foreground">Лог пуст</p>
-                      ) : (
-                        logEntries.map((entry, idx) => (
-                          <p key={idx} className="text-muted-foreground whitespace-pre-wrap break-all">
-                            {entry}
-                          </p>
-                        ))
-                      )}
-                      <div ref={logEndRef} />
-                    </div>
-                  </ScrollArea>
-                )}
-              </div>
-            </div>
-          )}
-
-          {downloadItems.length > 0 && (
-            <div className="space-y-2">
-              <h4 className="text-sm font-medium">
-                {isPhotoCarousel ? "Скачать результаты:" : "Download results:"}
-              </h4>
-              <div className="space-y-2">
-                {downloadItems.map((item) => (
-                  <div
-                    key={item.url}
-                    className="flex items-center justify-between gap-2 rounded-lg bg-secondary p-3"
-                  >
-                    <div className="min-w-0">
-                      <p className="truncate text-sm font-medium capitalize">{item.language}</p>
-                      <p className="truncate text-xs text-muted-foreground">{item.filename}</p>
-                    </div>
-                    <Button
-                      type="button"
-                      onClick={() => {
-                        const a = document.createElement("a");
-                        a.href = item.url;
-                        a.download = item.filename;
-                        document.body.appendChild(a);
-                        a.click();
-                        document.body.removeChild(a);
-                      }}
-                    >
-                      {isPhotoCarousel ? "Скачать" : "Download"}
-                    </Button>
-                  </div>
-                ))}
-              </div>
-              <p className="text-xs text-muted-foreground">
-                {isPhotoCarousel
-                  ? "Если браузер блокировал автоскачивание — здесь всегда можно скачать вручную."
-                  : "If your browser blocked the automatic download, you can always download manually here."}
-              </p>
+              <p className="text-sm text-muted-foreground">{currentStep}</p>
+              <Progress value={progress} />
             </div>
           )}
 
