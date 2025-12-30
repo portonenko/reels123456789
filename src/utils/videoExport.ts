@@ -7,7 +7,12 @@ import { fetchFile, toBlobURL } from "@ffmpeg/util";
 let ffmpegInstance: FFmpeg | null = null;
 
 const FFMPEG_CORE_VERSION = "0.12.6";
-const BASE_URL = `https://unpkg.com/@ffmpeg/core@${FFMPEG_CORE_VERSION}/dist/umd`;
+
+// Multiple CDN sources for reliability
+const CDN_SOURCES = [
+  `https://cdn.jsdelivr.net/npm/@ffmpeg/core@${FFMPEG_CORE_VERSION}/dist/umd`,
+  `https://unpkg.com/@ffmpeg/core@${FFMPEG_CORE_VERSION}/dist/umd`,
+];
 
 type GetFFmpegOptions = {
   onProgress?: (msg: string) => void;
@@ -23,6 +28,34 @@ const withTimeout = async <T,>(p: Promise<T>, ms: number, label: string): Promis
   } finally {
     if (t) window.clearTimeout(t);
   }
+};
+
+// Try to load a resource from multiple CDN sources
+const loadFromCDN = async (
+  filename: string,
+  mimeType: string,
+  timeoutMs: number
+): Promise<string> => {
+  let lastError: Error | null = null;
+  
+  for (const baseUrl of CDN_SOURCES) {
+    try {
+      const url = `${baseUrl}/${filename}`;
+      console.log(`Trying to load ${filename} from ${baseUrl}...`);
+      const blobUrl = await withTimeout(
+        toBlobURL(url, mimeType),
+        timeoutMs,
+        filename
+      );
+      console.log(`Successfully loaded ${filename} from ${baseUrl}`);
+      return blobUrl;
+    } catch (e) {
+      console.warn(`Failed to load ${filename} from ${baseUrl}:`, e);
+      lastError = e instanceof Error ? e : new Error(String(e));
+    }
+  }
+  
+  throw lastError || new Error(`Failed to load ${filename} from all CDN sources`);
 };
 
 const getFFmpeg = async (opts: GetFFmpegOptions = {}): Promise<FFmpeg> => {
@@ -43,30 +76,19 @@ const getFFmpeg = async (opts: GetFFmpegOptions = {}): Promise<FFmpeg> => {
   try {
     console.log("FFmpeg env", { crossOriginIsolated });
 
-    // toBlobURL fetches the resources and converts to blob: URLs (avoids CORS headaches)
-    const coreURL = await withTimeout(
-      toBlobURL(`${BASE_URL}/ffmpeg-core.js`, "text/javascript"),
-      15000,
-      "FFmpeg core"
-    );
-    const wasmURL = await withTimeout(
-      toBlobURL(`${BASE_URL}/ffmpeg-core.wasm`, "application/wasm"),
-      15000,
-      "FFmpeg wasm"
-    );
-    // In 0.12.x a separate worker file is required; without it you can get "failed to import ffmpeg-core.js"
-    const workerURL = await withTimeout(
-      toBlobURL(`${BASE_URL}/ffmpeg-core.worker.js`, "text/javascript"),
-      15000,
-      "FFmpeg worker"
-    );
+    // Load all resources with fallback CDN support
+    const [coreURL, wasmURL, workerURL] = await Promise.all([
+      loadFromCDN("ffmpeg-core.js", "text/javascript", 20000),
+      loadFromCDN("ffmpeg-core.wasm", "application/wasm", 30000),
+      loadFromCDN("ffmpeg-core.worker.js", "text/javascript", 20000),
+    ]);
 
     await withTimeout(ffmpeg.load({ coreURL, wasmURL, workerURL }), 30000, "FFmpeg load");
   } catch (e) {
-    console.error("FFmpeg load failed", { error: e, baseUrl: BASE_URL });
+    console.error("FFmpeg load failed from all CDN sources", { error: e });
     const raw = e instanceof Error ? e.message : String(e);
     throw new Error(
-      `Конвертер MP4 не загрузился: ${raw}. Часто причина — блокировщик, корпоративный прокси или CSP.`
+      `Конвертер MP4 не загрузился: ${raw}. Попробуйте отключить блокировщик рекламы или VPN.`
     );
   }
 
