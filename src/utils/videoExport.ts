@@ -278,22 +278,12 @@ export const exportVideo = async (
 
   onProgress(10, "Starting recording...");
 
-  // Prefer WebM for smooth playback (MediaRecorder MP4 is often VFR and can stutter in players)
-  let mimeType = "video/webm;codecs=vp9,opus";
-
-  // Fallbacks
+  // MP4 only (H.264 + AAC) as requested.
+  const mimeType = "video/mp4;codecs=avc1.42E01E,mp4a.40.2";
   if (!MediaRecorder.isTypeSupported(mimeType)) {
-    mimeType = "video/webm;codecs=vp8,opus";
-  }
-
-  // Last resort: MP4 (H.264 Baseline + AAC)
-  if (!MediaRecorder.isTypeSupported(mimeType)) {
-    mimeType = "video/mp4;codecs=avc1.42E01E,mp4a.40.2";
-  }
-
-  // Final fallback
-  if (!MediaRecorder.isTypeSupported(mimeType)) {
-    mimeType = "video/webm";
+    throw new Error(
+      "Ваш браузер не поддерживает запись MP4 (H.264) через MediaRecorder. Попробуйте Chrome/Edge или включите аппаратное ускорение."
+    );
   }
 
   console.log("Using video format:", mimeType);
@@ -386,7 +376,10 @@ export const exportVideo = async (
   // Start background video and audio FIRST - before recording
   // For videos that need to loop within the export duration, we use two elements and swap,
   // which avoids a hard seek on the same element right at the loop boundary (often causes a visible hitch).
-  const bgDuration = backgroundVideo?.duration && isFinite(backgroundVideo.duration) ? backgroundVideo.duration : undefined;
+  const bgDuration =
+    backgroundVideo?.duration && isFinite(backgroundVideo.duration) ? backgroundVideo.duration : undefined;
+
+  const needsLoop = !!bgDuration && slides.some((s) => s.durationSec > bgDuration);
 
   if (backgroundVideo) {
     backgroundVideo.currentTime = 0;
@@ -394,12 +387,15 @@ export const exportVideo = async (
     await new Promise((resolve) => setTimeout(resolve, 100));
     console.log("Background video playing at:", backgroundVideo.currentTime, "duration:", bgDuration);
 
-    if (backgroundVideoAlt && bgDuration) {
+    // Only use the dual-video seamless loop strategy when we actually need to loop.
+    if (needsLoop && backgroundVideoAlt && bgDuration) {
       backgroundVideoAlt.currentTime = 0;
       // Start alt playing too so decoder is warm; we'll choose which one to draw per frame.
       await backgroundVideoAlt.play();
       await new Promise((resolve) => setTimeout(resolve, 100));
       console.log("Background video (alt) playing at:", backgroundVideoAlt.currentTime);
+    } else {
+      backgroundVideoAlt = undefined;
     }
   }
 
@@ -461,9 +457,9 @@ export const exportVideo = async (
       const transitionDuration = 0.5;
       const transitionProgress = Math.min(slideElapsed / transitionDuration, 1);
 
-      // Pick which background video element to draw to avoid loop-boundary hiccups
+      // Pick which background video element to draw (only if looping is needed)
       let activeBackgroundVideo: HTMLVideoElement | undefined = backgroundVideo;
-      if (backgroundVideo && backgroundVideoAlt && bgDuration && bgDuration > 0.1) {
+      if (needsLoop && backgroundVideo && backgroundVideoAlt && bgDuration && bgDuration > 0.1) {
         const segmentIndex = Math.floor(elapsed / bgDuration);
         const inSegmentTime = elapsed - segmentIndex * bgDuration;
         activeBackgroundVideo = segmentIndex % 2 === 0 ? backgroundVideo : backgroundVideoAlt;
@@ -514,7 +510,7 @@ export const exportVideo = async (
     onProgress: (msg) => onProgress(93, msg),
   });
 
-  const inputName = "input.webm";
+  const inputName = "input.mp4";
   const outputName = "output.mp4";
 
   await ffmpeg.writeFile(inputName, await fetchFile(rawBlob));
@@ -523,20 +519,38 @@ export const exportVideo = async (
   await ffmpeg.exec([
     "-i",
     inputName,
+
+    // Video
     "-c:v",
     "libx264",
     "-preset",
-    "fast",
+    "medium",
     "-crf",
     "18",
-    "-r",
-    String(fps),
     "-pix_fmt",
     "yuv420p",
+
+    // Force CFR 30fps
+    "-r",
+    "30",
+    "-fps_mode",
+    "cfr",
+
+    // Keep output sharp and avoid excessive bitrate spikes
+    "-maxrate",
+    "15000k",
+    "-bufsize",
+    "30000k",
+
+    // Audio
     "-c:a",
     "aac",
     "-b:a",
     "192k",
+
+    // Close file cleanly at the end of the shortest stream (prevents end-hang)
+    "-shortest",
+
     "-movflags",
     "+faststart",
     outputName,
