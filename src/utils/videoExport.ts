@@ -2,19 +2,15 @@ import { Slide, Asset } from "@/types";
 import { renderSlideText } from "./canvasTextRenderer";
 import JSZip from "jszip";
 import { FFmpeg } from "@ffmpeg/ffmpeg";
-import { fetchFile } from "@ffmpeg/util";
+import { fetchFile, toBlobURL } from "@ffmpeg/util";
 
 let ffmpegInstance: FFmpeg | null = null;
 
 const FFMPEG_CORE_VERSION = "0.12.6";
+const BASE_URL = `https://unpkg.com/@ffmpeg/core@${FFMPEG_CORE_VERSION}/dist/umd`;
 
 type GetFFmpegOptions = {
   onProgress?: (msg: string) => void;
-  /**
-   * Single-thread core does not require Cross-Origin Isolation (SharedArrayBuffer),
-   * but is slower.
-   */
-  useSingleThread?: boolean;
 };
 
 const getFFmpeg = async (opts: GetFFmpegOptions = {}): Promise<FFmpeg> => {
@@ -32,14 +28,14 @@ const getFFmpeg = async (opts: GetFFmpegOptions = {}): Promise<FFmpeg> => {
     if (opts.onProgress) opts.onProgress(`Converting: ${Math.round(progress * 100)}%`);
   });
 
-  const corePkg = opts.useSingleThread ? "@ffmpeg/core-st" : "@ffmpeg/core";
-  const coreURL = `https://unpkg.com/${corePkg}@${FFMPEG_CORE_VERSION}/dist/umd/ffmpeg-core.js`;
-  const wasmURL = `https://unpkg.com/${corePkg}@${FFMPEG_CORE_VERSION}/dist/umd/ffmpeg-core.wasm`;
-
   try {
+    // Use toBlobURL to bypass CORS restrictions when loading wasm
+    const coreURL = await toBlobURL(`${BASE_URL}/ffmpeg-core.js`, "text/javascript");
+    const wasmURL = await toBlobURL(`${BASE_URL}/ffmpeg-core.wasm`, "application/wasm");
+
     await ffmpeg.load({ coreURL, wasmURL });
   } catch (e) {
-    console.error("FFmpeg load failed", { coreURL, wasmURL, error: e });
+    console.error("FFmpeg load failed", e);
     throw new Error(
       "Не удалось загрузить конвертер видео. Попробуйте обновить страницу и повторить экспорт."
     );
@@ -484,11 +480,8 @@ export const exportVideo = async (
   onProgress(90, "Finishing recording...");
   const rawBlob = await recordingPromise;
 
-  const useSingleThread = !crossOriginIsolated;
-
-  onProgress(92, useSingleThread ? "Loading video converter (single-thread)..." : "Loading video converter...");
+  onProgress(92, "Loading video converter...");
   const ffmpeg = await getFFmpeg({
-    useSingleThread,
     onProgress: (msg) => onProgress(93, msg),
   });
 
