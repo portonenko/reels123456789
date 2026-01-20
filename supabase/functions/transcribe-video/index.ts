@@ -22,9 +22,18 @@ serve(async (req) => {
 
     console.log("Processing video URL:", videoUrl);
 
-    // Validate URL
+    // Validate URL format
     try {
-      new URL(videoUrl);
+      const urlObj = new URL(videoUrl);
+      
+      // Check for social media URLs that won't work
+      const blockedHosts = ['instagram.com', 'www.instagram.com', 'tiktok.com', 'www.tiktok.com', 'youtube.com', 'www.youtube.com', 'youtu.be', 'vimeo.com', 'www.vimeo.com'];
+      if (blockedHosts.some(host => urlObj.hostname.includes(host))) {
+        return new Response(
+          JSON.stringify({ error: "Ссылки на соцсети (Instagram, TikTok, YouTube) не поддерживаются. Нужна прямая ссылка на видеофайл (.mp4, .webm)" }),
+          { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
     } catch {
       return new Response(
         JSON.stringify({ error: "Неверный формат URL" }),
