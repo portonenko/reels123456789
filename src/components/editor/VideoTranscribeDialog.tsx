@@ -21,7 +21,7 @@ interface VideoTranscribeDialogProps {
 }
 
 export function VideoTranscribeDialog({ open, onClose, onUseText }: VideoTranscribeDialogProps) {
-  const [videoUrl, setVideoUrl] = useState("");
+  const [videoUrl, setVideoUrl] = useState(""); // OCR dialog
   const [videoFile, setVideoFile] = useState<File | null>(null);
   const [isTranscribing, setIsTranscribing] = useState(false);
   const [transcribedText, setTranscribedText] = useState("");
