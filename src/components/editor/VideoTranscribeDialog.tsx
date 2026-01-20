@@ -33,13 +33,14 @@ export function VideoTranscribeDialog({ open, onClose, onUseText }: VideoTranscr
       body: { videoUrl: url },
     });
 
-    if (fnError) throw fnError;
-
+    // Supabase marks non-2xx as an error, but may still provide a parsed JSON body.
+    // Prefer the backend-provided message (and debug) over the generic FunctionsHttpError.
     if (data?.error) {
-      // If backend provides extra debug info, include it for the user
       const dbg = data?.debug ? `\n\n${data.debug}` : "";
       throw new Error(`${data.error}${dbg}`);
     }
+
+    if (fnError) throw fnError;
 
     if (!data?.transcription) {
       throw new Error("Не удалось получить текст из видео");
