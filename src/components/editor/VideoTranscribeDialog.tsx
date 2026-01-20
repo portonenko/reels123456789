@@ -137,7 +137,9 @@ export function VideoTranscribeDialog({ open, onClose, onUseText }: VideoTranscr
               </Button>
             </div>
             <p className="text-xs text-muted-foreground">
-              Поддерживаются прямые ссылки на видеофайлы. AI анализирует аудиодорожку и извлекает речь.
+              ⚠️ Только прямые ссылки на видеофайлы (.mp4, .webm, .mov). 
+              <br />
+              <span className="text-destructive/80">Instagram, TikTok, YouTube не поддерживаются</span> — нужен прямой URL вида https://example.com/video.mp4
             </p>
           </div>
 
