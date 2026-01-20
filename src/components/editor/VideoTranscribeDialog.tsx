@@ -101,10 +101,10 @@ export function VideoTranscribeDialog({ open, onClose, onUseText }: VideoTranscr
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Video className="w-5 h-5" />
-            Извлечь текст из видео
+            Извлечь текст из видео (OCR)
           </DialogTitle>
           <DialogDescription>
-            Вставьте прямую ссылку на видеофайл (.mp4, .webm, .mov и др.) для извлечения текста
+            Вставьте ссылку на видео для извлечения текста с экрана (субтитры, надписи, заголовки)
           </DialogDescription>
         </DialogHeader>
 
