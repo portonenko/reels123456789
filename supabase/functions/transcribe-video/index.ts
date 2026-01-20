@@ -19,8 +19,8 @@ async function extractVideoWithCobalt(url: string): Promise<string | null> {
   console.log("Extracting video with Cobalt:", url);
   
   try {
-    // Use Cobalt API to get direct video URL
-    const response = await fetch("https://api.cobalt.tools/", {
+    // Use Cobalt public API endpoint
+    const response = await fetch("https://co.wuk.sh/api/json", {
       method: "POST",
       headers: {
         "Accept": "application/json",
@@ -28,8 +28,9 @@ async function extractVideoWithCobalt(url: string): Promise<string | null> {
       },
       body: JSON.stringify({
         url: url,
-        videoQuality: "720",
-        filenameStyle: "basic",
+        vQuality: "720",
+        filenamePattern: "basic",
+        isAudioOnly: false,
       }),
     });
 
@@ -39,32 +40,29 @@ async function extractVideoWithCobalt(url: string): Promise<string | null> {
     }
 
     const data = await response.json();
-    console.log("Cobalt response:", JSON.stringify(data));
+    console.log("Cobalt response status:", data.status);
 
     // Cobalt returns different response formats
     if (data.status === "error") {
-      console.error("Cobalt error:", data.error?.code, data.error?.context);
+      console.error("Cobalt error:", data.text);
       return null;
     }
 
-    // Handle redirect/stream response
-    if (data.status === "redirect" || data.status === "stream") {
+    // Handle stream/redirect response - direct video URL
+    if (data.status === "stream" || data.status === "redirect") {
+      console.log("Got direct URL from Cobalt");
       return data.url;
     }
 
-    // Handle tunnel response (need to use the tunnel URL)
-    if (data.status === "tunnel") {
-      return data.url;
-    }
-
-    // Handle picker response (multiple options)
+    // Handle picker response (multiple options like video + audio)
     if (data.status === "picker" && data.picker?.length > 0) {
+      console.log("Got picker with", data.picker.length, "options");
       // Find video option
       const videoOption = data.picker.find((p: any) => p.type === "video") || data.picker[0];
       return videoOption?.url;
     }
 
-    console.error("Unknown Cobalt response format:", data);
+    console.error("Unknown Cobalt response:", JSON.stringify(data).slice(0, 200));
     return null;
   } catch (error) {
     console.error("Cobalt extraction error:", error);
