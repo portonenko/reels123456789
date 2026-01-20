@@ -15,59 +15,107 @@ const SOCIAL_MEDIA_HOSTS = [
   'vimeo.com', 'www.vimeo.com',
 ];
 
-async function extractVideoWithCobalt(url: string): Promise<string | null> {
-  console.log("Extracting video with Cobalt:", url);
-  
+// Fallback list (used if instance discovery fails)
+const COBALT_BASE_URLS_FALLBACK = [
+  "https://kityune.imput.net",
+  "https://nachos.imput.net",
+  "https://cobalt-api.meowing.de",
+  "https://cobalt-backend.canine.tools",
+  "https://capi.3kh0.net",
+];
+
+let cobaltCache:
+  | { expiresAt: number; endpoints: string[] }
+  | null = null;
+
+async function getCobaltEndpoints(): Promise<string[]> {
+  // cache for 10 minutes to reduce latency
+  const now = Date.now();
+  if (cobaltCache && cobaltCache.expiresAt > now) return cobaltCache.endpoints;
+
   try {
-    // Use Cobalt public API endpoint
-    const response = await fetch("https://co.wuk.sh/api/json", {
-      method: "POST",
+    const resp = await fetch("https://instances.cobalt.best/instances.json", {
       headers: {
-        "Accept": "application/json",
-        "Content-Type": "application/json",
+        Accept: "application/json",
+        // required by the tracker
+        "User-Agent": "LovableOCRBot/1.0",
       },
-      body: JSON.stringify({
-        url: url,
-        vQuality: "720",
-        filenamePattern: "basic",
-        isAudioOnly: false,
-      }),
     });
 
-    if (!response.ok) {
-      console.error("Cobalt API error:", response.status, await response.text());
-      return null;
+    if (!resp.ok) {
+      console.error("Cobalt instances list failed:", resp.status);
+      throw new Error("instances list not ok");
     }
 
-    const data = await response.json();
-    console.log("Cobalt response status:", data.status);
+    const instances = await resp.json();
+    const endpoints = (Array.isArray(instances) ? instances : [])
+      .filter((i: any) => i?.online)
+      .sort((a: any, b: any) => (b?.score ?? 0) - (a?.score ?? 0))
+      .slice(0, 8)
+      .map((i: any) => `${i.protocol ?? "https"}://${i.api}`);
 
-    // Cobalt returns different response formats
-    if (data.status === "error") {
-      console.error("Cobalt error:", data.text);
-      return null;
-    }
-
-    // Handle stream/redirect response - direct video URL
-    if (data.status === "stream" || data.status === "redirect") {
-      console.log("Got direct URL from Cobalt");
-      return data.url;
-    }
-
-    // Handle picker response (multiple options like video + audio)
-    if (data.status === "picker" && data.picker?.length > 0) {
-      console.log("Got picker with", data.picker.length, "options");
-      // Find video option
-      const videoOption = data.picker.find((p: any) => p.type === "video") || data.picker[0];
-      return videoOption?.url;
-    }
-
-    console.error("Unknown Cobalt response:", JSON.stringify(data).slice(0, 200));
-    return null;
-  } catch (error) {
-    console.error("Cobalt extraction error:", error);
-    return null;
+    const finalEndpoints = endpoints.length ? endpoints : COBALT_BASE_URLS_FALLBACK;
+    cobaltCache = { expiresAt: now + 10 * 60 * 1000, endpoints: finalEndpoints };
+    return finalEndpoints;
+  } catch (e) {
+    console.error("Cobalt instances discovery error:", e);
+    cobaltCache = { expiresAt: now + 2 * 60 * 1000, endpoints: COBALT_BASE_URLS_FALLBACK };
+    return COBALT_BASE_URLS_FALLBACK;
   }
+}
+
+  for (const base of COBALT_BASE_URLS) {
+    for (const path of pathCandidates) {
+      const endpoint = `${base}${path}`;
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), 12_000);
+
+      try {
+        console.log("Trying Cobalt endpoint:", endpoint);
+
+        const response = await fetch(endpoint, {
+          method: "POST",
+          headers: {
+            Accept: "application/json",
+            "Content-Type": "application/json",
+            "User-Agent": "LovableOCRBot/1.0",
+          },
+          body: JSON.stringify(payload),
+          signal: controller.signal,
+        });
+
+        if (!response.ok) {
+          console.error("Cobalt endpoint error:", endpoint, response.status, await response.text());
+          continue;
+        }
+
+        const data = await response.json();
+        console.log("Cobalt response status:", data.status);
+
+        if (data.status === "error") {
+          console.error("Cobalt error:", endpoint, data.text ?? JSON.stringify(data).slice(0, 200));
+          continue;
+        }
+
+        if (data.status === "stream" || data.status === "redirect") {
+          return data.url ?? null;
+        }
+
+        if (data.status === "picker" && Array.isArray(data.picker) && data.picker.length > 0) {
+          const videoOption = data.picker.find((p: any) => p.type === "video") || data.picker[0];
+          return videoOption?.url ?? null;
+        }
+
+        console.error("Unknown Cobalt response:", endpoint, JSON.stringify(data).slice(0, 200));
+      } catch (error) {
+        console.error("Cobalt endpoint failed:", endpoint, error);
+      } finally {
+        clearTimeout(timeout);
+      }
+    }
+  }
+
+  return null;
 }
 
 function isSocialMediaUrl(url: string): boolean {
