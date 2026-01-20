@@ -14,8 +14,9 @@ import { PresetManager } from "@/components/editor/PresetManager";
 import { SmartRandomVideoDialog } from "@/components/editor/SmartRandomVideoDialog";
 import { RandomizeBackgroundDialog } from "@/components/editor/RandomizeBackgroundDialog";
 import { CarouselCreatorDialog } from "@/components/editor/CarouselCreatorDialog";
+import { VideoTranscribeDialog } from "@/components/editor/VideoTranscribeDialog";
 import { Button } from "@/components/ui/button";
-import { Sparkles, Home, Download, Shuffle, Globe, FileText, Palette, Plus, Image } from "lucide-react";
+import { Sparkles, Home, Download, Shuffle, Globe, FileText, Palette, Plus, Image, Video } from "lucide-react";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -52,6 +53,7 @@ const Editor = () => {
   const [showSmartRandomDialog, setShowSmartRandomDialog] = useState(false);
   const [showRandomizeDialog, setShowRandomizeDialog] = useState(false);
   const [showCarouselDialog, setShowCarouselDialog] = useState(false);
+  const [showVideoTranscribeDialog, setShowVideoTranscribeDialog] = useState(false);
   const [showTextBoxControls, setShowTextBoxControls] = useState(false);
   const [draggedSlideIndex, setDraggedSlideIndex] = useState<number | null>(null);
   
@@ -541,6 +543,14 @@ const Editor = () => {
           <Button
             variant="outline"
             size="sm"
+            onClick={() => setShowVideoTranscribeDialog(true)}
+          >
+            <Video className="w-4 h-4 mr-2" />
+            {language === 'ru' ? 'Из видео' : 'From Video'}
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
             onClick={() => setShowCarouselDialog(true)}
           >
             <Plus className="w-4 h-4 mr-2" />
@@ -728,6 +738,15 @@ const Editor = () => {
         open={showTranslationDialog}
         onClose={() => setShowTranslationDialog(false)}
         onTranslate={handleTranslate}
+      />
+
+      <VideoTranscribeDialog
+        open={showVideoTranscribeDialog}
+        onClose={() => setShowVideoTranscribeDialog(false)}
+        onUseText={(text) => {
+          setShowVideoTranscribeDialog(false);
+          handleParseText(text);
+        }}
       />
 
       <ExportDialog
