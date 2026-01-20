@@ -137,9 +137,9 @@ export function VideoTranscribeDialog({ open, onClose, onUseText }: VideoTranscr
               </Button>
             </div>
             <p className="text-xs text-muted-foreground">
-              ⚠️ Только прямые ссылки на видеофайлы (.mp4, .webm, .mov). 
+              ✅ Поддерживаются: Instagram, TikTok, YouTube, Twitter/X, Facebook, Vimeo
               <br />
-              <span className="text-destructive/80">Instagram, TikTok, YouTube не поддерживаются</span> — нужен прямой URL вида https://example.com/video.mp4
+              А также прямые ссылки на видеофайлы (.mp4, .webm, .mov)
             </p>
           </div>
 

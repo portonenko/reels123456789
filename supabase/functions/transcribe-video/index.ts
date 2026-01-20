@@ -5,6 +5,82 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
+// Social media hosts that need video extraction via Cobalt
+const SOCIAL_MEDIA_HOSTS = [
+  'instagram.com', 'www.instagram.com',
+  'tiktok.com', 'www.tiktok.com', 'vm.tiktok.com',
+  'youtube.com', 'www.youtube.com', 'youtu.be',
+  'twitter.com', 'x.com',
+  'facebook.com', 'www.facebook.com', 'fb.watch',
+  'vimeo.com', 'www.vimeo.com',
+];
+
+async function extractVideoWithCobalt(url: string): Promise<string | null> {
+  console.log("Extracting video with Cobalt:", url);
+  
+  try {
+    // Use Cobalt API to get direct video URL
+    const response = await fetch("https://api.cobalt.tools/", {
+      method: "POST",
+      headers: {
+        "Accept": "application/json",
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        url: url,
+        videoQuality: "720",
+        filenameStyle: "basic",
+      }),
+    });
+
+    if (!response.ok) {
+      console.error("Cobalt API error:", response.status, await response.text());
+      return null;
+    }
+
+    const data = await response.json();
+    console.log("Cobalt response:", JSON.stringify(data));
+
+    // Cobalt returns different response formats
+    if (data.status === "error") {
+      console.error("Cobalt error:", data.error?.code, data.error?.context);
+      return null;
+    }
+
+    // Handle redirect/stream response
+    if (data.status === "redirect" || data.status === "stream") {
+      return data.url;
+    }
+
+    // Handle tunnel response (need to use the tunnel URL)
+    if (data.status === "tunnel") {
+      return data.url;
+    }
+
+    // Handle picker response (multiple options)
+    if (data.status === "picker" && data.picker?.length > 0) {
+      // Find video option
+      const videoOption = data.picker.find((p: any) => p.type === "video") || data.picker[0];
+      return videoOption?.url;
+    }
+
+    console.error("Unknown Cobalt response format:", data);
+    return null;
+  } catch (error) {
+    console.error("Cobalt extraction error:", error);
+    return null;
+  }
+}
+
+function isSocialMediaUrl(url: string): boolean {
+  try {
+    const urlObj = new URL(url);
+    return SOCIAL_MEDIA_HOSTS.some(host => urlObj.hostname.includes(host));
+  } catch {
+    return false;
+  }
+}
+
 serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
@@ -24,21 +100,33 @@ serve(async (req) => {
 
     // Validate URL format
     try {
-      const urlObj = new URL(videoUrl);
-      
-      // Check for social media URLs that won't work
-      const blockedHosts = ['instagram.com', 'www.instagram.com', 'tiktok.com', 'www.tiktok.com', 'youtube.com', 'www.youtube.com', 'youtu.be', 'vimeo.com', 'www.vimeo.com'];
-      if (blockedHosts.some(host => urlObj.hostname.includes(host))) {
-        return new Response(
-          JSON.stringify({ error: "Ссылки на соцсети (Instagram, TikTok, YouTube) не поддерживаются. Нужна прямая ссылка на видеофайл (.mp4, .webm)" }),
-          { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-        );
-      }
+      new URL(videoUrl);
     } catch {
       return new Response(
         JSON.stringify({ error: "Неверный формат URL" }),
         { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
+    }
+
+    let directVideoUrl = videoUrl;
+
+    // If it's a social media URL, extract direct video link via Cobalt
+    if (isSocialMediaUrl(videoUrl)) {
+      console.log("Detected social media URL, extracting via Cobalt...");
+      
+      const extractedUrl = await extractVideoWithCobalt(videoUrl);
+      
+      if (!extractedUrl) {
+        return new Response(
+          JSON.stringify({ 
+            error: "Не удалось извлечь видео из ссылки. Попробуйте другую ссылку или прямой URL на видеофайл." 
+          }),
+          { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+      
+      directVideoUrl = extractedUrl;
+      console.log("Extracted direct video URL:", directVideoUrl);
     }
 
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
@@ -50,8 +138,9 @@ serve(async (req) => {
       );
     }
 
+    console.log("Sending video to Gemini for OCR...");
+
     // Use Lovable AI with Gemini for video text extraction (OCR)
-    // Gemini 2.5 Pro supports video input and can read text from frames
     const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",
       headers: {
@@ -89,7 +178,7 @@ serve(async (req) => {
               {
                 type: "video_url",
                 video_url: {
-                  url: videoUrl,
+                  url: directVideoUrl,
                 },
               },
             ],
@@ -127,12 +216,12 @@ serve(async (req) => {
 
     if (!transcription) {
       return new Response(
-        JSON.stringify({ error: "Не удалось получить транскрипцию" }),
+        JSON.stringify({ error: "Не удалось получить текст из видео" }),
         { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
-    console.log("Transcription successful, length:", transcription.length);
+    console.log("OCR successful, text length:", transcription.length);
 
     return new Response(
       JSON.stringify({ transcription }),
